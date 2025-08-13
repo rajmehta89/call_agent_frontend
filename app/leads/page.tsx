@@ -32,7 +32,7 @@ interface LeadStats {
   converted: number
   total_calls: number
 }
-const API_BASE = process.env.NEXT_PUBLIC_LEAD_API_URL || 'http://localhost:5002'
+const API_BASE = process.env.NEXT_PUBLIC_LEAD_API_URL || 'https://call-agent-backend-ssrw.onrender.com'
 
 export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([])
