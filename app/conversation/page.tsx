@@ -37,7 +37,7 @@ export default function ConversationPage() {
         wsRef.current.close()
       }
 
-      const ws = new WebSocket(process.env.NEXT_PUBLIC_CONVERSATION_API_URL || 'https://call-agent-backend-ssrw.onrender.com')
+      const ws = new WebSocket(process.env.NEXT_PUBLIC_CONVERSATION_API_URL || 'wss://call-agent-backend-ssrw.onrender.com/ws');
       wsRef.current = ws
 
       const connectionTimeout = setTimeout(() => {

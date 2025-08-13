@@ -38,7 +38,8 @@ export default function DashboardPage() {
       // Load leads stats
       const leadsResponse = await fetch(`${process.env.NEXT_PUBLIC_LEAD_API_URL || 'https://call-agent-backend-ssrw.onrender.com'}/api/leads/stats`)
       const leadsData = await leadsResponse.json()
-      
+
+
       // Load calls stats
       const callsResponse = await fetch(`${process.env.NEXT_PUBLIC_CALL_API_URL || 'https://call-agent-backend-ssrw.onrender.com'}/api/calls/stats`)
       const callsData = await callsResponse.json()
