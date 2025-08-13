@@ -61,6 +61,14 @@ export default function DashboardPage() {
     return () => clearInterval(interval)
   }, [])
 
+  // DashboardPage (if it uses multiple APIs)
+  console.log('📊 DASHBOARD PAGE - APIs:', {
+    calls: process.env.NEXT_PUBLIC_CALL_API_URL || 'http://localhost:5004',
+    leads: process.env.NEXT_PUBLIC_LEAD_API_URL || 'http://localhost:5002',
+    config: process.env.NEXT_PUBLIC_CONFIG_API_URL || 'http://localhost:5001',
+    conversation: process.env.NEXT_PUBLIC_CONVERSATION_API_URL || 'http://localhost:8766'
+  })
+
   return (
     <div className="space-y-8">
       {/* Header */}

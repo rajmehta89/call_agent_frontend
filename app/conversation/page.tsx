@@ -37,7 +37,7 @@ export default function ConversationPage() {
         wsRef.current.close()
       }
 
-      const ws = new WebSocket(process.env.NEXT_CONVERSATION_API_URL || 'ws://localhost:8766')
+      const ws = new WebSocket(process.env.NEXT_PUBLIC_CONVERSATION_API_URL || 'ws://localhost:8766')
       wsRef.current = ws
 
       const connectionTimeout = setTimeout(() => {
