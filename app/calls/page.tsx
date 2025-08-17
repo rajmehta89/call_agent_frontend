@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useEffect } from 'react'
 import {
   Phone, PhoneCall, Clock, User, MessageSquare,
