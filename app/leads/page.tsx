@@ -1,11 +1,11 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { 
-  Users, Plus, Upload, Phone, Edit, Trash, 
-  RefreshCw, Download, Filter, Search, 
+import {
+  Users, Plus, Upload, Phone, Edit, Trash,
+  RefreshCw, Download, Filter, Search,
   PhoneCall, Calendar, CheckCircle, AlertCircle,
-  FileText, User, Mail, Building, PhoneIcon, X
+  FileText, User, Mail, Building, Phone as PhoneIcon, X
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -32,6 +32,7 @@ interface LeadStats {
   converted: number
   total_calls: number
 }
+
 const API_BASE = process.env.NEXT_PUBLIC_LEAD_API_URL || 'https://call-agent-backend-ssrw.onrender.com'
 
 export default function LeadsPage() {
@@ -45,7 +46,7 @@ export default function LeadsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [uploading, setUploading] = useState(false)
-  
+
   // Call All functionality state
   const [isCallingAll, setIsCallingAll] = useState(false)
   const [callAllProgress, setCallAllProgress] = useState({
@@ -56,7 +57,7 @@ export default function LeadsPage() {
     failedCalls: 0
   })
   const [showCallModal, setShowCallModal] = useState(false)
-  
+
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [formData, setFormData] = useState({
@@ -76,7 +77,7 @@ export default function LeadsPage() {
     try {
       const response = await fetch(`${API_BASE}/api/leads`)
       const data = await response.json()
-      
+
       if (data.success) {
         // Transform MongoDB _id to id for frontend compatibility
         const transformedLeads = data.data.map((lead: any) => ({
@@ -99,7 +100,7 @@ export default function LeadsPage() {
     try {
       const response = await fetch(`${API_BASE}/api/leads/stats`)
       const data = await response.json()
-      
+
       if (data.success) {
         setStats(data.data)
       }
@@ -110,7 +111,7 @@ export default function LeadsPage() {
 
   const handleAddLead = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     try {
       const response = await fetch(`${API_BASE}/api/leads`, {
         method: 'POST',
@@ -121,7 +122,7 @@ export default function LeadsPage() {
       })
 
       const data = await response.json()
-      
+
       if (data.success) {
         const newLead = {
           ...data.data,
@@ -165,7 +166,7 @@ export default function LeadsPage() {
       })
 
       const data = await response.json()
-      
+
       if (data.success) {
         const updatedLead = {
           ...data.data,
@@ -195,7 +196,7 @@ export default function LeadsPage() {
       })
 
       const data = await response.json()
-      
+
       if (data.success) {
         setLeads(leads.filter(l => (l._id !== leadId && l.id !== leadId)))
         toast.success('Lead deleted successfully!')
@@ -251,13 +252,13 @@ export default function LeadsPage() {
       // Check if there are active calls for this lead
       const response = await fetch(`${API_BASE}/api/calls?lead_id=${leadId}&limit=1`)
       const data = await response.json()
-      
+
       if (data.success && data.data.length > 0) {
         const latestCall = data.data[0]
         // Check if the call is completed (status is completed or failed, and has duration)
         return latestCall.status === 'completed' || latestCall.status === 'failed'
       }
-      
+
       // If no call records found, consider it completed (might be an error case)
       return true
     } catch (error) {
@@ -270,20 +271,20 @@ export default function LeadsPage() {
   const waitForCallCompletion = async (leadId: string, maxWaitTime: number = 120000): Promise<void> => {
     const startTime = Date.now()
     const pollInterval = 2000 // Check every 2 seconds
-    
+
     return new Promise((resolve) => {
       const pollForCompletion = async () => {
         const elapsed = Date.now() - startTime
-        
+
         // If max wait time exceeded, resolve anyway
         if (elapsed >= maxWaitTime) {
           console.log(`Max wait time exceeded for lead ${leadId}`)
           resolve()
           return
         }
-        
+
         const isCompleted = await checkCallCompletion(leadId)
-        
+
         if (isCompleted) {
           resolve()
         } else {
@@ -291,14 +292,15 @@ export default function LeadsPage() {
           setTimeout(pollForCompletion, pollInterval)
         }
       }
-      
+
       // Start polling
       pollForCompletion()
     })
   }
 
   const handleCallAll = async () => {
-    if (filteredLeads.length === 0) {
+    const filtered = filteredLeads
+    if (filtered.length === 0) {
       toast.error('No leads to call')
       return
     }
@@ -313,15 +315,15 @@ export default function LeadsPage() {
     setCallAllProgress({
       currentIndex: 0,
       currentLead: null,
-      totalCalls: filteredLeads.length,
+      totalCalls: filtered.length,
       completedCalls: 0,
       failedCalls: 0
     })
 
     try {
-      for (let i = 0; i < filteredLeads.length; i++) {
-        const lead = filteredLeads[i]
-        
+      for (let i = 0; i < filtered.length; i++) {
+        const lead = filtered[i]
+
         // Update progress to show current lead being called
         setCallAllProgress(prev => ({
           ...prev,
@@ -343,7 +345,7 @@ export default function LeadsPage() {
           })
 
           const data = await response.json()
-          
+
           if (data.success) {
             // Update the lead in the list
             const updatedLead = data.data.lead
@@ -356,7 +358,7 @@ export default function LeadsPage() {
 
             // Wait for call to complete before proceeding to next lead
             await waitForCallCompletion(leadId)
-            
+
             setCallAllProgress(prev => ({ ...prev, completedCalls: prev.completedCalls + 1 }))
           } else {
             console.error(`Failed to call ${lead.name}: ${data.error}`)
@@ -372,12 +374,12 @@ export default function LeadsPage() {
       }
 
       // All calls completed
-      toast.success(`Call All completed! ${callAllProgress.completedCalls + filteredLeads.length - callAllProgress.failedCalls} successful, ${callAllProgress.failedCalls} failed`)
-      
+      toast.success(`Call All completed! ${callAllProgress.completedCalls + filtered.length - callAllProgress.failedCalls} successful, ${callAllProgress.failedCalls} failed`)
+
       // Refresh leads and stats
       await loadLeads()
       await loadStats()
-      
+
     } catch (error) {
       console.error('Error in Call All:', error)
       toast.error('Call All process encountered an error')
@@ -425,12 +427,12 @@ export default function LeadsPage() {
       })
 
       const data = await response.json()
-      
+
       if (data.success) {
         await loadLeads()
         await loadStats()
         toast.success(`Successfully imported ${data.imported_count} leads`)
-        
+
         if (data.errors && data.errors.length > 0) {
           toast.error(`${data.errors.length} rows had errors`)
         }
@@ -455,9 +457,9 @@ export default function LeadsPage() {
       contacted: 'bg-purple-600/20 text-purple-400 border border-purple-500/30',
       converted: 'bg-orange-600/20 text-orange-400 border border-orange-500/30'
     }
-    
+
     return (
-      <span className={`px-3 py-1 rounded-full text-xs font-medium ${styles[status as keyof typeof styles]}`}>
+        <span className={`px-3 py-1 rounded-full text-xs font-medium ${styles[status as keyof typeof styles]}`}>
         {status.charAt(0).toUpperCase() + status.slice(1)}
       </span>
     )
@@ -465,574 +467,582 @@ export default function LeadsPage() {
 
   const filteredLeads = leads.filter(lead => {
     const matchesSearch = lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         lead.phone.includes(searchTerm) ||
-                         lead.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         lead.company.toLowerCase().includes(searchTerm.toLowerCase())
-    
+        lead.phone.includes(searchTerm) ||
+        lead.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        lead.company.toLowerCase().includes(searchTerm.toLowerCase())
+
     const matchesStatus = statusFilter === 'all' || lead.status === statusFilter
-    
+
     return matchesSearch && matchesStatus
   })
 
   if (loading) {
     return (
-      <div className="space-y-8">
-        <div className="flex items-center justify-center py-12">
+        <div className="flex items-center justify-center min-h-screen">
           <div className="flex items-center space-x-2 text-white">
             <RefreshCw className="w-6 h-6 animate-spin" />
             <span>Loading leads...</span>
           </div>
         </div>
-      </div>
     )
   }
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-white">Leads Management</h1>
-          <p className="text-slate-400 mt-1">Manage your leads, upload CSV files, and initiate calls</p>
-        </div>
-        <div className="flex space-x-3">
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleCSVUpload}
-            accept=".csv"
-            className="hidden"
-          />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-xl transition-all"
-          >
-            {uploading ? (
-              <RefreshCw className="w-4 h-4 animate-spin" />
-            ) : (
-              <Upload className="w-4 h-4" />
-            )}
-            <span>{uploading ? 'Uploading...' : 'Upload CSV'}</span>
-          </button>
-          <button
-            onClick={handleCallAll}
-            disabled={isCallingAll || filteredLeads.length === 0}
-            className="flex items-center space-x-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 disabled:bg-orange-400 text-white rounded-xl transition-all"
-          >
-            {isCallingAll ? (
-              <RefreshCw className="w-4 h-4 animate-spin" />
-            ) : (
-              <PhoneCall className="w-4 h-4" />
-            )}
-            <span>{isCallingAll ? 'Calling...' : `Call All (${filteredLeads.length})`}</span>
-          </button>
-          <button
-            onClick={() => setShowAddForm(true)}
-            className="flex items-center space-x-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-all"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Add Lead</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-6">
-        <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6 hover:border-slate-700 transition-all">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-slate-400">Total Leads</p>
-              <p className="text-2xl font-bold text-white">{stats.total}</p>
-            </div>
-            <div className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center">
-              <Users className="w-5 h-5 text-slate-400" />
-            </div>
-          </div>
-        </div>
-        <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6 hover:border-slate-700 transition-all">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-slate-400">New</p>
-              <p className="text-2xl font-bold text-blue-400">{stats.new}</p>
-            </div>
-            <div className="w-10 h-10 bg-blue-600/20 rounded-xl flex items-center justify-center">
-              <User className="w-5 h-5 text-blue-400" />
-            </div>
-          </div>
-        </div>
-        <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6 hover:border-slate-700 transition-all">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-slate-400">Called</p>
-              <p className="text-2xl font-bold text-emerald-400">{stats.called}</p>
-            </div>
-            <div className="w-10 h-10 bg-emerald-600/20 rounded-xl flex items-center justify-center">
-              <Phone className="w-5 h-5 text-emerald-400" />
-            </div>
-          </div>
-        </div>
-        <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6 hover:border-slate-700 transition-all">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-slate-400">Contacted</p>
-              <p className="text-2xl font-bold text-purple-400">{stats.contacted}</p>
-            </div>
-            <div className="w-10 h-10 bg-purple-600/20 rounded-xl flex items-center justify-center">
-              <CheckCircle className="w-5 h-5 text-purple-400" />
-            </div>
-          </div>
-        </div>
-        <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6 hover:border-slate-700 transition-all">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-slate-400">Converted</p>
-              <p className="text-2xl font-bold text-orange-400">{stats.converted}</p>
-            </div>
-            <div className="w-10 h-10 bg-orange-600/20 rounded-xl flex items-center justify-center">
-              <CheckCircle className="w-5 h-5 text-orange-400" />
-            </div>
-          </div>
-        </div>
-        <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6 hover:border-slate-700 transition-all">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-slate-400">Total Calls</p>
-              <p className="text-2xl font-bold text-slate-400">{stats.total_calls}</p>
-            </div>
-            <div className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center">
-              <PhoneCall className="w-5 h-5 text-slate-400" />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6">
-        <div className="flex items-center space-x-4">
-          <div className="flex-1">
-            <div className="relative">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search leads..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
-              />
-            </div>
-          </div>
+      <div className="container mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8">
           <div>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+            <h1 className="text-2xl md:text-3xl font-bold text-white">Leads Management</h1>
+            <p className="text-slate-400 mt-1 text-sm md:text-base">Manage your leads, upload CSV files, and initiate calls</p>
+          </div>
+          <div className="flex flex-wrap gap-3 w-full md:w-auto">
+            <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleCSVUpload}
+                accept=".csv"
+                className="hidden"
+            />
+            <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-xl transition-all text-sm md:text-base"
             >
-              <option value="all">All Status</option>
-              <option value="new">New</option>
-              <option value="called">Called</option>
-              <option value="contacted">Contacted</option>
-              <option value="converted">Converted</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* Leads Table */}
-      <div className="bg-slate-900 rounded-2xl border border-slate-800 shadow-xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-slate-800/50 border-b border-slate-700">
-              <tr>
-                <th className="px-6 py-4 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Lead</th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Contact</th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Calls</th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Last Call</th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800">
-              {filteredLeads.map((lead) => (
-                <tr key={lead._id || lead.id} className="hover:bg-slate-800/50 transition-colors bg-slate-900">
-                  <td className="px-6 py-4">
-                    <div>
-                      <div className="font-medium text-white">{lead.name}</div>
-                      {lead.company && (
-                        <div className="text-sm text-slate-400 flex items-center mt-1">
-                          <Building className="w-3 h-3 mr-1" />
-                          {lead.company}
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm">
-                      <div className="flex items-center text-white">
-                        <Phone className="w-3 h-3 mr-1" />
-                        {lead.phone}
-                      </div>
-                      {lead.email && (
-                        <div className="flex items-center text-slate-400 mt-1">
-                          <Mail className="w-3 h-3 mr-1" />
-                          {lead.email}
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    {getStatusBadge(lead.status)}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-white">
-                    {lead.call_attempts}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-slate-400">
-                    {lead.last_call ? new Date(lead.last_call).toLocaleDateString() : 'Never'}
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center space-x-2">
-                      <button
-                        onClick={() => handleCallLead(lead)}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white p-2 rounded-lg transition-all"
-                        title="Call Lead"
-                      >
-                        <PhoneCall className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => setEditingLead(lead)}
-                        className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-lg transition-all"
-                        title="Edit Lead"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteLead(lead._id || lead.id || '')}
-                        className="bg-red-600 hover:bg-red-700 text-white p-2 rounded-lg transition-all"
-                        title="Delete Lead"
-                      >
-                        <Trash className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          
-          {filteredLeads.length === 0 && (
-            <div className="text-center py-12">
-              <Users className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-              <p className="text-slate-400">No leads found</p>
-              <p className="text-sm text-slate-500">Add leads manually or upload a CSV file</p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Add Lead Modal */}
-      {showAddForm && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6 w-full max-w-md shadow-xl">
-            <h3 className="text-lg font-semibold text-white mb-4">Add New Lead</h3>
-            <form onSubmit={handleAddLead} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-200 mb-1">Name *</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-200 mb-1">Phone *</label>
-                <input
-                  type="tel"
-                  required
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-200 mb-1">Email</label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-200 mb-1">Company</label>
-                <input
-                  type="text"
-                  value={formData.company}
-                  onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-200 mb-1">Notes</label>
-                <textarea
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  rows={3}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
-                />
-              </div>
-              <div className="flex space-x-3 pt-4">
-                <button
-                  type="submit"
-                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2 px-4 rounded-xl transition-all"
-                >
-                  Add Lead
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowAddForm(false)
-                    setFormData({ name: '', phone: '', email: '', company: '', notes: '' })
-                  }}
-                  className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 px-4 rounded-xl transition-all"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Lead Modal */}
-      {editingLead && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6 w-full max-w-md shadow-xl">
-            <h3 className="text-lg font-semibold text-white mb-4">Edit Lead</h3>
-            <form onSubmit={(e) => { e.preventDefault(); handleUpdateLead(editingLead); }} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-200 mb-1">Name *</label>
-                <input
-                  type="text"
-                  required
-                  value={editingLead.name}
-                  onChange={(e) => setEditingLead({ ...editingLead, name: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-200 mb-1">Phone *</label>
-                <input
-                  type="tel"
-                  required
-                  value={editingLead.phone}
-                  onChange={(e) => setEditingLead({ ...editingLead, phone: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-200 mb-1">Email</label>
-                <input
-                  type="email"
-                  value={editingLead.email}
-                  onChange={(e) => setEditingLead({ ...editingLead, email: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-200 mb-1">Company</label>
-                <input
-                  type="text"
-                  value={editingLead.company}
-                  onChange={(e) => setEditingLead({ ...editingLead, company: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-200 mb-1">Status</label>
-                <select
-                  value={editingLead.status}
-                  onChange={(e) => setEditingLead({ ...editingLead, status: e.target.value as Lead['status'] })}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
-                >
-                  <option value="new">New</option>
-                  <option value="called">Called</option>
-                  <option value="contacted">Contacted</option>
-                  <option value="converted">Converted</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-200 mb-1">Notes</label>
-                <textarea
-                  value={editingLead.notes}
-                  onChange={(e) => setEditingLead({ ...editingLead, notes: e.target.value })}
-                  rows={3}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
-                />
-              </div>
-              <div className="flex space-x-3 pt-4">
-                <button
-                  type="submit"
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-xl transition-all"
-                >
-                  Update Lead
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEditingLead(null)}
-                  className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 px-4 rounded-xl transition-all"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Automated Status Flow Info */}
-      <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6 mb-6">
-        <h4 className="font-semibold text-white mb-3 flex items-center">
-          <Users className="w-4 h-4 mr-2" />
-          Automated Lead Status Flow
-        </h4>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="text-center">
-            <div className="w-8 h-8 bg-blue-600/20 rounded-full flex items-center justify-center mx-auto mb-2">
-              <User className="w-4 h-4 text-blue-400" />
-            </div>
-            <div className="text-sm font-medium text-blue-400">New</div>
-            <div className="text-xs text-slate-400 mt-1">Fresh leads</div>
-          </div>
-          <div className="text-center">
-            <div className="w-8 h-8 bg-emerald-600/20 rounded-full flex items-center justify-center mx-auto mb-2">
-              <Phone className="w-4 h-4 text-emerald-400" />
-            </div>
-            <div className="text-sm font-medium text-emerald-400">Called</div>
-            <div className="text-xs text-slate-400 mt-1">Call initiated</div>
-          </div>
-          <div className="text-center">
-            <div className="w-8 h-8 bg-purple-600/20 rounded-full flex items-center justify-center mx-auto mb-2">
-              <CheckCircle className="w-4 h-4 text-purple-400" />
-            </div>
-            <div className="text-sm font-medium text-purple-400">Contacted</div>
-            <div className="text-xs text-slate-400 mt-1">User answered</div>
-          </div>
-          <div className="text-center">
-            <div className="w-8 h-8 bg-orange-600/20 rounded-full flex items-center justify-center mx-auto mb-2">
-              <CheckCircle className="w-4 h-4 text-orange-400" />
-            </div>
-            <div className="text-sm font-medium text-orange-400">Converted</div>
-            <div className="text-xs text-slate-400 mt-1">Showed interest</div>
-          </div>
-        </div>
-        <p className="text-xs text-slate-500 mt-4 text-center">
-          Lead status automatically updates based on call activity and AI-powered interest analysis
-        </p>
-      </div>
-
-      {/* CSV Upload Instructions */}
-      <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6">
-        <h4 className="font-semibold text-white mb-2 flex items-center">
-          <FileText className="w-4 h-4 mr-2" />
-          CSV Upload Format
-        </h4>
-        <p className="text-sm text-slate-400 mb-2">
-          Your CSV file should have the following columns (name and phone are required):
-        </p>
-        <div className="text-sm text-slate-300 font-mono bg-slate-800 p-3 rounded-xl border border-slate-700">
-          name,phone,email,company,notes
-        </div>
-        <p className="text-xs text-slate-500 mt-2">
-          Example: John Doe,+1234567890,john@company.com,Acme Corp,Interested in premium package
-        </p>
-      </div>
-
-      {/* Call All Progress Modal */}
-      {showCallModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-slate-900 rounded-2xl border border-slate-800 p-8 w-full max-w-md shadow-xl">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-orange-600/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                {isCallingAll ? (
-                  <PhoneIcon className="w-8 h-8 text-orange-400 animate-pulse" />
-                ) : (
-                  <CheckCircle className="w-8 h-8 text-emerald-400" />
-                )}
-              </div>
-              
-              <h3 className="text-xl font-semibold text-white mb-2">
-                {isCallingAll ? 'Calling Leads' : 'Call All Completed'}
-              </h3>
-              
-              {callAllProgress.currentLead && (
-                <div className="mb-4">
-                  <p className="text-slate-300 text-sm mb-1">Currently calling:</p>
-                  <p className="text-white font-medium">{callAllProgress.currentLead.name}</p>
-                  <p className="text-slate-400 text-sm">{callAllProgress.currentLead.phone}</p>
-                </div>
+              {uploading ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+              ) : (
+                  <Upload className="w-4 h-4" />
               )}
-              
-              {/* Progress Bar */}
-              <div className="mb-6">
-                <div className="flex justify-between text-sm text-slate-400 mb-2">
-                  <span>Progress</span>
-                  <span>{callAllProgress.currentIndex + 1} of {callAllProgress.totalCalls}</span>
-                </div>
-                <div className="w-full bg-slate-800 rounded-full h-2">
-                  <div 
-                    className="bg-orange-600 h-2 rounded-full transition-all duration-300"
-                    style={{ 
-                      width: `${((callAllProgress.currentIndex + 1) / callAllProgress.totalCalls) * 100}%` 
-                    }}
-                  ></div>
-                </div>
+              <span>{uploading ? 'Uploading...' : 'Upload CSV'}</span>
+            </button>
+            <button
+                onClick={handleCallAll}
+                disabled={isCallingAll || filteredLeads.length === 0}
+                className="flex items-center space-x-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 disabled:bg-orange-400 text-white rounded-xl transition-all text-sm md:text-base"
+            >
+              {isCallingAll ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+              ) : (
+                  <PhoneCall className="w-4 h-4" />
+              )}
+              <span>{isCallingAll ? 'Calling...' : `Call All (${filteredLeads.length})`}</span>
+            </button>
+            <button
+                onClick={() => setShowAddForm(true)}
+                className="flex items-center space-x-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-all text-sm md:text-base"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add Lead</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+          <div className="bg-slate-900 rounded-xl border border-slate-800 p-4 hover:border-slate-700 transition-all">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs md:text-sm font-medium text-slate-400">Total Leads</p>
+                <p className="text-xl md:text-2xl font-bold text-white">{stats.total}</p>
               </div>
-              
-              {/* Stats */}
-              <div className="grid grid-cols-3 gap-4 mb-6">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-emerald-400">{callAllProgress.completedCalls}</div>
-                  <div className="text-xs text-slate-400">Completed</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-red-400">{callAllProgress.failedCalls}</div>
-                  <div className="text-xs text-slate-400">Failed</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-slate-400">
-                    {callAllProgress.totalCalls - callAllProgress.completedCalls - callAllProgress.failedCalls}
-                  </div>
-                  <div className="text-xs text-slate-400">Remaining</div>
-                </div>
+              <div className="w-8 h-8 md:w-10 md:h-10 bg-slate-800 rounded-lg md:rounded-xl flex items-center justify-center">
+                <Users className="w-4 h-4 md:w-5 md:h-5 text-slate-400" />
               </div>
-              
-              {/* Action Buttons */}
-              <div className="flex space-x-3">
-                {isCallingAll ? (
-                  <button
-                    onClick={handleStopCallAll}
-                    className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-xl transition-all"
-                  >
-                    <div className="flex items-center justify-center space-x-2">
-                      <X className="w-4 h-4" />
-                      <span>Stop</span>
-                    </div>
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => setShowCallModal(false)}
-                    className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 px-4 rounded-xl transition-all"
-                  >
-                    Close
-                  </button>
-                )}
+            </div>
+          </div>
+          <div className="bg-slate-900 rounded-xl border border-slate-800 p-4 hover:border-slate-700 transition-all">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs md:text-sm font-medium text-slate-400">New</p>
+                <p className="text-xl md:text-2xl font-bold text-blue-400">{stats.new}</p>
+              </div>
+              <div className="w-8 h-8 md:w-10 md:h-10 bg-blue-600/20 rounded-lg md:rounded-xl flex items-center justify-center">
+                <User className="w-4 h-4 md:w-5 md:h-5 text-blue-400" />
+              </div>
+            </div>
+          </div>
+          <div className="bg-slate-900 rounded-xl border border-slate-800 p-4 hover:border-slate-700 transition-all">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs md:text-sm font-medium text-slate-400">Called</p>
+                <p className="text-xl md:text-2xl font-bold text-emerald-400">{stats.called}</p>
+              </div>
+              <div className="w-8 h-8 md:w-10 md:h-10 bg-emerald-600/20 rounded-lg md:rounded-xl flex items-center justify-center">
+                <Phone className="w-4 h-4 md:w-5 md:h-5 text-emerald-400" />
+              </div>
+            </div>
+          </div>
+          <div className="bg-slate-900 rounded-xl border border-slate-800 p-4 hover:border-slate-700 transition-all">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs md:text-sm font-medium text-slate-400">Contacted</p>
+                <p className="text-xl md:text-2xl font-bold text-purple-400">{stats.contacted}</p>
+              </div>
+              <div className="w-8 h-8 md:w-10 md:h-10 bg-purple-600/20 rounded-lg md:rounded-xl flex items-center justify-center">
+                <CheckCircle className="w-4 h-4 md:w-5 md:h-5 text-purple-400" />
+              </div>
+            </div>
+          </div>
+          <div className="bg-slate-900 rounded-xl border border-slate-800 p-4 hover:border-slate-700 transition-all">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs md:text-sm font-medium text-slate-400">Converted</p>
+                <p className="text-xl md:text-2xl font-bold text-orange-400">{stats.converted}</p>
+              </div>
+              <div className="w-8 h-8 md:w-10 md:h-10 bg-orange-600/20 rounded-lg md:rounded-xl flex items-center justify-center">
+                <CheckCircle className="w-4 h-4 md:w-5 md:h-5 text-orange-400" />
+              </div>
+            </div>
+          </div>
+          <div className="bg-slate-900 rounded-xl border border-slate-800 p-4 hover:border-slate-700 transition-all">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs md:text-sm font-medium text-slate-400">Total Calls</p>
+                <p className="text-xl md:text-2xl font-bold text-slate-400">{stats.total_calls}</p>
+              </div>
+              <div className="w-8 h-8 md:w-10 md:h-10 bg-slate-800 rounded-lg md:rounded-xl flex items-center justify-center">
+                <PhoneCall className="w-4 h-4 md:w-5 md:h-5 text-slate-400" />
               </div>
             </div>
           </div>
         </div>
-      )}
-    </div>
+
+        {/* Filters */}
+        <div className="bg-slate-900 rounded-xl border border-slate-800 p-4 mb-8">
+          <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+            <div className="w-full md:flex-1">
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
+                <input
+                    type="text"
+                    placeholder="Search leads..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 md:py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm md:text-base"
+                />
+              </div>
+            </div>
+            <div className="w-full md:w-auto">
+              <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="w-full md:w-auto px-4 py-2 md:py-3 bg-slate-800 border border-slate-700 rounded-xl text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm md:text-base"
+              >
+                <option value="all">All Status</option>
+                <option value="new">New</option>
+                <option value="called">Called</option>
+                <option value="contacted">Contacted</option>
+                <option value="converted">Converted</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Leads Table */}
+        <div className="bg-slate-900 rounded-xl border border-slate-800 shadow-xl overflow-hidden mb-8">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-slate-800/50 border-b border-slate-700">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Lead</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Contact</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Calls</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Last Call</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Actions</th>
+              </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800">
+              {filteredLeads.map((lead) => (
+                  <tr key={lead._id || lead.id} className="hover:bg-slate-800/50 transition-colors bg-slate-900">
+                    <td className="px-4 py-3">
+                      <div>
+                        <div className="font-medium text-white text-sm md:text-base">{lead.name}</div>
+                        {lead.company && (
+                            <div className="text-xs md:text-sm text-slate-400 flex items-center mt-1">
+                              <Building className="w-3 h-3 mr-1" />
+                              {lead.company}
+                            </div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="text-xs md:text-sm">
+                        <div className="flex items-center text-white">
+                          <Phone className="w-3 h-3 mr-1" />
+                          {lead.phone}
+                        </div>
+                        {lead.email && (
+                            <div className="flex items-center text-slate-400 mt-1">
+                              <Mail className="w-3 h-3 mr-1" />
+                              {lead.email}
+                            </div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      {getStatusBadge(lead.status)}
+                    </td>
+                    <td className="px-4 py-3 text-xs md:text-sm text-white">
+                      {lead.call_attempts}
+                    </td>
+                    <td className="px-4 py-3 text-xs md:text-sm text-slate-400">
+                      {lead.last_call ? new Date(lead.last_call).toLocaleDateString() : 'Never'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center space-x-2">
+                        <button
+                            onClick={() => handleCallLead(lead)}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white p-1 md:p-2 rounded-lg transition-all"
+                            title="Call Lead"
+                        >
+                          <PhoneCall className="w-3 h-3 md:w-4 md:h-4" />
+                        </button>
+                        <button
+                            onClick={() => setEditingLead(lead)}
+                            className="bg-blue-600 hover:bg-blue-700 text-white p-1 md:p-2 rounded-lg transition-all"
+                            title="Edit Lead"
+                        >
+                          <Edit className="w-3 h-3 md:w-4 md:h-4" />
+                        </button>
+                        <button
+                            onClick={() => handleDeleteLead(lead._id || lead.id || '')}
+                            className="bg-red-600 hover:bg-red-700 text-white p-1 md:p-2 rounded-lg transition-all"
+                            title="Delete Lead"
+                        >
+                          <Trash className="w-3 h-3 md:w-4 md:h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+              ))}
+              </tbody>
+            </table>
+
+            {filteredLeads.length === 0 && (
+                <div className="text-center py-12">
+                  <Users className="w-10 h-10 md:w-12 md:h-12 text-slate-600 mx-auto mb-4" />
+                  <p className="text-slate-400 text-sm md:text-base">No leads found</p>
+                  <p className="text-xs md:text-sm text-slate-500">Add leads manually or upload a CSV file</p>
+                </div>
+            )}
+          </div>
+        </div>
+
+        {/* Automated Status Flow Info */}
+        <div className="bg-slate-900 rounded-xl border border-slate-800 p-4 md:p-6 mb-6">
+          <h4 className="font-semibold text-white mb-3 flex items-center text-sm md:text-base">
+            <Users className="w-4 h-4 mr-2" />
+            Automated Lead Status Flow
+          </h4>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+            <div className="text-center">
+              <div className="w-6 h-6 md:w-8 md:h-8 bg-blue-600/20 rounded-full flex items-center justify-center mx-auto mb-1 md:mb-2">
+                <User className="w-3 h-3 md:w-4 md:h-4 text-blue-400" />
+              </div>
+              <div className="text-xs md:text-sm font-medium text-blue-400">New</div>
+              <div className="text-xs text-slate-400 mt-1">Fresh leads</div>
+            </div>
+            <div className="text-center">
+              <div className="w-6 h-6 md:w-8 md:h-8 bg-emerald-600/20 rounded-full flex items-center justify-center mx-auto mb-1 md:mb-2">
+                <Phone className="w-3 h-3 md:w-4 md:h-4 text-emerald-400" />
+              </div>
+              <div className="text-xs md:text-sm font-medium text-emerald-400">Called</div>
+              <div className="text-xs text-slate-400 mt-1">Call initiated</div>
+            </div>
+            <div className="text-center">
+              <div className="w-6 h-6 md:w-8 md:h-8 bg-purple-600/20 rounded-full flex items-center justify-center mx-auto mb-1 md:mb-2">
+                <CheckCircle className="w-3 h-3 md:w-4 md:h-4 text-purple-400" />
+              </div>
+              <div className="text-xs md:text-sm font-medium text-purple-400">Contacted</div>
+              <div className="text-xs text-slate-400 mt-1">User answered</div>
+            </div>
+            <div className="text-center">
+              <div className="w-6 h-6 md:w-8 md:h-8 bg-orange-600/20 rounded-full flex items-center justify-center mx-auto mb-1 md:mb-2">
+                <CheckCircle className="w-3 h-3 md:w-4 md:h-4 text-orange-400" />
+              </div>
+              <div className="text-xs md:text-sm font-medium text-orange-400">Converted</div>
+              <div className="text-xs text-slate-400 mt-1">Showed interest</div>
+            </div>
+          </div>
+          <p className="text-xs text-slate-500 mt-3 md:mt-4 text-center">
+            Lead status automatically updates based on call activity and AI-powered interest analysis
+          </p>
+        </div>
+
+        {/* CSV Upload Instructions */}
+        <div className="bg-slate-900 rounded-xl border border-slate-800 p-4 md:p-6">
+          <h4 className="font-semibold text-white mb-2 flex items-center text-sm md:text-base">
+            <FileText className="w-4 h-4 mr-2" />
+            CSV Upload Format
+          </h4>
+          <p className="text-xs md:text-sm text-slate-400 mb-2">
+            Your CSV file should have the following columns (name and phone are required):
+          </p>
+          <div className="text-xs md:text-sm text-slate-300 font-mono bg-slate-800 p-2 md:p-3 rounded-lg md:rounded-xl border border-slate-700">
+            name,phone,email,company,notes
+          </div>
+          <p className="text-xs text-slate-500 mt-2">
+            Example: John Doe,+1234567890,john@company.com,Acme Corp,Interested in premium package
+          </p>
+        </div>
+
+        {/* Add Lead Modal */}
+        {showAddForm && (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+              <div className="bg-slate-900 rounded-xl border border-slate-800 p-4 md:p-6 w-full max-w-md shadow-xl">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-white">Add New Lead</h3>
+                  <button onClick={() => setShowAddForm(false)} className="text-slate-400 hover:text-white">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <form onSubmit={handleAddLead} className="space-y-3 md:space-y-4">
+                  <div>
+                    <label className="block text-xs md:text-sm font-medium text-slate-200 mb-1">Name *</label>
+                    <input
+                        type="text"
+                        required
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm md:text-base"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs md:text-sm font-medium text-slate-200 mb-1">Phone *</label>
+                    <input
+                        type="tel"
+                        required
+                        value={formData.phone}
+                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm md:text-base"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs md:text-sm font-medium text-slate-200 mb-1">Email</label>
+                    <input
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm md:text-base"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs md:text-sm font-medium text-slate-200 mb-1">Company</label>
+                    <input
+                        type="text"
+                        value={formData.company}
+                        onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm md:text-base"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs md:text-sm font-medium text-slate-200 mb-1">Notes</label>
+                    <textarea
+                        value={formData.notes}
+                        onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                        rows={3}
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm md:text-base"
+                    />
+                  </div>
+                  <div className="flex space-x-3 pt-2 md:pt-4">
+                    <button
+                        type="submit"
+                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2 px-4 rounded-xl transition-all text-sm md:text-base"
+                    >
+                      Add Lead
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => {
+                          setShowAddForm(false)
+                          setFormData({ name: '', phone: '', email: '', company: '', notes: '' })
+                        }}
+                        className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 px-4 rounded-xl transition-all text-sm md:text-base"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+        )}
+
+        {/* Edit Lead Modal */}
+        {editingLead && (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+              <div className="bg-slate-900 rounded-xl border border-slate-800 p-4 md:p-6 w-full max-w-md shadow-xl">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-white">Edit Lead</h3>
+                  <button onClick={() => setEditingLead(null)} className="text-slate-400 hover:text-white">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <form onSubmit={(e) => { e.preventDefault(); handleUpdateLead(editingLead); }} className="space-y-3 md:space-y-4">
+                  <div>
+                    <label className="block text-xs md:text-sm font-medium text-slate-200 mb-1">Name *</label>
+                    <input
+                        type="text"
+                        required
+                        value={editingLead.name}
+                        onChange={(e) => setEditingLead({ ...editingLead, name: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm md:text-base"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs md:text-sm font-medium text-slate-200 mb-1">Phone *</label>
+                    <input
+                        type="tel"
+                        required
+                        value={editingLead.phone}
+                        onChange={(e) => setEditingLead({ ...editingLead, phone: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm md:text-base"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs md:text-sm font-medium text-slate-200 mb-1">Email</label>
+                    <input
+                        type="email"
+                        value={editingLead.email}
+                        onChange={(e) => setEditingLead({ ...editingLead, email: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm md:text-base"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs md:text-sm font-medium text-slate-200 mb-1">Company</label>
+                    <input
+                        type="text"
+                        value={editingLead.company}
+                        onChange={(e) => setEditingLead({ ...editingLead, company: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm md:text-base"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs md:text-sm font-medium text-slate-200 mb-1">Status</label>
+                    <select
+                        value={editingLead.status}
+                        onChange={(e) => setEditingLead({ ...editingLead, status: e.target.value as Lead['status'] })}
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm md:text-base"
+                    >
+                      <option value="new">New</option>
+                      <option value="called">Called</option>
+                      <option value="contacted">Contacted</option>
+                      <option value="converted">Converted</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs md:text-sm font-medium text-slate-200 mb-1">Notes</label>
+                    <textarea
+                        value={editingLead.notes}
+                        onChange={(e) => setEditingLead({ ...editingLead, notes: e.target.value })}
+                        rows={3}
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm md:text-base"
+                    />
+                  </div>
+                  <div className="flex space-x-3 pt-2 md:pt-4">
+                    <button
+                        type="submit"
+                        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-xl transition-all text-sm md:text-base"
+                    >
+                      Update Lead
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setEditingLead(null)}
+                        className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 px-4 rounded-xl transition-all text-sm md:text-base"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+        )}
+
+        {/* Call All Progress Modal */}
+        {showCallModal && (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+              <div className="bg-slate-900 rounded-xl border border-slate-800 p-6 w-full max-w-md shadow-xl">
+                <div className="text-center">
+                  <div className="w-12 h-12 md:w-16 md:h-16 bg-orange-600/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                    {isCallingAll ? (
+                        <PhoneIcon className="w-6 h-6 md:w-8 md:h-8 text-orange-400 animate-pulse" />
+                    ) : (
+                        <CheckCircle className="w-6 h-6 md:w-8 md:h-8 text-emerald-400" />
+                    )}
+                  </div>
+
+                  <h3 className="text-lg md:text-xl font-semibold text-white mb-2">
+                    {isCallingAll ? 'Calling Leads' : 'Call All Completed'}
+                  </h3>
+
+                  {callAllProgress.currentLead && (
+                      <div className="mb-4">
+                        <p className="text-slate-300 text-xs md:text-sm mb-1">Currently calling:</p>
+                        <p className="text-white font-medium text-sm md:text-base">{callAllProgress.currentLead.name}</p>
+                        <p className="text-slate-400 text-xs md:text-sm">{callAllProgress.currentLead.phone}</p>
+                      </div>
+                  )}
+
+                  {/* Progress Bar */}
+                  <div className="mb-4 md:mb-6">
+                    <div className="flex justify-between text-xs md:text-sm text-slate-400 mb-1 md:mb-2">
+                      <span>Progress</span>
+                      <span>{callAllProgress.currentIndex + 1} of {callAllProgress.totalCalls}</span>
+                    </div>
+                    <div className="w-full bg-slate-800 rounded-full h-2">
+                      <div
+                          className="bg-orange-600 h-2 rounded-full transition-all duration-300"
+                          style={{
+                            width: `${((callAllProgress.currentIndex + 1) / callAllProgress.totalCalls) * 100}%`
+                          }}
+                      ></div>
+                    </div>
+                  </div>
+
+                  {/* Stats */}
+                  <div className="grid grid-cols-3 gap-3 md:gap-4 mb-4 md:mb-6">
+                    <div className="text-center">
+                      <div className="text-xl md:text-2xl font-bold text-emerald-400">{callAllProgress.completedCalls}</div>
+                      <div className="text-xs text-slate-400">Completed</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-xl md:text-2xl font-bold text-red-400">{callAllProgress.failedCalls}</div>
+                      <div className="text-xs text-slate-400">Failed</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-xl md:text-2xl font-bold text-slate-400">
+                        {callAllProgress.totalCalls - callAllProgress.completedCalls - callAllProgress.failedCalls}
+                      </div>
+                      <div className="text-xs text-slate-400">Remaining</div>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex space-x-2 md:space-x-3">
+                    {isCallingAll ? (
+                        <button
+                            onClick={handleStopCallAll}
+                            className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-xl transition-all text-sm md:text-base"
+                        >
+                          <div className="flex items-center justify-center space-x-2">
+                            <X className="w-3 h-3 md:w-4 md:h-4" />
+                            <span>Stop</span>
+                          </div>
+                        </button>
+                    ) : (
+                        <button
+                            onClick={() => setShowCallModal(false)}
+                            className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 px-4 rounded-xl transition-all text-sm md:text-base"
+                        >
+                          Close
+                        </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+        )}
+      </div>
   )
-} 
+}
