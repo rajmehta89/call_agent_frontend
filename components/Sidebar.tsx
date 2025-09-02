@@ -120,7 +120,7 @@ export default function Sidebar() {
             </aside>
 
             {/* Spacer for desktop layout */}
-            {isDesktop && <div className="hidden lg:block w-72 flex-shrink-0" />}
+            {isDesktop }
         </>
     )
 }
