@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { CheckCircle2, ClipboardList, PhoneForwarded, RefreshCcw, UserRound } from 'lucide-react'
+import { CheckCircle2, ClipboardList, PhoneForwarded, RefreshCcw, Sparkles, UserRound } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { PageHeader } from '../../components/OmniPage'
 
 const API_BASE = process.env.NEXT_PUBLIC_CALL_API_URL || 'http://localhost:8000'
 
@@ -52,7 +53,7 @@ export default function HandoffsPage() {
     const response = await fetch(`${API_BASE}/api/handoffs/${sessionId}/accept`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ agent_name: 'Human Agent' })
+      body: JSON.stringify({ agent_name: 'Human Agent' }),
     })
 
     if (!response.ok) {
@@ -68,7 +69,7 @@ export default function HandoffsPage() {
     const response = await fetch(`${API_BASE}/api/handoffs/${sessionId}/resolve`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ notes: 'Handled by human agent' })
+      body: JSON.stringify({ notes: 'Handled by human agent' }),
     })
 
     if (!response.ok) {
@@ -81,84 +82,68 @@ export default function HandoffsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-white">Human Handoffs</h1>
-          <p className="mt-1 text-slate-400">Calls land here when the customer asks for a human or the AI flags escalation.</p>
-        </div>
+    <div className="space-y-8">
+      <PageHeader
+        title="Human Handoffs"
+        description="A premium live desk for escalated callers. Every transfer surfaces the reason, confidence, and latest context so a human can take over cleanly."
+        actionLabel="Refresh Queue"
+        actionHref="/handoffs"
+      />
+
+      <div className="flex justify-end">
         <button
           onClick={loadHandoffs}
-          className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-4 py-2 text-sm text-slate-200 transition hover:border-slate-500"
+          className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-semibold text-slate-200 transition hover:border-white/20"
         >
           <RefreshCcw className="h-4 w-4" />
-          Refresh
+          Refresh live queue
         </button>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-          <div className="flex items-center gap-3">
-            <PhoneForwarded className="h-5 w-5 text-amber-400" />
-            <div>
-              <div className="text-sm text-slate-400">Waiting</div>
-              <div className="text-2xl font-bold text-white">{handoffs.filter((item) => item.status === 'awaiting_human').length}</div>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-          <div className="flex items-center gap-3">
-            <UserRound className="h-5 w-5 text-blue-400" />
-            <div>
-              <div className="text-sm text-slate-400">Accepted</div>
-              <div className="text-2xl font-bold text-white">{handoffs.filter((item) => item.status === 'accepted').length}</div>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-          <div className="flex items-center gap-3">
-            <ClipboardList className="h-5 w-5 text-emerald-400" />
-            <div>
-              <div className="text-sm text-slate-400">Open Queue</div>
-              <div className="text-2xl font-bold text-white">{handoffs.length}</div>
-            </div>
-          </div>
-        </div>
+        <MetricCard icon={PhoneForwarded} label="Awaiting human" value={handoffs.filter((item) => item.status === 'awaiting_human').length} tone="amber" />
+        <MetricCard icon={UserRound} label="Accepted" value={handoffs.filter((item) => item.status === 'accepted').length} tone="teal" />
+        <MetricCard icon={ClipboardList} label="Open queue" value={handoffs.length} tone="slate" />
       </div>
 
       {loading ? (
-        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 text-slate-400">Loading handoffs...</div>
+        <div className="surface-panel rounded-[28px] p-6 text-slate-400">Loading handoffs...</div>
       ) : handoffs.length === 0 ? (
-        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 text-slate-400">No active handoffs right now.</div>
+        <div className="surface-panel rounded-[28px] p-8 text-slate-400">No active handoffs right now.</div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-5">
           {handoffs.map((handoff) => (
-            <div key={handoff.session_id} className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                <div className="space-y-2">
+            <div key={handoff.session_id} className="surface-panel-strong rounded-[30px] p-6">
+              <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                <div className="space-y-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded-full bg-slate-800 px-3 py-1 text-xs text-slate-200">{handoff.phone_number}</span>
-                    <span className="rounded-full bg-slate-800 px-3 py-1 text-xs text-slate-300">
-                      {handoff.transfer_mode === 'explicit' ? 'Explicit request' : 'Intent analyzer'}
+                    <span className="premium-badge pending">{handoff.phone_number}</span>
+                    <span className={`premium-badge ${handoff.status === 'accepted' ? 'live' : 'pending'}`}>
+                      {handoff.status === 'accepted' ? 'Accepted' : 'Awaiting takeover'}
+                    </span>
+                    <span className="premium-badge pending">
+                      {handoff.transfer_mode === 'explicit' ? 'Explicit customer request' : 'Intent escalation'}
                     </span>
                   </div>
-                  <p className="text-sm text-slate-300">{handoff.transfer_reason || 'Human handoff requested.'}</p>
-                  <p className="text-xs text-slate-500">
-                    Confidence {Math.round((handoff.transfer_confidence || 0) * 100)}% • Updated {new Date(handoff.updated_at).toLocaleString()}
-                  </p>
+                  <div className="max-w-3xl text-base leading-7 text-white">
+                    {handoff.transfer_reason || 'Human handoff requested.'}
+                  </div>
+                  <div className="text-xs uppercase tracking-[0.14em] text-slate-500">
+                    Confidence {Math.round((handoff.transfer_confidence || 0) * 100)}% · Updated {new Date(handoff.updated_at).toLocaleString()}
+                  </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   {handoff.status === 'awaiting_human' && (
                     <button
                       onClick={() => acceptHandoff(handoff.session_id)}
-                      className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500"
+                      className="rounded-2xl bg-[linear-gradient(135deg,#68d2c8,#3cae9f)] px-4 py-3 text-sm font-semibold text-slate-950 transition hover:brightness-105"
                     >
-                      Accept
+                      Accept handoff
                     </button>
                   )}
                   <button
                     onClick={() => resolveHandoff(handoff.session_id)}
-                    className="inline-flex items-center gap-2 rounded-xl border border-emerald-600/40 bg-emerald-600/10 px-4 py-2 text-sm font-medium text-emerald-300 transition hover:bg-emerald-600/20"
+                    className="inline-flex items-center gap-2 rounded-2xl border border-[#d6a34f]/30 bg-[#d6a34f]/12 px-4 py-3 text-sm font-semibold text-[#f4d39a] transition hover:bg-[#d6a34f]/18"
                   >
                     <CheckCircle2 className="h-4 w-4" />
                     Resolve
@@ -166,15 +151,20 @@ export default function HandoffsPage() {
                 </div>
               </div>
 
-              <div className="mt-4 space-y-2 rounded-2xl bg-slate-950/80 p-4">
-                <div className="text-sm font-medium text-white">Latest context</div>
+              <div className="mt-6 rounded-[24px] border border-white/6 bg-white/[0.03] p-4">
+                <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-white">
+                  <Sparkles className="h-4 w-4 text-[#f4d39a]" />
+                  Latest session context
+                </div>
                 {handoff.messages?.length ? (
-                  handoff.messages.slice(-6).map((message, index) => (
-                    <div key={`${handoff.session_id}-${index}`} className="rounded-xl border border-slate-800 bg-slate-900 px-3 py-2">
-                      <div className="mb-1 text-xs uppercase tracking-wide text-slate-500">{message.speaker}</div>
-                      <div className="text-sm text-slate-200">{message.content}</div>
-                    </div>
-                  ))
+                  <div className="space-y-3">
+                    {handoff.messages.slice(-6).map((message, index) => (
+                      <div key={`${handoff.session_id}-${index}`} className="rounded-[20px] border border-white/6 bg-black/20 px-4 py-3">
+                        <div className="mb-1 text-xs uppercase tracking-[0.14em] text-slate-500">{message.speaker}</div>
+                        <div className="text-sm leading-7 text-slate-200">{message.content}</div>
+                      </div>
+                    ))}
+                  </div>
                 ) : (
                   <div className="text-sm text-slate-500">No transcript context yet.</div>
                 )}
@@ -183,6 +173,39 @@ export default function HandoffsPage() {
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+function MetricCard({
+  icon: Icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: typeof PhoneForwarded
+  label: string
+  value: number
+  tone: 'amber' | 'teal' | 'slate'
+}) {
+  const toneClass =
+    tone === 'amber'
+      ? 'text-[#f4d39a] bg-[#d6a34f]/10'
+      : tone === 'teal'
+        ? 'text-[#8de7de] bg-[#68d2c8]/10'
+        : 'text-white bg-white/[0.06]'
+
+  return (
+    <div className="surface-panel rounded-[28px] p-5">
+      <div className="flex items-center gap-3">
+        <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${toneClass}`}>
+          <Icon className="h-5 w-5" />
+        </div>
+        <div>
+          <div className="text-sm text-slate-400">{label}</div>
+          <div className="text-3xl font-extrabold tracking-[-0.05em] text-white">{value}</div>
+        </div>
+      </div>
     </div>
   )
 }

@@ -1,14 +1,15 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import { Manrope } from 'next/font/google'
 import './globals.css'
 import Sidebar from '../components/Sidebar'
 import { Toaster } from 'react-hot-toast'
+import GlobalHeader from '../components/GlobalHeader'
 
-const inter = Inter({ subsets: ['latin'] })
+const manrope = Manrope({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'AI Agent Dashboard',
-  description: 'Modern AI Voice Agent Management System',
+  title: 'AgentFlow Omni-Channel Dashboard',
+  description: 'Unified WhatsApp and voice AI operations dashboard',
 }
 
 export default function RootLayout({
@@ -18,11 +19,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>
-        <div className="flex h-screen bg-slate-950">
+      <body className={manrope.className}>
+        <div className="flex min-h-screen bg-transparent">
           <Sidebar />
-          <main className="flex-1 overflow-auto bg-slate-950 min-w-0">
-            <div className="p-4 sm:p-6 lg:p-8">
+          <main className="min-w-0 flex-1 overflow-auto">
+            <GlobalHeader />
+            <div className="mx-auto w-full max-w-[1800px] px-4 pb-10 pt-20 sm:px-6 lg:px-8 lg:pt-8">
               {children}
             </div>
           </main>
@@ -31,13 +33,15 @@ export default function RootLayout({
           position="top-right"
           toastOptions={{
             style: {
-              background: '#1E293B',
-              color: '#F1F5F9',
-              border: '1px solid #334155',
+              background: 'rgba(8, 13, 26, 0.95)',
+              color: '#ECF3FF',
+              border: '1px solid rgba(148, 163, 184, 0.18)',
+              boxShadow: '0 16px 40px rgba(5, 10, 28, 0.35)',
+              borderRadius: '18px',
             },
           }}
         />
       </body>
     </html>
   )
-} 
+}

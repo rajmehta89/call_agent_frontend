@@ -3,11 +3,12 @@
 import { useState, useEffect } from 'react'
 import {
   Phone, PhoneCall, Clock, User, MessageSquare,
-  Calendar, Search, Filter, Download, Eye,
+  Search, Filter, Download, Eye,
   Play, Pause, Volume2, FileText, Users,
   TrendingUp, Activity, CheckCircle, XCircle
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import Link from 'next/link'
 
 interface Call {
   _id: string
@@ -216,7 +217,7 @@ export default function CallsPage() {
               title: "Total Calls",
               value: stats.total_calls,
               color: "text-white" },
-            { icon: <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />,
+            { icon: <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />,
               title: "Today",
               value: stats.calls_today,
               color: "text-blue-400" },
@@ -342,6 +343,7 @@ export default function CallsPage() {
                         >
                           <Eye className="w-4 h-4 text-white" />
                         </button>
+                        <Link href={`/voice/calls/${call._id}`} className="ml-2 inline-flex rounded-lg border border-slate-700 px-2 py-2 text-xs text-slate-300 hover:text-white">Full detail</Link>
                       </td>
                     </tr>
                   ))
@@ -377,6 +379,7 @@ export default function CallsPage() {
                     >
                       <Eye className="w-4 h-4 text-white" />
                     </button>
+                    <Link href={`/voice/calls/${call._id}`} className="ml-2 rounded-lg border border-slate-700 px-2 py-1.5 text-xs text-slate-300">Detail</Link>
                   </div>
 
                   <div className="mt-2 flex flex-wrap items-center gap-2">

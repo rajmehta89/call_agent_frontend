@@ -4,10 +4,11 @@ import { useState, useEffect, useRef } from 'react'
 import {
   Users, Plus, Upload, Phone, Edit, Trash,
   RefreshCw, Download, Filter, Search,
-  PhoneCall, Calendar, CheckCircle, AlertCircle,
+  PhoneCall, CheckCircle, AlertCircle,
   FileText, User, Mail, Building, Phone as PhoneIcon, X
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import Link from 'next/link'
 
 interface Lead {
   id: string
@@ -17,7 +18,7 @@ interface Lead {
   email: string
   company: string
   notes: string
-  status: 'new' | 'called' | 'contacted' | 'converted'
+  status: 'new' | 'qualified' | 'hot' | 'converted' | 'lost' | 'unqualified' | 'called' | 'contacted'
   call_attempts: number
   last_call: string | null
   created_at: string
@@ -630,9 +631,13 @@ export default function LeadsPage() {
               >
                 <option value="all">All Status</option>
                 <option value="new">New</option>
+                <option value="qualified">Qualified</option>
+                <option value="hot">Hot</option>
                 <option value="called">Called</option>
                 <option value="contacted">Contacted</option>
                 <option value="converted">Converted</option>
+                <option value="lost">Lost</option>
+                <option value="unqualified">Unqualified</option>
               </select>
             </div>
           </div>
@@ -657,7 +662,7 @@ export default function LeadsPage() {
                   <tr key={lead._id || lead.id} className="hover:bg-slate-800/50 transition-colors bg-slate-900">
                     <td className="px-4 py-3">
                       <div>
-                        <div className="font-medium text-white text-sm md:text-base">{lead.name}</div>
+                        <Link href={`/leads/${lead.id}`} className="font-medium text-white hover:text-emerald-300 text-sm md:text-base">{lead.name}</Link>
                         {lead.company && (
                             <div className="text-xs md:text-sm text-slate-400 flex items-center mt-1">
                               <Building className="w-3 h-3 mr-1" />
@@ -925,9 +930,13 @@ export default function LeadsPage() {
                         className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm md:text-base"
                     >
                       <option value="new">New</option>
+                      <option value="qualified">Qualified</option>
+                      <option value="hot">Hot</option>
                       <option value="called">Called</option>
                       <option value="contacted">Contacted</option>
                       <option value="converted">Converted</option>
+                      <option value="lost">Lost</option>
+                      <option value="unqualified">Unqualified</option>
                     </select>
                   </div>
                   <div>
