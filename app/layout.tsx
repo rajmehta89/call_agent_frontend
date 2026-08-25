@@ -8,8 +8,8 @@ import GlobalHeader from '../components/GlobalHeader'
 const manrope = Manrope({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'AgentFlow Omni-Channel Dashboard',
-  description: 'Unified WhatsApp and voice AI operations dashboard',
+  title: 'AgentFlow AI Workspace',
+  description: 'WhatsApp and voice AI operations workspace',
 }
 
 export default function RootLayout({
@@ -20,7 +20,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={manrope.className}>
-        <div className="flex min-h-screen bg-transparent">
+        <div className="flex min-h-screen bg-[#f6f7fb]">
           <Sidebar />
           <main className="min-w-0 flex-1 overflow-auto">
             <GlobalHeader />
@@ -33,10 +33,10 @@ export default function RootLayout({
           position="top-right"
           toastOptions={{
             style: {
-              background: 'rgba(8, 13, 26, 0.95)',
-              color: '#ECF3FF',
-              border: '1px solid rgba(148, 163, 184, 0.18)',
-              boxShadow: '0 16px 40px rgba(5, 10, 28, 0.35)',
+              background: '#20263d',
+              color: '#ffffff',
+              border: '1px solid #343b58',
+              boxShadow: '0 16px 40px rgba(48, 54, 92, 0.2)',
               borderRadius: '18px',
             },
           }}

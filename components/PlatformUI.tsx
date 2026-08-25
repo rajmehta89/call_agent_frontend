@@ -15,7 +15,7 @@ export async function api<T = any>(path: string, options?: RequestInit): Promise
 export function downloadCsv(resource: string) { window.open(`${API_BASE}/api/platform/export/${resource}.csv`, '_blank') }
 
 export function MetricGrid({ items }: { items: { label: string; value: string | number; detail?: string; tone?: string }[] }) {
-  return <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{items.map((item) => <div key={item.label} className="surface-panel rounded-[24px] p-5"><div className="text-xs font-semibold uppercase tracking-[.14em] text-slate-500">{item.label}</div><div className="mt-3 text-3xl font-extrabold tracking-[-.04em] text-white">{item.value}</div>{item.detail && <div className="mt-2 text-xs text-slate-500">{item.detail}</div>}</div>)}</div>
+  return <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{items.map((item) => <div key={item.label} className="surface-panel rounded-[20px] p-5"><div className="text-xs font-semibold uppercase tracking-[.14em] text-slate-400">{item.label}</div><div className="mt-3 text-3xl font-extrabold tracking-[-.04em] text-slate-900">{item.value}</div>{item.detail && <div className="mt-2 text-xs text-slate-500">{item.detail}</div>}</div>)}</div>
 }
 
 export function Toolbar({ search, onSearch, onRefresh, onExport, children }: { search?: string; onSearch?: (value: string) => void; onRefresh?: () => void; onExport?: () => void; children?: ReactNode }) {
@@ -26,13 +26,13 @@ export function Toolbar({ search, onSearch, onRefresh, onExport, children }: { s
 }
 
 export function ActionButton({ children, onClick, icon, primary = false, disabled = false }: { children: ReactNode; onClick?: () => void; icon?: ReactNode; primary?: boolean; disabled?: boolean }) {
-  return <button type="button" onClick={onClick} disabled={disabled} className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${primary ? 'bg-[#68d2c8] text-slate-950 hover:brightness-110' : 'border border-white/10 bg-white/[.04] text-slate-200 hover:bg-white/[.08]'}`}>{icon}{children}</button>
+  return <button type="button" onClick={onClick} disabled={disabled} className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${primary ? 'bg-[#6c63ff] text-white shadow-[0_8px_16px_rgba(108,99,255,.18)] hover:brightness-105' : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}>{icon}{children}</button>
 }
 
 export function DataState({ loading, error, empty, onRetry, children }: { loading: boolean; error?: string; empty?: boolean; onRetry?: () => void; children: ReactNode }) {
-  if (loading) return <div className="surface-panel flex min-h-48 items-center justify-center rounded-[24px] text-sm text-slate-400"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading live data...</div>
-  if (error) return <div className="surface-panel flex min-h-48 flex-col items-center justify-center rounded-[24px] p-6 text-center"><AlertTriangle className="h-6 w-6 text-rose-300" /><div className="mt-3 text-sm text-white">Unable to load this view</div><div className="mt-1 max-w-xl text-xs text-slate-500">{error}</div>{onRetry && <div className="mt-4"><ActionButton onClick={onRetry}>Retry</ActionButton></div>}</div>
-  if (empty) return <div className="surface-panel flex min-h-48 flex-col items-center justify-center rounded-[24px] p-6 text-center"><SlidersHorizontal className="h-6 w-6 text-slate-500" /><div className="mt-3 text-sm text-white">No matching records</div><div className="mt-1 text-xs text-slate-500">Try another filter or create the first record.</div></div>
+  if (loading) return <div className="surface-panel flex min-h-48 items-center justify-center rounded-[24px] text-sm text-slate-500"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading live data...</div>
+  if (error) return <div className="surface-panel flex min-h-48 flex-col items-center justify-center rounded-[24px] p-6 text-center"><AlertTriangle className="h-6 w-6 text-rose-400" /><div className="mt-3 text-sm text-slate-900">Unable to load this view</div><div className="mt-1 max-w-xl text-xs text-slate-500">{error}</div>{onRetry && <div className="mt-4"><ActionButton onClick={onRetry}>Retry</ActionButton></div>}</div>
+  if (empty) return <div className="surface-panel flex min-h-48 flex-col items-center justify-center rounded-[24px] p-6 text-center"><SlidersHorizontal className="h-6 w-6 text-slate-400" /><div className="mt-3 text-sm text-slate-900">No matching records</div><div className="mt-1 text-xs text-slate-500">Try another filter or create the first record.</div></div>
   return <>{children}</>
 }
 
@@ -42,5 +42,5 @@ export function StatusBadge({ value }: { value: string | boolean }) {
 }
 
 export function FeatureSection({ title, description, features }: { title: string; description?: string; features: string[] }) {
-  return <section className="surface-panel rounded-[26px] p-6"><div className="text-lg font-bold tracking-[-.03em] text-white">{title}</div>{description && <p className="mt-2 text-sm leading-6 text-slate-500">{description}</p>}<div className="mt-5 flex flex-wrap gap-2">{features.map((feature) => <span key={feature} className="rounded-xl border border-white/8 bg-white/[.035] px-3 py-2 text-xs text-slate-300">{feature}</span>)}</div></section>
+  return <section className="surface-panel rounded-[24px] p-6"><div className="text-lg font-bold tracking-[-.03em] text-slate-900">{title}</div>{description && <p className="mt-2 text-sm leading-6 text-slate-500">{description}</p>}<div className="mt-5 flex flex-wrap gap-2">{features.map((feature) => <span key={feature} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">{feature}</span>)}</div></section>
 }

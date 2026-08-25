@@ -17,7 +17,7 @@ export const navigationGroups = [
     { name: 'Calls', href: '/voice/calls', icon: PhoneCall },
     { name: 'Agent', href: '/voice/agent', icon: Bot },
   ]},
-  { label: 'AI Brain', items: [
+  { label: 'Assistant', items: [
     { name: 'Knowledge Base', href: '/brain/knowledge', icon: Brain },
     { name: 'Shopify', href: '/brain/shopify', icon: ShoppingBag },
     { name: 'AI Tools', href: '/brain/tools', icon: Sparkles },
