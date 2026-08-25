@@ -2,13 +2,14 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Settings, MessageSquare, Users, Phone, BarChart3, PhoneCall, Menu, X } from 'lucide-react'
+import { Home, Settings, Users, Phone, PhoneCall, PhoneForwarded, Menu, X } from 'lucide-react'
 import { useState, useEffect } from 'react'
 
 const navigation = [
     { name: 'Dashboard', href: '/', icon: Home },
     { name: 'Configuration', href: '/config', icon: Settings },
     { name: 'Calls', href: '/calls', icon: PhoneCall },
+    { name: 'Human Handoffs', href: '/handoffs', icon: PhoneForwarded },
     { name: 'Leads', href: '/leads', icon: Users },
 ]
 
