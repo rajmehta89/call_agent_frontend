@@ -1,45 +1,25 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import {
-  Phone, PhoneCall, Clock, User, MessageSquare,
-  Search, Filter, Download, Eye,
-  Play, Pause, Volume2, FileText, Users,
-  TrendingUp, Activity, CheckCircle, XCircle
-} from 'lucide-react'
-import toast from 'react-hot-toast'
+import { useEffect, useState } from 'react'
+import { Eye, MessageSquare, Phone, User, X } from 'lucide-react'
 import Link from 'next/link'
+import toast from 'react-hot-toast'
+import { PageHeader } from '../../components/OmniPage'
+import { ActionButton, API_BASE, DataState, downloadCsv, MetricGrid, StatusBadge, Toolbar } from '../../components/PlatformUI'
 
 interface Call {
   _id: string
   phone_number: string | number
   lead_id?: string
-  lead?: {
-    name: string
-    company?: string
-    email?: string
-  }
+  lead?: { name: string; company?: string; email?: string }
   call_date: string
   status: 'completed' | 'failed' | 'missed' | 'initiated'
   duration: number
-  transcription: Array<{
-    type: 'user' | 'bot' | 'greeting' | 'exit'
-    content: string
-    timestamp: string
-  }>
-  ai_responses: Array<{
-    type: 'bot' | 'greeting' | 'exit'
-    content: string
-    timestamp: string
-  }>
+  transcription: Array<{ type: 'user' | 'bot' | 'greeting' | 'exit'; content: string; timestamp: string }>
+  ai_responses: Array<{ type: 'bot' | 'greeting' | 'exit'; content: string; timestamp: string }>
   call_summary: string
   sentiment: string
-  interest_analysis?: {
-    interest_status: 'interested' | 'not_interested' | 'neutral'
-    confidence: number
-    reasoning: string
-    key_indicators: string[]
-  }
+  interest_analysis?: { interest_status: 'interested' | 'not_interested' | 'neutral'; confidence: number; reasoning: string; key_indicators: string[] }
   created_at: string
 }
 
@@ -48,486 +28,133 @@ interface CallStats {
   calls_today: number
   calls_this_week: number
   average_duration: number
-  status_counts: {
-    completed: number
-    failed: number
-    missed: number
-  }
-  interest_counts?: {
-    interested: number
-    not_interested: number
-    neutral: number
-  }
-  calls_with_analysis?: number
+  status_counts: { completed: number; failed: number; missed: number }
+  interest_counts?: { interested: number; not_interested: number; neutral: number }
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_CALL_API_URL || 'https://call-agent-backend-ssrw.onrender.com'
+const emptyStats: CallStats = {
+  total_calls: 0,
+  calls_today: 0,
+  calls_this_week: 0,
+  average_duration: 0,
+  status_counts: { completed: 0, failed: 0, missed: 0 },
+}
 
 export default function CallsPage() {
   const [calls, setCalls] = useState<Call[]>([])
-  const [stats, setStats] = useState<CallStats>({
-    total_calls: 0,
-    calls_today: 0,
-    calls_this_week: 0,
-    average_duration: 0,
-    status_counts: { completed: 0, failed: 0, missed: 0 }
-  })
+  const [stats, setStats] = useState<CallStats>(emptyStats)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [selectedCall, setSelectedCall] = useState<Call | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string>('all')
-  const [interestFilter, setInterestFilter] = useState<string>('all')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [interestFilter, setInterestFilter] = useState('all')
 
-  useEffect(() => {
-    loadCalls()
-    loadStats()
-  }, [])
-
-  const loadCalls = async () => {
+  const load = async () => {
+    setLoading(true)
+    setError('')
     try {
-      const response = await fetch(`${API_BASE}/api/calls`)
-      const data = await response.json()
-
-      if (data.success) {
-        setCalls(data.data)
-      } else {
-        toast.error('Failed to load calls')
-      }
-    } catch (error) {
-      toast.error('Error connecting to backend')
-      console.error('Error loading calls:', error)
+      const [callsResponse, statsResponse] = await Promise.all([
+        fetch(`${API_BASE}/api/calls`),
+        fetch(`${API_BASE}/api/calls/stats`),
+      ])
+      const callsPayload = await callsResponse.json()
+      const statsPayload = await statsResponse.json()
+      if (!callsResponse.ok || !callsPayload.success) throw new Error(callsPayload.error || 'Unable to load calls')
+      setCalls(callsPayload.data || [])
+      if (statsPayload.success) setStats(statsPayload.data)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unable to load calls'
+      setError(message)
+      toast.error(message)
     } finally {
       setLoading(false)
     }
   }
 
-  const loadStats = async () => {
-    try {
-      const response = await fetch(`${API_BASE}/api/calls/stats`)
-      const data = await response.json()
+  useEffect(() => { load() }, [])
 
-      if (data.success) {
-        setStats(data.data)
-      }
-    } catch (error) {
-      console.error('Error loading stats:', error)
-    }
+  const formatDuration = (seconds: number) => `${Math.floor(seconds / 60)}:${Math.floor(seconds % 60).toString().padStart(2, '0')}`
+  const formatDate = (value: string) => {
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return '—'
+    const pad = (part: number) => String(part).padStart(2, '0')
+    return `${pad(date.getDate())}-${pad(date.getMonth() + 1)}-${date.getFullYear()} ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
   }
 
-  const getStatusBadge = (status: string) => {
-    const styles = {
-      completed: 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30',
-      failed: 'bg-red-600/20 text-red-400 border border-red-500/30',
-      missed: 'bg-yellow-600/20 text-yellow-400 border border-yellow-500/30'
-    }
-
-    return (
-      <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles[status as keyof typeof styles]}`}>
-        {status.charAt(0).toUpperCase() + status.slice(1)}
-      </span>
-    )
+  const interestBadge = (analysis?: Call['interest_analysis']) => {
+    if (!analysis) return <span className="premium-badge pending">No analysis</span>
+    const tone = analysis.interest_status === 'interested' ? 'live' : analysis.interest_status === 'not_interested' ? 'alert' : 'pending'
+    const label = analysis.interest_status === 'not_interested' ? 'Not interested' : analysis.interest_status.charAt(0).toUpperCase() + analysis.interest_status.slice(1)
+    return <span className={`premium-badge ${tone}`}>{label} · {Math.round(analysis.confidence * 100)}%</span>
   }
 
-  const getInterestBadge = (interest_analysis?: Call['interest_analysis']) => {
-    if (!interest_analysis) {
-      return (
-        <span className="px-2 py-1 rounded-full text-xs font-medium bg-slate-600/20 text-slate-400 border border-slate-500/30">
-          No Analysis
-        </span>
-      )
-    }
-
-    const { interest_status, confidence } = interest_analysis
-    const styles = {
-      interested: 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30',
-      not_interested: 'bg-red-600/20 text-red-400 border border-red-500/30',
-      neutral: 'bg-yellow-600/20 text-yellow-400 border border-yellow-500/30'
-    }
-
-    const labels = {
-      interested: 'Interested',
-      not_interested: 'Not Interested',
-      neutral: 'Neutral'
-    }
-
-    return (
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-2">
-        <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles[interest_status]}`}>
-          {labels[interest_status]}
-        </span>
-        <span className="text-xs text-slate-400">
-          {Math.round(confidence * 100)}%
-        </span>
-      </div>
-    )
-  }
-
-  const formatDuration = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60)
-    const remainingSeconds = Math.floor(seconds % 60)
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
-  }
-
-  const formatDate = (dateString: string) => {
-    if (!dateString) return '—'
-    const d = new Date(dateString)
-    if (isNaN(d.getTime())) return '—'
-    return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  }
-
-  const filteredCalls = calls.filter(call => {
-    const phoneStr = String(call.phone_number ?? '')
-    const leadName = call.lead?.name ? call.lead.name.toLowerCase() : ''
-    const term = searchTerm.toLowerCase()
-    const matchesSearch = phoneStr.includes(searchTerm) || leadName.includes(term)
-
+  const filteredCalls = calls.filter((call) => {
+    const search = searchTerm.toLowerCase()
+    const matchesSearch = String(call.phone_number || '').toLowerCase().includes(search) || (call.lead?.name || '').toLowerCase().includes(search)
     const matchesStatus = statusFilter === 'all' || call.status === statusFilter
-
-    const matchesInterest = interestFilter === 'all' ||
-        (interestFilter === 'no_analysis' && !call.interest_analysis) ||
-        (call.interest_analysis?.interest_status === interestFilter)
-
+    const matchesInterest = interestFilter === 'all' || (interestFilter === 'no_analysis' && !call.interest_analysis) || call.interest_analysis?.interest_status === interestFilter
     return matchesSearch && matchesStatus && matchesInterest
   })
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 sm:p-6">
-        <div className="flex items-center space-x-3 text-white">
-          <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-blue-500"></div>
-          <span className="text-base sm:text-lg">Loading calls...</span>
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <div className="min-h-screen bg-slate-950 p-4 sm:p-6 lg:p-8">
-      <div className="w-full max-w-none space-y-6">
-        {/* Header */}
-        <div className="flex flex-col space-y-2">
-          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white">Call History</h1>
-          <p className="text-slate-400 text-xs sm:text-sm lg:text-base">View call details, transcriptions, and analytics</p>
-        </div>
+    <div className="space-y-7">
+      <PageHeader title="Call history" description="Review calls, outcomes, lead context, interest signals, transcripts, and AI summaries in one consistent workspace." />
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
-          {[
-            { icon: <Phone className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400" />,
-              title: "Total Calls",
-              value: stats.total_calls,
-              color: "text-white" },
-            { icon: <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />,
-              title: "Today",
-              value: stats.calls_today,
-              color: "text-blue-400" },
-            { icon: <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />,
-              title: "Interested",
-              value: stats.interest_counts?.interested || 0,
-              color: "text-emerald-400" },
-            { icon: <XCircle className="w-4 h-4 sm:w-5 sm:h-5 text-red-400" />,
-              title: "Not Interested",
-              value: stats.interest_counts?.not_interested || 0,
-              color: "text-red-400" },
-            { icon: <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />,
-              title: "Avg Duration",
-              value: formatDuration(stats.average_duration),
-              color: "text-purple-400" },
-            { icon: <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />,
-              title: "Completed",
-              value: stats.status_counts.completed,
-              color: "text-emerald-400" }
-          ].map((stat, index) => (
-            <div key={index} className="bg-slate-900 rounded-lg border border-slate-800 p-3 sm:p-4 hover:border-slate-700 transition-all">
-              <div className="flex justify-between items-center">
-                <div>
-                  <p className="text-xs sm:text-sm font-medium text-slate-400">{stat.title}</p>
-                  <p className={`text-base sm:text-lg font-bold ${stat.color}`}>{stat.value}</p>
-                </div>
-                <div className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-lg bg-slate-800">
-                  {stat.icon}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+      <Toolbar search={searchTerm} onSearch={setSearchTerm} onRefresh={load} onExport={() => downloadCsv('calls')}>
+        <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="w-auto" aria-label="Call status">
+          <option value="all">All statuses</option><option value="completed">Completed</option><option value="failed">Failed</option><option value="missed">Missed</option>
+        </select>
+        <select value={interestFilter} onChange={(event) => setInterestFilter(event.target.value)} className="w-auto" aria-label="Call interest">
+          <option value="all">All interest</option><option value="interested">Interested</option><option value="not_interested">Not interested</option><option value="neutral">Neutral</option><option value="no_analysis">No analysis</option>
+        </select>
+      </Toolbar>
 
-        {/* Filters */}
-        <div className="bg-slate-900 rounded-lg border border-slate-800 p-4">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Search by phone number or lead name..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 sm:py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm sm:text-base"
-                />
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full sm:w-auto flex-1 min-w-[100px] sm:min-w-[120px] px-3 py-2 sm:py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-xs sm:text-sm"
-              >
-                <option value="all">All Status</option>
-                <option value="completed">Completed</option>
-                <option value="failed">Failed</option>
-                <option value="missed">Missed</option>
-              </select>
-              <select
-                value={interestFilter}
-                onChange={(e) => setInterestFilter(e.target.value)}
-                className="w-full sm:w-auto flex-1 min-w-[100px] sm:min-w-[120px] px-3 py-2 sm:py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-xs sm:text-sm"
-              >
-                <option value="all">All Interest</option>
-                <option value="interested">Interested</option>
-                <option value="not_interested">Not Interested</option>
-                <option value="neutral">Neutral</option>
-                <option value="no_analysis">No Analysis</option>
-              </select>
-            </div>
+      <DataState loading={loading} error={error} onRetry={load}>
+        <MetricGrid items={[
+          { label: 'Total calls', value: stats.total_calls },
+          { label: 'Today', value: stats.calls_today },
+          { label: 'Interested', value: stats.interest_counts?.interested || 0 },
+          { label: 'Not interested', value: stats.interest_counts?.not_interested || 0 },
+          { label: 'Average duration', value: formatDuration(stats.average_duration) },
+          { label: 'Completed', value: stats.status_counts.completed },
+        ]} />
+
+        <section className="surface-panel overflow-hidden">
+          <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+            <div><h2 className="text-sm font-semibold text-slate-900">Recent calls</h2><p className="mt-1 text-xs text-slate-500">{filteredCalls.length} records match the current filters.</p></div>
+            <span className="hidden text-xs text-slate-500 sm:block">Updated from live call data</span>
           </div>
-        </div>
-
-        {/* Calls List */}
-        <div className="bg-slate-900 rounded-lg border border-slate-800 overflow-hidden">
-          {/* Desktop Table */}
-          <div className="hidden lg:block overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-slate-800 border-b border-slate-700">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Call Details</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Lead</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Interest</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Duration</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800">
-                {filteredCalls.length > 0 ? (
-                  filteredCalls.map((call) => (
-                    <tr key={call._id} className="hover:bg-slate-800/50 transition-colors">
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="font-medium text-white text-sm">{String(call.phone_number || '—')}</div>
-                        <div className="text-xs text-slate-400">{formatDate(call.call_date)}</div>
-                      </td>
-                      <td className="px-4 py-3">
-                        {call.lead ? (
-                          <div>
-                            <div className="font-medium text-white text-sm">{call.lead.name || '—'}</div>
-                            <div className="text-xs text-slate-400">{call.lead.company || '—'}</div>
-                          </div>
-                        ) : (
-                          <span className="text-slate-500 text-sm">No lead</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        {getStatusBadge(call.status)}
-                      </td>
-                      <td className="px-4 py-3">
-                        {getInterestBadge(call.interest_analysis)}
-                      </td>
-                      <td className="px-4 py-3 text-white text-sm">
-                        {formatDuration(call.duration)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <button
-                          onClick={() => setSelectedCall(call)}
-                          className="p-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
-                          title="View Details"
-                        >
-                          <Eye className="w-4 h-4 text-white" />
-                        </button>
-                        <Link href={`/voice/calls/${call._id}`} className="ml-2 inline-flex rounded-lg border border-slate-700 px-2 py-2 text-xs text-slate-300 hover:text-white">Full detail</Link>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center">
-                      <div className="flex flex-col items-center justify-center text-slate-500">
-                        <Phone className="w-8 h-8 mb-2" />
-                        <p className="text-sm">No calls found</p>
-                        <p className="text-xs">Calls will appear here after they are completed</p>
-                      </div>
-                    </td>
-                  </tr>
-                )}
+          <div className="hidden overflow-x-auto lg:block">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-slate-200 bg-slate-50 text-[11px] uppercase tracking-[.12em] text-slate-500"><tr><th className="px-5 py-3">Call</th><th className="px-5 py-3">Lead</th><th className="px-5 py-3">Status</th><th className="px-5 py-3">Interest</th><th className="px-5 py-3">Duration</th><th className="px-5 py-3 text-right">Action</th></tr></thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredCalls.map((call) => <tr key={call._id} className="transition hover:bg-slate-50/80">
+                  <td className="whitespace-nowrap px-5 py-4"><div className="font-semibold text-slate-900">{String(call.phone_number || '—')}</div><div className="mt-1 text-xs text-slate-500">{formatDate(call.call_date)}</div></td>
+                  <td className="px-5 py-4">{call.lead ? <><div className="font-medium text-slate-900">{call.lead.name || '—'}</div><div className="mt-1 text-xs text-slate-500">{call.lead.company || '—'}</div></> : <span className="text-slate-500">No lead</span>}</td>
+                  <td className="px-5 py-4"><StatusBadge value={call.status} /></td><td className="px-5 py-4">{interestBadge(call.interest_analysis)}</td><td className="px-5 py-4 text-slate-700">{formatDuration(call.duration)}</td>
+                  <td className="px-5 py-4 text-right"><div className="inline-flex items-center gap-2"><ActionButton onClick={() => setSelectedCall(call)} icon={<Eye className="h-3.5 w-3.5" />}>View</ActionButton><Link href={`/voice/calls/${call._id}`} className="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-3.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50">Details</Link></div></td>
+                </tr>)}
               </tbody>
             </table>
           </div>
-
-          {/* Mobile and Tablet List */}
-          <div className="lg:hidden">
-            {filteredCalls.length > 0 ? (
-              filteredCalls.map((call) => (
-                <div key={call._id} className="p-4 border-b border-slate-800 hover:bg-slate-800/50 transition-colors">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <div className="font-medium text-white text-sm sm:text-base">{String(call.phone_number || '—')}</div>
-                      <div className="text-xs text-slate-400 mb-2">{formatDate(call.call_date)}</div>
-                    </div>
-                    <button
-                      onClick={() => setSelectedCall(call)}
-                      className="p-1.5 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
-                      title="View Details"
-                    >
-                      <Eye className="w-4 h-4 text-white" />
-                    </button>
-                    <Link href={`/voice/calls/${call._id}`} className="ml-2 rounded-lg border border-slate-700 px-2 py-1.5 text-xs text-slate-300">Detail</Link>
-                  </div>
-
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    {getStatusBadge(call.status)}
-                    <span className="text-xs sm:text-sm text-slate-400">{formatDuration(call.duration)}</span>
-                    {getInterestBadge(call.interest_analysis)}
-                  </div>
-
-                  {call.lead && (
-                    <div className="mt-2">
-                      <div className="text-sm font-medium text-white">{call.lead.name}</div>
-                      <div className="text-xs text-slate-400">{call.lead.company || '—'}</div>
-                    </div>
-                  )}
-                </div>
-              ))
-            ) : (
-              <div className="p-6 sm:p-8 text-center">
-                <div className="flex flex-col items-center justify-center text-slate-500">
-                  <Phone className="w-6 h-6 sm:w-8 sm:h-8 mb-2" />
-                  <p className="text-sm">No calls found</p>
-                  <p className="text-xs">Calls will appear here after they are completed</p>
-                </div>
-              </div>
-            )}
+          <div className="divide-y divide-slate-100 lg:hidden">
+            {filteredCalls.map((call) => <div key={call._id} className="space-y-3 p-4"><div className="flex items-start justify-between gap-3"><div><div className="font-semibold text-slate-900">{String(call.phone_number || '—')}</div><div className="mt-1 text-xs text-slate-500">{formatDate(call.call_date)}</div></div><ActionButton onClick={() => setSelectedCall(call)} icon={<Eye className="h-3.5 w-3.5" />}>View</ActionButton></div><div className="flex flex-wrap items-center gap-2"><StatusBadge value={call.status} />{interestBadge(call.interest_analysis)}<span className="text-xs text-slate-500">{formatDuration(call.duration)}</span></div>{call.lead && <div className="text-sm text-slate-700">{call.lead.name}<span className="ml-2 text-xs text-slate-500">{call.lead.company || ''}</span></div>}</div>)}
           </div>
+          {!filteredCalls.length && <div className="flex flex-col items-center justify-center px-5 py-16 text-center"><Phone className="h-8 w-8 text-slate-300" /><p className="mt-3 text-sm font-medium text-slate-700">No calls found</p><p className="mt-1 text-xs text-slate-500">Try another search or filter.</p></div>}
+        </section>
+      </DataState>
+
+      {selectedCall && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-sm" onClick={() => setSelectedCall(null)}>
+        <div className="surface-panel max-h-[90vh] w-full max-w-3xl overflow-y-auto p-6" onClick={(event) => event.stopPropagation()}>
+          <div className="flex items-start justify-between gap-4"><div><h2 className="text-lg font-semibold text-slate-900">Call details</h2><p className="mt-1 text-sm text-slate-500">{selectedCall.phone_number} · {formatDate(selectedCall.call_date)}</p></div><button onClick={() => setSelectedCall(null)} className="rounded-md p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700" aria-label="Close details"><X className="h-5 w-5" /></button></div>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2"><div className="rounded-lg border border-slate-200 bg-slate-50 p-4"><div className="text-xs text-slate-500">Status</div><div className="mt-2"><StatusBadge value={selectedCall.status} /></div></div><div className="rounded-lg border border-slate-200 bg-slate-50 p-4"><div className="text-xs text-slate-500">Duration</div><div className="mt-2 text-sm font-semibold text-slate-900">{formatDuration(selectedCall.duration)}</div></div></div>
+          {selectedCall.lead && <div className="mt-4 rounded-lg border border-slate-200 bg-white p-4"><h3 className="text-sm font-semibold text-slate-900">Lead information</h3><div className="mt-3 grid gap-3 text-sm sm:grid-cols-3"><div><div className="text-xs text-slate-500">Name</div><div className="mt-1 text-slate-800">{selectedCall.lead.name}</div></div><div><div className="text-xs text-slate-500">Company</div><div className="mt-1 text-slate-800">{selectedCall.lead.company || '—'}</div></div><div><div className="text-xs text-slate-500">Email</div><div className="mt-1 break-words text-slate-800">{selectedCall.lead.email || '—'}</div></div></div></div>}
+          {selectedCall.interest_analysis && <div className="mt-4 rounded-lg border border-slate-200 bg-white p-4"><div className="flex flex-wrap items-center gap-2"><h3 className="text-sm font-semibold text-slate-900">Interest analysis</h3>{interestBadge(selectedCall.interest_analysis)}</div><p className="mt-3 text-sm leading-6 text-slate-600">{selectedCall.interest_analysis.reasoning}</p><div className="mt-3 flex flex-wrap gap-2">{selectedCall.interest_analysis.key_indicators?.map((indicator) => <span key={indicator} className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-slate-600">{indicator}</span>)}</div></div>}
+          <div className="mt-4 rounded-lg border border-slate-200 bg-white p-4"><h3 className="text-sm font-semibold text-slate-900">Call summary</h3><p className="mt-2 text-sm leading-6 text-slate-600">{selectedCall.call_summary || 'No summary available.'}</p></div>
+          <div className="mt-4 rounded-lg border border-slate-200 bg-white p-4"><div className="flex items-center gap-2"><MessageSquare className="h-4 w-4 text-[#d97706]" /><h3 className="text-sm font-semibold text-slate-900">Conversation</h3></div><div className="mt-4 max-h-80 space-y-3 overflow-y-auto">{[...selectedCall.transcription, ...selectedCall.ai_responses].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()).map((message, index) => <div key={`${message.timestamp}-${index}`} className="rounded-lg border border-slate-200 bg-slate-50 p-3"><div className="flex items-center justify-between gap-3 text-[11px] uppercase tracking-[.1em] text-slate-500"><span className="flex items-center gap-1.5">{message.type === 'user' ? <User className="h-3.5 w-3.5" /> : <MessageSquare className="h-3.5 w-3.5" />}{message.type === 'user' ? 'Customer' : 'AI agent'}</span><span>{new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></div><p className="mt-2 text-sm leading-6 text-slate-700">{message.content}</p></div>)}</div></div>
         </div>
-
-        {/* Call Details Modal */}
-        {selectedCall && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-slate-900 rounded-lg border border-slate-800 p-4 w-full max-w-[95vw] sm:max-w-3xl max-h-[90vh] overflow-y-auto">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-base sm:text-lg font-semibold text-white">Call Details</h3>
-                <button
-                  onClick={() => setSelectedCall(null)}
-                  className="text-slate-400 hover:text-white transition-colors"
-                >
-                  <XCircle className="w-5 h-5 sm:w-6 sm:h-6" />
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-                <div className="bg-slate-800 rounded-lg p-3">
-                  <p className="text-xs text-slate-400">Phone Number</p>
-                  <p className="text-white font-medium text-sm sm:text-base">{selectedCall.phone_number}</p>
-                </div>
-                <div className="bg-slate-800 rounded-lg p-3">
-                  <p className="text-xs text-slate-400">Duration</p>
-                  <p className="text-white font-medium text-sm sm:text-base">{formatDuration(selectedCall.duration)}</p>
-                </div>
-                <div className="bg-slate-800 rounded-lg p-3">
-                  <p className="text-xs text-slate-400">Status</p>
-                  <div>{getStatusBadge(selectedCall.status)}</div>
-                </div>
-                <div className="bg-slate-800 rounded-lg p-3">
-                  <p className="text-xs text-slate-400">Date</p>
-                  <p className="text-white text-sm">{formatDate(selectedCall.call_date)}</p>
-                </div>
-              </div>
-
-              {selectedCall.lead && (
-                <div className="bg-slate-800 rounded-lg p-4 mb-4">
-                  <h4 className="text-white font-medium mb-2 text-sm sm:text-base">Lead Information</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <p className="text-xs text-slate-400">Name</p>
-                      <p className="text-white text-sm sm:text-base break-words">{selectedCall.lead.name}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-400">Company</p>
-                      <p className="text-white text-sm sm:text-base break-words">{selectedCall.lead.company || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-400">Email</p>
-                      <p className="text-white text-sm sm:text-base break-words">{selectedCall.lead.email || 'N/A'}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {selectedCall.interest_analysis && (
-                <div className="bg-slate-800 rounded-lg p-4 mb-4">
-                  <h4 className="text-white font-medium mb-3 text-sm sm:text-base">Interest Analysis</h4>
-                  <div className="flex flex-wrap items-center gap-3 mb-3">
-                    {getInterestBadge(selectedCall.interest_analysis)}
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-400 mb-1">Reasoning</p>
-                    <p className="text-slate-300 text-sm sm:text-base">{selectedCall.interest_analysis.reasoning}</p>
-                  </div>
-                  {selectedCall.interest_analysis.key_indicators?.length > 0 && (
-                    <div className="mt-3">
-                      <p className="text-xs text-slate-400 mb-1">Key Indicators</p>
-                      <div className="flex flex-wrap gap-2">
-                        {selectedCall.interest_analysis.key_indicators.map((indicator, i) => (
-                          <span key={i} className="px-2 py-1 bg-slate-700 text-slate-300 text-xs rounded-full">
-                            {indicator}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div className="bg-slate-800 rounded-lg p-4 mb-4">
-                <h4 className="text-white font-medium mb-2 text-sm sm:text-base">Call Summary</h4>
-                <p className="text-slate-300 text-sm sm:text-base break-words">{selectedCall.call_summary}</p>
-              </div>
-
-              <div className="bg-slate-800 rounded-lg p-4">
-                <h4 className="text-white font-medium mb-3 text-sm sm:text-base">Conversation</h4>
-                <div className="space-y-3 max-h-64 sm:max-h-80 overflow-y-auto">
-                  {[...selectedCall.transcription, ...selectedCall.ai_responses]
-                    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
-                    .map((message, i) => (
-                      <div key={i} className={`p-3 rounded-lg ${
-                        message.type === 'user'
-                          ? 'bg-blue-600/20 border border-blue-500/30'
-                          : 'bg-slate-700/50 border border-slate-600/30'
-                      }`}>
-                        <div className="flex justify-between items-center mb-1">
-                          <div className="flex items-center gap-2">
-                            {message.type === 'user' ? (
-                              <User className="w-4 h-4 text-blue-400" />
-                            ) : (
-                              <MessageSquare className="w-4 h-4 text-emerald-400" />
-                            )}
-                            <span className={`text-xs font-medium ${
-                              message.type === 'user' ? 'text-blue-400' : 'text-emerald-400'
-                            }`}>
-                              {message.type === 'user' ? 'User' : 'AI'}
-                            </span>
-                          </div>
-                          <span className="text-xs text-slate-400">
-                            {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                        </div>
-                        <p className="text-white text-sm sm:text-base break-words">{message.content}</p>
-                      </div>
-                    ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+      </div>}
     </div>
   )
 }
