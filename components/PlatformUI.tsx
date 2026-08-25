@@ -21,7 +21,7 @@ export function MetricGrid({ items }: { items: { label: string; value: string | 
 export function Toolbar({ search, onSearch, onRefresh, onExport, children }: { search?: string; onSearch?: (value: string) => void; onRefresh?: () => void; onExport?: () => void; children?: ReactNode }) {
   return <div className="surface-panel flex flex-col gap-3 rounded-[22px] p-3 lg:flex-row lg:items-center">
     {onSearch && <div className="relative min-w-0 flex-1"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" /><input value={search} onChange={(e) => onSearch(e.target.value)} placeholder="Search records..." className="pl-10" /></div>}
-    <div className="flex flex-wrap items-center gap-2">{children}{onRefresh && <ActionButton onClick={onRefresh} icon={<RefreshCw className="h-4 w-4" />}>Refresh</ActionButton>}{onExport && <ActionButton onClick={onExport} icon={<Download className="h-4 w-4" />}>Export CSV</ActionButton>}</div>
+    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">{children}{onRefresh && <ActionButton onClick={onRefresh} icon={<RefreshCw className="h-4 w-4" />}>Refresh</ActionButton>}{onExport && <ActionButton onClick={onExport} icon={<Download className="h-4 w-4" />}>Export CSV</ActionButton>}</div>
   </div>
 }
 

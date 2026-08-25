@@ -29,9 +29,9 @@ export default function Dashboard() {
         description="One clear operating view for WhatsApp, Voice, customers, leads, Shopify, automation, and human handoff."
       />
       <Toolbar onRefresh={load} onExport={() => window.print()}>
-        <input type="date" className="w-auto" />
-        <select className="w-auto"><option>All channels</option><option>WhatsApp</option><option>Voice</option></select>
-        <select className="w-auto"><option>All agents</option></select>
+        <input type="date" className="min-w-[180px] flex-1" />
+        <select className="min-w-[180px] flex-1"><option>All channels</option><option>WhatsApp</option><option>Voice</option></select>
+        <select className="min-w-[180px] flex-1"><option>All agents</option></select>
       </Toolbar>
       <DataState loading={loading} error={error} onRetry={load}>
         <MetricGrid items={[
