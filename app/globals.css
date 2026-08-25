@@ -31,6 +31,7 @@ body {
     radial-gradient(circle at 80% 0%, rgba(108, 99, 255, 0.08), transparent 24rem),
     radial-gradient(circle at 20% 20%, rgba(25, 184, 154, 0.06), transparent 22rem),
     var(--bg);
+  font-size: 14px;
   font-feature-settings: "ss01" on, "cv02" on, "cv11" on;
 }
 
@@ -85,13 +86,16 @@ input:focus, textarea:focus, select:focus {
   text-transform: uppercase;
 }
 .section-heading {
-  font-size: clamp(1.85rem, 3vw, 3rem);
+  font-size: clamp(1.6rem, 2.2vw, 2.25rem);
   line-height: 1.05;
   letter-spacing: -0.055em;
   font-weight: 800;
   color: var(--text);
 }
 .section-copy { max-width: 52rem; color: var(--muted); line-height: 1.7; font-size: 0.96rem; }
+.text-3xl { font-size: 1.75rem !important; line-height: 2rem !important; }
+.text-2xl { font-size: 1.4rem !important; line-height: 1.8rem !important; }
+.text-xl { font-size: 1.15rem !important; line-height: 1.55rem !important; }
 .premium-badge {
   display: inline-flex;
   align-items: center;

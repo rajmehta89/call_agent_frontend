@@ -22,13 +22,12 @@ export function PageHeader({
   actionHref?: string
 }) {
   return (
-    <div className="surface-panel-strong relative overflow-hidden rounded-[32px] px-6 py-8 sm:px-8 lg:px-10">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(108,99,255,0.12),transparent_24%),radial-gradient(circle_at_left,rgba(25,184,154,0.08),transparent_28%)]" />
-      <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+    <div className="surface-panel relative overflow-hidden rounded-[24px] px-6 py-6 sm:px-8">
+      <div className="absolute left-0 top-0 h-1 w-full bg-[linear-gradient(90deg,#6c63ff,#b8b2ff,transparent)]" />
+      <div className="relative flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <div className="eyebrow">Workspace overview</div>
-          <h1 className="section-heading mt-5">{title}</h1>
-          <p className="section-copy mt-4">{description}</p>
+          <h1 className="section-heading">{title}</h1>
+          <p className="section-copy mt-2">{description}</p>
         </div>
         {actionLabel && actionHref ? (
           <Link
