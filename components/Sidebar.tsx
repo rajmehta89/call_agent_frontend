@@ -34,6 +34,11 @@ export default function Sidebar() {
           <div><div className="text-lg font-extrabold tracking-[-.04em] text-white">AgentFlow</div><div className="text-[11px] uppercase tracking-[.16em] text-[#92a8b7]">AI workspace</div></div>
         </Link>
       </div>
+      <div className="mx-4 mt-4 flex items-center gap-3 rounded-xl border border-white/10 bg-[#182631] px-3 py-2.5 shadow-[0_8px_18px_rgba(0,0,0,.12)]">
+        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#35e0ca]/15 text-[11px] font-extrabold text-[#72f3e2]">AF</span>
+        <span className="min-w-0"><span className="block truncate text-xs font-semibold text-white">AgentFlow</span><span className="mt-0.5 block text-[10px] text-[#92a8b7]">Workspace</span></span>
+        <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[#35e0ca] shadow-[0_0_0_4px_rgba(53,224,202,.1)]" />
+      </div>
       <nav className="sidebar-nav flex-1 overflow-y-auto px-3 py-4">
         {navigationGroups.map((group) => <div key={group.label || 'main'} className="mb-5">
           {group.label && <div className="mb-2 flex items-center justify-between px-3 text-[10px] font-bold uppercase tracking-[.18em] text-[#758b9a]"><span>{group.label}</span><ChevronDown className="h-3 w-3" /></div>}
@@ -46,7 +51,6 @@ export default function Sidebar() {
           })}</div>
         </div>)}
       </nav>
-      <div className="border-t border-[#263442] px-5 py-4"><div className="flex items-center gap-2 text-xs font-semibold text-[#b8c8d3]"><span className="h-2 w-2 rounded-full bg-[#35e0ca] shadow-[0_0_0_4px_#19352f]" /> Workspace online</div></div>
     </aside>
   </>
 }

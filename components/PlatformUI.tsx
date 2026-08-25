@@ -26,7 +26,7 @@ export function Toolbar({ search, onSearch, onRefresh, onExport, children }: { s
 }
 
 export function ActionButton({ children, onClick, icon, primary = false, disabled = false }: { children: ReactNode; onClick?: () => void; icon?: ReactNode; primary?: boolean; disabled?: boolean }) {
-  return <button type="button" onClick={onClick} disabled={disabled} className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${primary ? 'bg-[#6c63ff] text-white shadow-[0_8px_16px_rgba(108,99,255,.18)] hover:brightness-105' : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}>{icon}{children}</button>
+  return <button type="button" onClick={onClick} disabled={disabled} className={`inline-flex h-9 items-center justify-center gap-2 rounded-md px-3.5 text-sm font-medium transition active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-40 ${primary ? 'bg-[#d97706] text-white shadow-[0_8px_16px_rgba(217,119,6,.18)] hover:brightness-105' : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}>{icon}{children}</button>
 }
 
 export function DataState({ loading, error, empty, onRetry, children }: { loading: boolean; error?: string; empty?: boolean; onRetry?: () => void; children: ReactNode }) {
