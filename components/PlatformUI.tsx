@@ -1,6 +1,6 @@
 'use client'
 
-import { AlertTriangle, Check, Download, Loader2, RefreshCw, Search, SlidersHorizontal } from 'lucide-react'
+import { AlertTriangle, Check, Download, Loader2, RefreshCw, Search, SlidersHorizontal, X } from 'lucide-react'
 import { ReactNode } from 'react'
 
 export const API_BASE = process.env.NEXT_PUBLIC_CALL_API_URL || 'https://call-agent-backend-ssrw.onrender.com'
@@ -19,9 +19,12 @@ export function MetricGrid({ items }: { items: { label: string; value: string | 
 }
 
 export function Toolbar({ search, onSearch, onRefresh, onExport, children }: { search?: string; onSearch?: (value: string) => void; onRefresh?: () => void; onExport?: () => void; children?: ReactNode }) {
-  return <div className="surface-panel flex flex-col gap-3 rounded-[22px] p-3 lg:flex-row lg:items-center">
-    {onSearch && <div className="relative min-w-0 flex-1"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" /><input value={search} onChange={(e) => onSearch(e.target.value)} placeholder="Search records..." className="h-9 rounded-md py-2 pl-10 text-sm" /></div>}
-    <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2 [&>input]:h-9 [&>input]:min-w-[150px] [&>input]:flex-1 [&>input]:rounded-md [&>input]:py-2 [&>select]:h-9 [&>select]:min-w-[180px] [&>select]:flex-1 [&>select]:rounded-md [&>select]:py-2 [&>button]:shrink-0">{children}{onRefresh && <ActionButton onClick={onRefresh} icon={<RefreshCw className="h-4 w-4" />}>Refresh</ActionButton>}{onExport && <ActionButton onClick={onExport} icon={<Download className="h-4 w-4" />}>Export CSV</ActionButton>}</div>
+  return <div className="surface-panel flex flex-col gap-2.5 rounded-[22px] p-2.5 lg:flex-row lg:items-center">
+    {onSearch && <div className="relative min-w-0 flex-1 lg:max-w-[440px]"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input value={search} onChange={(e) => onSearch(e.target.value)} placeholder="Search records..." className="h-10 rounded-lg border-slate-200 bg-white pl-9 pr-10 text-sm shadow-none" />{search ? <button type="button" onClick={() => onSearch('')} aria-label="Clear search" className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full text-slate-400 transition hover:text-slate-700"><X className="h-4 w-4" /></button> : null}</div>}
+    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 rounded-lg border border-slate-200/80 bg-slate-50/70 p-2 [&>input]:h-9 [&>input]:min-w-[150px] [&>input]:flex-1 [&>input]:rounded-md [&>input]:py-2 [&>select]:h-9 [&>select]:min-w-[180px] [&>select]:flex-1 [&>select]:rounded-md [&>select]:py-2 [&>button]:shrink-0">
+      {children}
+      {(onRefresh || onExport) && <div className="ml-auto flex shrink-0 items-center gap-2">{onRefresh && <ActionButton onClick={onRefresh} icon={<RefreshCw className="h-4 w-4" />}>Refresh</ActionButton>}{onExport && <ActionButton onClick={onExport} icon={<Download className="h-4 w-4" />}>Export CSV</ActionButton>}</div>}
+    </div>
   </div>
 }
 
