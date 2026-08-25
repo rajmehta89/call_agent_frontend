@@ -41,7 +41,7 @@ export default function Sidebar() {
             const overviewRoute = item.href === '/whatsapp' || item.href === '/voice'
             const active = item.href === '/' || overviewRoute ? pathname === item.href : pathname === item.href || pathname.startsWith(`${item.href}/`)
             return <Link key={item.href} href={item.href} onClick={() => !isDesktop && setIsOpen(false)} className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${active ? 'bg-[#173d48] text-[#72f3e2] shadow-[inset_3px_0_0_#35e0ca]' : 'text-[#a9bac6] hover:bg-[#1b2732] hover:text-white'}`}>
-              <item.icon className="h-4 w-4" /><span className="font-medium">{item.name}</span>{active && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[#6c63ff]" />}
+              <item.icon className="h-4 w-4" /><span className="font-medium">{item.name}</span>{active && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[#f59e0b]" />}
             </Link>
           })}</div>
         </div>)}

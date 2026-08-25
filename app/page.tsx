@@ -57,7 +57,7 @@ export default function Dashboard() {
 
         <div className="mt-6 grid gap-6 xl:grid-cols-[1.4fr_1fr]">
           <section className="surface-panel rounded-[28px] p-6">
-            <div className="flex items-center gap-2 font-bold text-slate-900"><Activity className="h-4 w-4 text-[#6c63ff]" />Recent activity</div>
+            <div className="flex items-center gap-2 font-bold text-slate-900"><Activity className="h-4 w-4 text-[#d97706]" />Recent activity</div>
             <div className="mt-4 divide-y divide-slate-100">
               {(data.recent_activity || []).length ? (data.recent_activity || []).map((row: any) => (
                 <div key={row._id} className="py-4">

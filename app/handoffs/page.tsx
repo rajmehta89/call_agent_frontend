@@ -136,7 +136,7 @@ export default function HandoffsPage() {
                   {handoff.status === 'awaiting_human' && (
                     <button
                       onClick={() => acceptHandoff(handoff.session_id)}
-                      className="rounded-2xl bg-[linear-gradient(135deg,#68d2c8,#3cae9f)] px-4 py-3 text-sm font-semibold text-slate-950 transition hover:brightness-105"
+                      className="rounded-md bg-[#d97706] px-3.5 py-2.5 text-sm font-medium text-white shadow-[0_8px_16px_rgba(217,119,6,.16)] transition hover:brightness-105"
                     >
                       Accept handoff
                     </button>
@@ -192,7 +192,7 @@ function MetricCard({
     tone === 'amber'
       ? 'text-[#f4d39a] bg-[#d6a34f]/10'
       : tone === 'teal'
-        ? 'text-[#8de7de] bg-[#68d2c8]/10'
+        ? 'text-[#b45309] bg-[#fff7ed]'
         : 'text-white bg-white/[0.06]'
 
   return (

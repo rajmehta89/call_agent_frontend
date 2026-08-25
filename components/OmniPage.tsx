@@ -56,7 +56,7 @@ export function ChannelCard({
   return (
     <div className="surface-panel rounded-[28px] p-6 transition hover:-translate-y-0.5 hover:border-[#cfcaff]">
       <div className="flex items-center justify-between">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#f0efff] text-[#655de0]">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#fed7aa] bg-[#fff7ed] text-[#d97706]">
           <Icon className="h-5 w-5" />
         </div>
         <span className={`premium-badge ${active ? 'live' : 'pending'}`}>{status}</span>
