@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { Settings, RotateCcw, Save, MessageSquare, ArrowRight, FileText, Database } from 'lucide-react'
+import { Settings, RotateCcw, Save, MessageSquare, ArrowRight, FileText, Database, PhoneForwarded, Plus, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface AgentConfig {
@@ -9,6 +9,17 @@ interface AgentConfig {
   system_prompt: string
   knowledge_base_enabled: boolean
   knowledge_base: string
+  human_transfer: {
+    enabled: boolean
+    team_mode: string
+    fallback_message: string
+    agents: Array<{
+      name: string
+      phone_number: string
+      aliases: string[]
+      enabled: boolean
+    }>
+  }
 }
 
 const PROMPT_TEMPLATES = {
@@ -75,7 +86,13 @@ export default function ConfigPage() {
     exit_message: 'Thank you for calling. Have a great day!',
     system_prompt: 'You are a helpful AI assistant. Provide clear, concise answers.',
     knowledge_base_enabled: false,
-    knowledge_base: ''
+    knowledge_base: '',
+    human_transfer: {
+      enabled: true,
+      team_mode: 'ring_all',
+      fallback_message: 'I am transferring you to a human agent now. They will have the context from this call.',
+      agents: []
+    }
   })
   const [activeTab, setActiveTab] = useState('greeting')
   const [loading, setLoading] = useState(false)
@@ -95,7 +112,13 @@ export default function ConfigPage() {
           exit_message: data.exit_message || '',
           system_prompt: data.system_prompt || '',
           knowledge_base_enabled: data.knowledge_base_enabled || false,
-          knowledge_base: data.knowledge_base || ''
+          knowledge_base: data.knowledge_base || '',
+          human_transfer: {
+            enabled: data.human_transfer?.enabled ?? true,
+            team_mode: data.human_transfer?.team_mode || 'ring_all',
+            fallback_message: data.human_transfer?.fallback_message || 'I am transferring you to a human agent now. They will have the context from this call.',
+            agents: data.human_transfer?.agents || []
+          }
         })
       }
     } catch (error) {
@@ -132,7 +155,13 @@ export default function ConfigPage() {
       exit_message: 'Thank you for calling. Have a great day!',
       system_prompt: 'You are a helpful AI assistant. Provide clear, concise answers.',
       knowledge_base_enabled: false,
-      knowledge_base: ''
+      knowledge_base: '',
+      human_transfer: {
+        enabled: true,
+        team_mode: 'ring_all',
+        fallback_message: 'I am transferring you to a human agent now. They will have the context from this call.',
+        agents: []
+      }
     })
     toast.success('Configuration reset to defaults')
   }
@@ -191,11 +220,51 @@ export default function ConfigPage() {
     )
   }
 
+  const addHumanAgent = () => {
+    setConfig(prev => ({
+      ...prev,
+      human_transfer: {
+        ...prev.human_transfer,
+        agents: [
+          ...prev.human_transfer.agents,
+          { name: '', phone_number: '', aliases: [], enabled: true }
+        ]
+      }
+    }))
+  }
+
+  const updateHumanAgent = (index: number, field: 'name' | 'phone_number' | 'enabled' | 'aliases', value: string | boolean) => {
+    setConfig(prev => ({
+      ...prev,
+      human_transfer: {
+        ...prev.human_transfer,
+        agents: prev.human_transfer.agents.map((agent, i) => {
+          if (i !== index) return agent
+          if (field === 'aliases') {
+            return { ...agent, aliases: String(value).split(',').map(item => item.trim()).filter(Boolean) }
+          }
+          return { ...agent, [field]: value }
+        })
+      }
+    }))
+  }
+
+  const removeHumanAgent = (index: number) => {
+    setConfig(prev => ({
+      ...prev,
+      human_transfer: {
+        ...prev.human_transfer,
+        agents: prev.human_transfer.agents.filter((_, i) => i !== index)
+      }
+    }))
+  }
+
   const tabs = [
     { id: 'greeting', name: 'Greeting', icon: MessageSquare },
     { id: 'exit', name: 'Exit', icon: ArrowRight },
     { id: 'behavior', name: 'Behavior', icon: FileText },
-    { id: 'knowledge', name: 'Knowledge', icon: Database }
+    { id: 'knowledge', name: 'Knowledge', icon: Database },
+    { id: 'handoff', name: 'Human Routing', icon: PhoneForwarded }
   ]
 
   return (
@@ -349,6 +418,130 @@ export default function ConfigPage() {
                       </div>
                   )}
                 </div>
+            )}
+
+            {activeTab === 'handoff' && (
+              <div className="space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-base sm:text-lg font-semibold text-white mb-1">Human Agent Routing</h3>
+                    <p className="text-slate-400 text-sm sm:text-base">Set team numbers for live handoff. If the caller asks for a named person, the AI tries that dedicated agent first.</p>
+                  </div>
+                  <label className="flex items-center space-x-3">
+                    <input
+                      type="checkbox"
+                      checked={config.human_transfer.enabled}
+                      onChange={() => setConfig(prev => ({
+                        ...prev,
+                        human_transfer: {
+                          ...prev.human_transfer,
+                          enabled: !prev.human_transfer.enabled
+                        }
+                      }))}
+                      className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 bg-slate-800 border-slate-700 rounded focus:ring-blue-500 focus:ring-2"
+                    />
+                    <span className="text-sm font-medium text-slate-200">Enable Human Transfer</span>
+                  </label>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-200 mb-2">Transfer Message</label>
+                  <textarea
+                    value={config.human_transfer.fallback_message}
+                    onChange={(e) => setConfig(prev => ({
+                      ...prev,
+                      human_transfer: {
+                        ...prev.human_transfer,
+                        fallback_message: e.target.value
+                      }
+                    }))}
+                    rows={3}
+                    className="w-full px-3 py-2 sm:px-4 sm:py-3 bg-slate-800 border border-slate-700 rounded-lg sm:rounded-xl text-white placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm sm:text-base"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-sm sm:text-base font-medium text-white">Human Agents</h4>
+                    <p className="text-slate-400 text-xs sm:text-sm">If no dedicated agent is requested, all enabled numbers are dialed and whoever answers first takes the call.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={addHumanAgent}
+                    className="inline-flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all text-sm"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Agent
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  {config.human_transfer.agents.length === 0 ? (
+                    <div className="text-sm text-slate-500 bg-slate-800/40 border border-slate-700 rounded-xl p-4">
+                      No team agents added yet.
+                    </div>
+                  ) : config.human_transfer.agents.map((agent, index) => (
+                    <div key={index} className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 space-y-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="text-sm font-medium text-white">Agent {index + 1}</div>
+                        <button
+                          type="button"
+                          onClick={() => removeHumanAgent(index)}
+                          className="inline-flex items-center gap-2 px-3 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-300 rounded-lg transition-all text-sm"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Remove
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-slate-200">Agent Name</label>
+                          <input
+                            type="text"
+                            value={agent.name}
+                            onChange={(e) => updateHumanAgent(index, 'name', e.target.value)}
+                            placeholder="John"
+                            className="w-full px-3 py-2 sm:px-4 sm:py-3 bg-slate-800 border border-slate-700 rounded-lg sm:rounded-xl text-white placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-slate-200">Phone Number</label>
+                          <input
+                            type="text"
+                            value={agent.phone_number}
+                            onChange={(e) => updateHumanAgent(index, 'phone_number', e.target.value)}
+                            placeholder="+14155550123"
+                            className="w-full px-3 py-2 sm:px-4 sm:py-3 bg-slate-800 border border-slate-700 rounded-lg sm:rounded-xl text-white placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-slate-200">Aliases</label>
+                        <input
+                          type="text"
+                          value={agent.aliases.join(', ')}
+                          onChange={(e) => updateHumanAgent(index, 'aliases', e.target.value)}
+                          placeholder="john, john sales, mr john"
+                          className="w-full px-3 py-2 sm:px-4 sm:py-3 bg-slate-800 border border-slate-700 rounded-lg sm:rounded-xl text-white placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                        />
+                        <p className="text-xs text-slate-500">Comma-separated names or phrases the caller might use.</p>
+                      </div>
+
+                      <label className="flex items-center space-x-3">
+                        <input
+                          type="checkbox"
+                          checked={agent.enabled}
+                          onChange={(e) => updateHumanAgent(index, 'enabled', e.target.checked)}
+                          className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 bg-slate-800 border-slate-700 rounded focus:ring-blue-500 focus:ring-2"
+                        />
+                        <span className="text-sm font-medium text-slate-200">Enabled for routing</span>
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         </div>
