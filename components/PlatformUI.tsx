@@ -6,8 +6,14 @@ import { ReactNode } from 'react'
 export const API_BASE = process.env.NEXT_PUBLIC_CALL_API_URL || 'https://call-agent-backend-ssrw.onrender.com'
 
 export async function api<T = any>(path: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, { ...options, headers: { 'Content-Type': 'application/json', ...(options?.headers || {}) } })
+  const isFormData = typeof FormData !== 'undefined' && options?.body instanceof FormData
+  const token = typeof window !== 'undefined' ? window.localStorage.getItem('agentflow_token') : null
+  const response = await fetch(`${API_BASE}${path}`, { ...options, headers: { ...(isFormData ? {} : { 'Content-Type': 'application/json' }), ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(options?.headers || {}) } })
   const payload = await response.json().catch(() => ({}))
+  if (response.status === 401 && typeof window !== 'undefined' && !['/login', '/signup', '/invite/accept'].some((route) => window.location.pathname.startsWith(route))) {
+    window.localStorage.removeItem('agentflow_token')
+    window.location.href = '/login'
+  }
   if (!response.ok) throw new Error(payload?.detail?.error || payload?.detail || payload?.error || `Request failed (${response.status})`)
   return payload
 }
@@ -40,8 +46,12 @@ export function DataState({ loading, error, empty, onRetry, children }: { loadin
 }
 
 export function StatusBadge({ value }: { value: string | boolean }) {
-  const good = value === true || ['active','connected','completed','success','enabled','approved','open','live','ready'].includes(String(value).toLowerCase())
-  return <span className={`premium-badge ${good ? 'live' : 'pending'}`}>{good && <Check className="h-3 w-3" />}{String(value)}</span>
+  const raw = String(value)
+  const normalized = raw.toLowerCase().replace(/[_-]+/g, ' ')
+  const good = value === true || ['active','connected','completed','transferred','success','enabled','approved','open','live','ready'].includes(normalized)
+  const alert = ['failed','busy','no answer','canceled','disabled','unconfigured','missed'].includes(normalized)
+  const label = normalized.replace(/\b\w/g, (letter) => letter.toUpperCase())
+  return <span className={`premium-badge ${alert ? 'alert' : good ? 'live' : 'pending'}`}>{(good || alert) && <Check className="h-3 w-3" />}{label}</span>
 }
 
 export function FeatureSection({ title, description, features }: { title: string; description?: string; features: string[] }) {

@@ -34,7 +34,7 @@ interface LeadStats {
   total_calls: number
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_LEAD_API_URL || 'https://call-agent-backend-ssrw.onrender.com'
+const API_BASE = process.env.NEXT_PUBLIC_CALL_API_URL || process.env.NEXT_PUBLIC_LEAD_API_URL || 'https://call-agent-backend-ssrw.onrender.com'
 
 export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([])
@@ -71,12 +71,18 @@ export default function LeadsPage() {
 
   useEffect(() => {
     loadLeads()
+  }, [searchTerm, statusFilter])
+
+  useEffect(() => {
     loadStats()
   }, [])
 
   const loadLeads = async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/leads`)
+      const params = new URLSearchParams({ limit: '200' })
+      if (searchTerm.trim()) params.set('search', searchTerm.trim())
+      if (statusFilter !== 'all') params.set('status', statusFilter)
+      const response = await fetch(`${API_BASE}/api/leads/?${params.toString()}`)
       const data = await response.json()
 
       if (data.success) {

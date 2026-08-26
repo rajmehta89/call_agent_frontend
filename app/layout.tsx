@@ -1,9 +1,8 @@
 import type { Metadata } from 'next'
 import { Manrope } from 'next/font/google'
 import './globals.css'
-import Sidebar from '../components/Sidebar'
+import AppShell from '../components/AppShell'
 import { Toaster } from 'react-hot-toast'
-import GlobalHeader from '../components/GlobalHeader'
 
 const manrope = Manrope({ subsets: ['latin'] })
 
@@ -20,15 +19,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={manrope.className}>
-        <div className="flex min-h-screen bg-[#eef2f6]">
-          <Sidebar />
-          <main className="min-w-0 flex-1 overflow-auto">
-            <GlobalHeader />
-            <div className="mx-auto w-full max-w-[1800px] bg-[linear-gradient(180deg,#eef2f6_0%,#f8fafc_280px,#f8fafc_100%)] px-4 pb-10 pt-20 sm:px-6 lg:px-8 lg:pt-8">
-              {children}
-            </div>
-          </main>
-        </div>
+        <AppShell>{children}</AppShell>
         <Toaster 
           position="top-right"
           toastOptions={{

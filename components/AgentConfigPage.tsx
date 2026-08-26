@@ -2,39 +2,32 @@
 
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
-import { Bot, Save, TestTube2 } from 'lucide-react'
+import { Plus, Save, Trash2 } from 'lucide-react'
 import { PageHeader } from './OmniPage'
-import { ActionButton, api, DataState, FeatureSection } from './PlatformUI'
+import { ActionButton, api, DataState } from './PlatformUI'
 
-const channelFields: Record<string, { key: string; label: string; type?: string }[]> = {
-  whatsapp: [
-    { key: 'name', label: 'Agent name' }, { key: 'personality', label: 'Personality' }, { key: 'tone', label: 'Tone' },
-    { key: 'language', label: 'Language' }, { key: 'greeting', label: 'Greeting' }, { key: 'closing_message', label: 'Closing message' },
-    { key: 'business_hours', label: 'Business hours' }, { key: 'out_of_hours_response', label: 'Out-of-hours response' },
-    { key: 'response_delay', label: 'Response delay' }, { key: 'context_window', label: 'Context window' },
-    { key: 'confidence_threshold', label: 'Confidence threshold' }, { key: 'dont_know_behaviour', label: "Don't-know behaviour" },
-  ],
-  voice: [
-    { key: 'name', label: 'Agent name' }, { key: 'voice_provider', label: 'Voice provider' }, { key: 'voice', label: 'Voice selection' },
-    { key: 'language', label: 'Language' }, { key: 'accent', label: 'Accent' }, { key: 'speaking_speed', label: 'Speaking speed' },
-    { key: 'pitch', label: 'Pitch' }, { key: 'personality', label: 'Personality' }, { key: 'greeting', label: 'Greeting' },
-    { key: 'interruptions', label: 'Interruption behaviour' }, { key: 'silence_timeout', label: 'Silence timeout' },
-    { key: 'maximum_call_duration', label: 'Maximum call duration' }, { key: 'end_call_behaviour', label: 'End-call behaviour' },
-  ],
-}
+type Channel = 'whatsapp' | 'voice'
+type TransferAgent = { name?: string; phone_number?: string; aliases?: string[] | string; enabled?: boolean }
+type TransferConfig = { enabled?: boolean; team_mode?: string; agents?: TransferAgent[] }
 
-export default function AgentConfigPage({ channel }: { channel: 'whatsapp' | 'voice' }) {
+export default function AgentConfigPage({ channel }: { channel: Channel }) {
   const [config, setConfig] = useState<Record<string, any>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const load = () => { setLoading(true); setError(''); api(`/api/platform/agents/${channel}`).then((p) => setConfig(p.data)).catch((e) => setError(e.message)).finally(() => setLoading(false)) }
+  const load = () => { setLoading(true); setError(''); api(`/api/platform/agents/${channel}`).then((payload) => setConfig(payload.data || {})).catch((exception) => setError(exception.message)).finally(() => setLoading(false)) }
   useEffect(load, [channel])
-  const save = async () => { try { await api(`/api/platform/agents/${channel}`, { method: 'PUT', body: JSON.stringify({ value: config }) }); toast.success(`${channel === 'voice' ? 'Voice' : 'WhatsApp'} agent saved`) } catch (e) { toast.error(e instanceof Error ? e.message : 'Save failed') } }
+  const save = async () => { try { await api(`/api/platform/agents/${channel}`, { method: 'PUT', body: JSON.stringify({ value: config }) }); toast.success(`${channel === 'voice' ? 'Voice' : 'WhatsApp'} agent saved`) } catch (exception) { toast.error(exception instanceof Error ? exception.message : 'Save failed') } }
+  const update = (key: string, value: string) => setConfig((current) => ({ ...current, [key]: value }))
+  const handoff = config.human_transfer || { enabled: true, team_mode: 'ring_all', agents: [] }
+
   return <div className="space-y-7">
-    <PageHeader title={`${channel === 'voice' ? 'Voice' : 'WhatsApp'} Agent`} description={`Configure channel-specific ${channel === 'voice' ? 'speech and call' : 'messaging and response'} behavior. Knowledge, Shopify, customers, and tool permissions come from the shared AI Brain.`} />
-    <DataState loading={loading} error={error} onRetry={load}><div className="grid gap-6 xl:grid-cols-[1fr_380px]">
-      <div className="surface-panel rounded-[28px] p-6"><div className="grid gap-5 md:grid-cols-2">{channelFields[channel].map((field) => <label key={field.key} className="block"><span className="mb-2 block text-xs font-semibold uppercase tracking-[.12em] text-slate-500">{field.label}</span><input value={config[field.key] ?? ''} onChange={(e) => setConfig({ ...config, [field.key]: e.target.value })} /></label>)}</div><label className="mt-5 block"><span className="mb-2 block text-xs font-semibold uppercase tracking-[.12em] text-slate-500">Instructions</span><textarea rows={7} value={config.instructions ?? ''} onChange={(e) => setConfig({ ...config, instructions: e.target.value })} /></label><label className="mt-5 block"><span className="mb-2 block text-xs font-semibold uppercase tracking-[.12em] text-slate-500">Human handoff rules</span><textarea rows={4} value={config.human_handoff_rules ?? ''} onChange={(e) => setConfig({ ...config, human_handoff_rules: e.target.value })} /></label><div className="mt-6 flex flex-wrap gap-2"><ActionButton primary onClick={save} icon={<Save className="h-4 w-4" />}>Save agent</ActionButton><ActionButton icon={<TestTube2 className="h-4 w-4" />}>Test agent</ActionButton><ActionButton>Duplicate</ActionButton><ActionButton>Version history</ActionButton></div></div>
-      <div className="space-y-5"><FeatureSection title="Shared brain access" description="This channel reads live shared context at response time." features={['Company knowledge','FAQs & policies','Customer profile','Shopify products','Inventory & orders','AI tool permissions']} /><FeatureSection title="Safety & escalation" features={['Restricted topics','Hallucination protection','Confidence threshold','Frustration detection','Human handoff','Enable / disable']} /></div>
-    </div></DataState>
+    <PageHeader title={`${channel === 'voice' ? 'Voice' : 'WhatsApp'} Agent`} description={`Set the customer-facing ${channel === 'voice' ? 'call' : 'message'} experience. The system handles knowledge, tools, safety, and delivery automatically.`} />
+    <DataState loading={loading} error={error} onRetry={load}><div className="grid w-full gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(360px,.55fr)]"><section className="surface-panel min-w-0 rounded-[28px] p-6 lg:p-8"><div className="mb-7 flex items-start gap-3 rounded-2xl border border-[#dbeafe] bg-[#f8fbff] p-4"><span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#e0efff] text-[#2563eb]">{channel === 'voice' ? '☎' : '✦'}</span><div><div className="text-sm font-bold text-slate-900">Customer-facing setup</div><p className="mt-1 text-xs leading-5 text-slate-500">Give your agent a name, greeting, and clear instructions. Everything technical stays managed behind the scenes.</p></div></div><div className="grid gap-5 md:grid-cols-2"><label className="block"><span className="field-label">Agent name</span><input value={config.name ?? ''} onChange={(event) => update('name', event.target.value)} placeholder={channel === 'voice' ? 'Voice Concierge' : 'WhatsApp Concierge'} /></label><label className="block"><span className="field-label">Greeting</span><input value={config.greeting ?? ''} onChange={(event) => update('greeting', event.target.value)} placeholder="Hello! How can I help you today?" /></label></div><label className="mt-6 block"><span className="field-label">Instructions</span><textarea rows={10} value={config.instructions ?? ''} onChange={(event) => update('instructions', event.target.value)} placeholder="Tell the agent how to help customers, what your business offers, and when to ask for a person." /></label><label className="mt-6 block"><span className="field-label">When to involve a person</span><textarea rows={5} value={config.human_handoff_rules ?? ''} onChange={(event) => update('human_handoff_rules', event.target.value)} placeholder="Transfer when a customer asks for a person or the request needs staff approval." /></label><div className="mt-7 flex items-center justify-between gap-3 border-t border-slate-200 pt-6"><p className="text-xs text-slate-500">Changes apply to new customer conversations.</p><ActionButton primary onClick={save} icon={<Save className="h-4 w-4" />}>Save agent</ActionButton></div></section><HumanTransferPanel channel={channel} value={handoff} onChange={(human_transfer) => setConfig((current) => ({ ...current, human_transfer }))} /></div></DataState>
   </div>
+}
+
+function HumanTransferPanel({ channel, value, onChange }: { channel: Channel; value: TransferConfig; onChange: (value: TransferConfig) => void }) {
+  const agents = value.agents || []
+  const updateAgent = (index: number, patch: Partial<TransferAgent>) => onChange({ ...value, agents: agents.map((agent, agentIndex) => agentIndex === index ? { ...agent, ...patch } : agent) })
+  return <section className="surface-panel h-fit rounded-[28px] border-[#cfe1f5] bg-[linear-gradient(160deg,#f5faff_0%,#ffffff_70%)] p-6 lg:p-7"><div className="flex items-start justify-between gap-3"><div><div className="text-base font-bold text-slate-900">Human handoff</div><p className="mt-1 text-xs leading-5 text-slate-500">{channel === 'voice' ? 'People who receive calls when a caller needs human help.' : 'People who receive conversations when a customer asks for human help.'}</p></div><label className="flex shrink-0 items-center gap-2 text-xs font-semibold text-slate-600"><input type="checkbox" checked={value.enabled !== false} onChange={(event) => onChange({ ...value, enabled: event.target.checked })} className="h-4 w-4 accent-[#2563eb]" />On</label></div><div className="mt-6 space-y-3">{agents.map((agent, index) => <div key={index} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><div className="flex items-center justify-between gap-3"><span className="text-xs font-bold uppercase tracking-[.1em] text-slate-400">Contact {index + 1}</span><button type="button" aria-label={`Remove ${agent.name || 'human contact'}`} onClick={() => onChange({ ...value, agents: agents.filter((_, agentIndex) => agentIndex !== index) })} className="rounded-md p-1.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-500"><Trash2 className="h-4 w-4" /></button></div><label className="mt-3 block"><span className="field-label">Person or team name</span><input value={agent.name || ''} onChange={(event) => updateAgent(index, { name: event.target.value })} placeholder="Sales team" /></label><label className="mt-3 block"><span className="field-label">{channel === 'voice' ? 'Phone number' : 'Phone number (optional)'}</span><input value={agent.phone_number || ''} onChange={(event) => updateAgent(index, { phone_number: event.target.value })} placeholder={channel === 'voice' ? '+14155550123' : 'Optional'} /></label><label className="mt-3 flex items-center gap-2 text-xs font-semibold text-slate-600"><input type="checkbox" checked={agent.enabled !== false} onChange={(event) => updateAgent(index, { enabled: event.target.checked })} className="h-4 w-4 accent-[#2563eb]" />Available for handoff</label></div>)}{!agents.length && <div className="rounded-2xl border border-dashed border-[#b8d4ef] bg-white/80 p-6 text-center"><div className="text-sm font-semibold text-slate-700">No human contacts yet</div><p className="mt-1 text-xs leading-5 text-slate-500">Add a person or team so the agent knows where to send customer requests.</p></div>}</div><div className="mt-5"><ActionButton onClick={() => onChange({ ...value, agents: [...agents, { name: '', phone_number: '', aliases: [], enabled: true }] })} icon={<Plus className="h-4 w-4" />}>Add person</ActionButton></div></section>
 }

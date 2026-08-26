@@ -1,56 +1,24 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowUpRight, Clock3, Download, FileText, Headphones, MessageSquare, Phone, PhoneCall, Search, User, Users } from 'lucide-react'
 import Link from 'next/link'
+import { ArrowUpRight, Bot, Clock3, Download, FileText, Headphones, MessageSquare, Phone, PhoneCall, Search, User, Users, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { PageHeader } from '../../components/OmniPage'
 import { API_BASE, DataState, MetricGrid, StatusBadge, Toolbar, downloadCsv } from '../../components/PlatformUI'
 
 type Message = { type?: string; content?: string; timestamp?: string }
-
-interface Lead {
-  _id?: string
-  id?: string
-  name: string
-  phone?: string | number
-  email?: string
-  company?: string
-  status?: string
-  call_attempts?: number
-  last_call?: string
-}
-
-interface Call {
-  _id: string
-  phone_number: string | number
-  lead_id?: string
-  lead?: { name: string; company?: string; email?: string }
-  call_date?: string
-  created_at?: string
-  status?: string
-  direction?: string
-  duration?: number
-  transcription?: Message[]
-  ai_responses?: Message[]
-  call_summary?: string
-  sentiment?: string
-  next_action?: string
-  lead_score?: string | number
-  recording_url?: string
-  recording?: string
-  audio_url?: string
-  interest_analysis?: { interest_status?: string; confidence?: number; reasoning?: string; key_indicators?: string[] }
-}
-
-interface CallStats {
-  total_calls?: number
-  calls_today?: number
-  average_duration?: number
-  status_counts?: { completed?: number; failed?: number; missed?: number }
-}
+type Lead = { _id?: string; id?: string; name: string; phone?: string | number; email?: string; company?: string }
+type Call = { _id: string; phone_number: string | number; lead_id?: string; lead?: { name: string; company?: string; email?: string }; call_date?: string; created_at?: string; status?: string; direction?: string; duration?: number; transcription?: Message[]; ai_responses?: Message[]; call_summary?: string; next_action?: string; recording_url?: string; recording?: string; audio_url?: string; interest_analysis?: { interest_status?: string; confidence?: number }; transfer_requested?: boolean; transfer_status?: string; transfer_destination?: string; transfer_error?: string; transfer_succeeded?: boolean; accepted_by?: string; handled_by?: string }
+type CallStats = { total_calls?: number; calls_today?: number; average_duration?: number; status_counts?: { completed?: number; failed?: number; missed?: number } }
 
 const emptyStats: CallStats = { total_calls: 0, calls_today: 0, average_duration: 0, status_counts: {} }
+const formatDuration = (seconds = 0) => `${Math.floor(seconds / 60)}:${Math.floor(seconds % 60).toString().padStart(2, '0')}`
+const formatDate = (value?: string) => { if (!value) return '—'; const date = new Date(value); if (Number.isNaN(date.getTime())) return '—'; return `${String(date.getDate()).padStart(2, '0')}-${String(date.getMonth() + 1).padStart(2, '0')}-${date.getFullYear()} ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` }
+const formatDay = (value?: string) => { if (!value) return 'Unknown day'; const date = new Date(value); return Number.isNaN(date.getTime()) ? 'Unknown day' : date.toLocaleDateString([], { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric' }) }
+const getConversation = (call?: Call | null) => [...(call?.transcription || []), ...(call?.ai_responses || [])].filter((message) => message.content).sort((a, b) => new Date(a.timestamp || '').getTime() - new Date(b.timestamp || '').getTime())
+const getSpeaker = (message: Message) => { const type = String(message.type || '').toLowerCase(); return message.type === 'user' ? 'Customer' : ['human', 'agent', 'human_agent'].includes(type) ? 'Human agent' : 'AI agent' }
+const isHumanHandled = (call: Call) => Boolean(call.accepted_by || call.handled_by || call.transfer_requested || ['requested', 'dialing', 'ringing', 'connected', 'accepted', 'completed'].includes(String(call.transfer_status || '').toLowerCase()))
 
 export default function CallsPage() {
   const [calls, setCalls] = useState<Call[]>([])
@@ -60,143 +28,110 @@ export default function CallsPage() {
   const [error, setError] = useState('')
   const [selectedLeadId, setSelectedLeadId] = useState('')
   const [selectedCall, setSelectedCall] = useState<Call | null>(null)
+  const [conversationCall, setConversationCall] = useState<Call | null>(null)
+  const [conversationView, setConversationView] = useState<'messages' | 'transcript'>('messages')
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [interestFilter, setInterestFilter] = useState('all')
-  const [view, setView] = useState<'messages' | 'transcript'>('messages')
+  const [directionFilter, setDirectionFilter] = useState('all')
+  const [handlingFilter, setHandlingFilter] = useState('all')
 
   const load = async () => {
-    setLoading(true)
-    setError('')
+    setLoading(true); setError('')
     try {
-      const read = async (url: string) => {
-        const response = await fetch(url)
-        const payload = await response.json()
-        if (!response.ok || !payload.success) throw new Error(payload.error || 'Unable to load call data')
-        return payload
-      }
-      const [callsResult, statsResult, leadsResult] = await Promise.allSettled([
-        read(`${API_BASE}/api/calls?limit=200`),
-        read(`${API_BASE}/api/calls/stats`),
-        read(`${API_BASE}/api/leads/?limit=200`),
-      ])
+      const read = async (url: string) => { const response = await fetch(url); const payload = await response.json(); if (!response.ok || !payload.success) throw new Error(payload.error || 'Unable to load call data'); return payload }
+      const [callsResult, statsResult, leadsResult] = await Promise.allSettled([read(`${API_BASE}/api/calls?limit=200`), read(`${API_BASE}/api/calls/stats`), read(`${API_BASE}/api/leads/?limit=200`)]);
       if (callsResult.status === 'rejected') throw callsResult.reason
       const nextCalls: Call[] = callsResult.value.data || []
       setCalls(nextCalls)
       if (statsResult.status === 'fulfilled') setStats(statsResult.value.data || emptyStats)
-
       const loadedLeads: Lead[] = leadsResult.status === 'fulfilled' ? leadsResult.value.data || [] : []
       const leadMap = new Map(loadedLeads.map((lead) => [String(lead._id || lead.id), lead]))
-      nextCalls.forEach((call) => {
-        if (call.lead_id && !leadMap.has(String(call.lead_id)) && call.lead) leadMap.set(String(call.lead_id), { _id: String(call.lead_id), name: call.lead.name, company: call.lead.company, email: call.lead.email, phone: call.phone_number })
-      })
-      const nextLeads = Array.from(leadMap.values())
-      setLeads(nextLeads)
+      nextCalls.forEach((call) => { if (call.lead_id && !leadMap.has(String(call.lead_id)) && call.lead) leadMap.set(String(call.lead_id), { _id: String(call.lead_id), name: call.lead.name, company: call.lead.company, email: call.lead.email, phone: call.phone_number }) })
+      const nextLeads = Array.from(leadMap.values()); setLeads(nextLeads)
       setSelectedLeadId((current) => current && nextLeads.some((lead) => String(lead._id || lead.id) === current) ? current : String(nextLeads[0]?._id || nextLeads[0]?.id || ''))
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unable to load calls'
-      setError(message)
-      toast.error(message)
-    } finally {
-      setLoading(false)
-    }
+    } catch (err) { const message = err instanceof Error ? err.message : 'Unable to load calls'; setError(message); toast.error(message) } finally { setLoading(false) }
   }
 
   useEffect(() => { load() }, [])
-
   const leadId = (lead: Lead) => String(lead._id || lead.id || '')
   const selectedLead = leads.find((lead) => leadId(lead) === selectedLeadId)
-  const formatDuration = (seconds = 0) => `${Math.floor(seconds / 60)}:${Math.floor(seconds % 60).toString().padStart(2, '0')}`
-  const formatDate = (value?: string) => {
-    if (!value) return '—'
-    const date = new Date(value)
-    if (Number.isNaN(date.getTime())) return '—'
-    return `${String(date.getDate()).padStart(2, '0')}-${String(date.getMonth() + 1).padStart(2, '0')}-${date.getFullYear()} ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-  }
-  const formatDay = (value?: string) => {
-    if (!value) return 'Unknown day'
-    const date = new Date(value)
-    if (Number.isNaN(date.getTime())) return 'Unknown day'
-    return date.toLocaleDateString([], { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric' })
-  }
   const initials = (name = '') => name.split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'L'
-
   const filteredLeads = leads.filter((lead) => `${lead.name} ${lead.phone || ''} ${lead.company || ''}`.toLowerCase().includes(searchTerm.toLowerCase()))
+  const filteredCalls = useMemo(() => calls.filter((call) => {
+    const haystack = `${call.phone_number || ''} ${call.lead?.name || ''} ${call.lead?.company || ''} ${call.call_summary || ''}`.toLowerCase()
+    const matchesSearch = !searchTerm.trim() || haystack.includes(searchTerm.toLowerCase())
+    const matchesStatus = statusFilter === 'all' || call.status === statusFilter
+    const matchesInterest = interestFilter === 'all' || (interestFilter === 'no_analysis' && !call.interest_analysis) || call.interest_analysis?.interest_status === interestFilter
+    const matchesDirection = directionFilter === 'all' || (call.direction || 'outbound') === directionFilter
+    const humanHandled = isHumanHandled(call)
+    const matchesHandling = handlingFilter === 'all' || (handlingFilter === 'human' ? humanHandled : !humanHandled)
+    return matchesSearch && matchesStatus && matchesInterest && matchesDirection && matchesHandling
+  }), [calls, directionFilter, handlingFilter, interestFilter, searchTerm, statusFilter])
   const activeLeadCalls = useMemo(() => calls.filter((call) => {
     if (!selectedLead) return false
     const sameLead = String(call.lead_id || '') === selectedLeadId || (!call.lead_id && String(call.phone_number) === String(selectedLead.phone || ''))
     const matchesStatus = statusFilter === 'all' || call.status === statusFilter
     const matchesInterest = interestFilter === 'all' || (interestFilter === 'no_analysis' && !call.interest_analysis) || call.interest_analysis?.interest_status === interestFilter
-    return sameLead && matchesStatus && matchesInterest
-  }), [calls, interestFilter, selectedLead, selectedLeadId, statusFilter])
-
+    const matchesDirection = directionFilter === 'all' || (call.direction || 'outbound') === directionFilter
+    const humanHandled = isHumanHandled(call)
+    const matchesHandling = handlingFilter === 'all' || (handlingFilter === 'human' ? humanHandled : !humanHandled)
+    return sameLead && matchesStatus && matchesInterest && matchesDirection && matchesHandling
+  }), [calls, directionFilter, handlingFilter, interestFilter, selectedLead, selectedLeadId, statusFilter])
   useEffect(() => { setSelectedCall(activeLeadCalls[0] || null) }, [selectedLeadId, calls, statusFilter, interestFilter])
-
   const currentCall = selectedCall && activeLeadCalls.some((call) => call._id === selectedCall._id) ? selectedCall : activeLeadCalls[0]
-  const historyGroups = useMemo(() => {
-    const groups: { label: string; calls: Call[] }[] = []
-    activeLeadCalls.forEach((call) => {
-      const label = formatDay(call.call_date || call.created_at)
-      const existing = groups.find((group) => group.label === label)
-      if (existing) existing.calls.push(call)
-      else groups.push({ label, calls: [call] })
-    })
-    return groups
-  }, [activeLeadCalls])
-  const conversation = useMemo(() => [...(currentCall?.transcription || []), ...(currentCall?.ai_responses || [])].filter((message) => message.content).sort((a, b) => new Date(a.timestamp || '').getTime() - new Date(b.timestamp || '').getTime()), [currentCall])
+  const historyGroups = useMemo(() => { const groups: { label: string; calls: Call[] }[] = []; activeLeadCalls.forEach((call) => { const label = formatDay(call.call_date || call.created_at); const group = groups.find((item) => item.label === label); if (group) group.calls.push(call); else groups.push({ label, calls: [call] }) }); return groups }, [activeLeadCalls])
   const recordingUrl = currentCall?.recording_url || currentCall?.recording || currentCall?.audio_url
-
-  const interestBadge = (analysis?: Call['interest_analysis']) => {
-    if (!analysis?.interest_status) return <span className="premium-badge pending">No analysis</span>
-    const tone = analysis.interest_status === 'interested' ? 'live' : analysis.interest_status === 'not_interested' ? 'alert' : 'pending'
-    return <span className={`premium-badge ${tone}`}>{analysis.interest_status.replace('_', ' ')}{analysis.confidence ? ` · ${Math.round(analysis.confidence * 100)}%` : ''}</span>
-  }
+  const openConversation = (call: Call, view: 'messages' | 'transcript') => { setSelectedCall(call); setConversationView(view); setConversationCall(call) }
 
   return <div className="space-y-6">
-    <PageHeader title="Call history" description="Choose a lead to review every call, recording, message, transcript, and follow-up in one focused view." />
-
-    <Toolbar search={searchTerm} onSearch={setSearchTerm} onRefresh={load} onExport={() => downloadCsv('calls')}>
-      <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Call status"><option value="all">All statuses</option><option value="completed">Completed</option><option value="failed">Failed</option><option value="missed">Missed</option></select>
-      <select value={interestFilter} onChange={(event) => setInterestFilter(event.target.value)} aria-label="Call interest"><option value="all">All interest</option><option value="interested">Interested</option><option value="not_interested">Not interested</option><option value="neutral">Neutral</option><option value="no_analysis">No analysis</option></select>
-    </Toolbar>
-
+    <PageHeader title="Call recordings" description="Review each lead’s calls in a clean conversation view, with recordings and call details available for every event." />
+    <Toolbar search={searchTerm} onSearch={setSearchTerm} onRefresh={load} onExport={() => downloadCsv('calls')}><select value={directionFilter} onChange={(event) => setDirectionFilter(event.target.value)} aria-label="Call direction"><option value="all">All directions</option><option value="inbound">Inbound</option><option value="outbound">Outbound</option></select><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Call status"><option value="all">All outcomes</option><option value="completed">Completed</option><option value="transferred">Transferred</option><option value="transfer_requested">Transfer requested</option><option value="failed">Failed</option><option value="missed">Missed</option></select><select value={handlingFilter} onChange={(event) => setHandlingFilter(event.target.value)} aria-label="Call handler"><option value="all">AI + human</option><option value="ai">AI agent</option><option value="human">Human agent</option></select><select value={interestFilter} onChange={(event) => setInterestFilter(event.target.value)} aria-label="Call interest"><option value="all">All interest</option><option value="interested">Interested</option><option value="not_interested">Not interested</option><option value="neutral">Neutral</option><option value="no_analysis">No analysis</option></select></Toolbar>
     <DataState loading={loading} error={error} onRetry={load}>
       <MetricGrid items={[{ label: 'Total calls', value: stats.total_calls || calls.length }, { label: 'Today', value: stats.calls_today || 0 }, { label: 'Completed', value: stats.status_counts?.completed || 0 }, { label: 'Average duration', value: formatDuration(stats.average_duration || 0) }]} />
-
       <div className="mt-5 grid min-h-[720px] gap-4 lg:grid-cols-[290px_minmax(0,1fr)] xl:grid-cols-[290px_minmax(0,1fr)_310px]">
-        <aside className="surface-panel flex min-h-[720px] flex-col overflow-hidden rounded-[22px]">
-          <div className="border-b border-slate-200 px-4 py-4"><div className="flex items-center justify-between"><div><div className="text-sm font-bold text-slate-900">Leads</div><div className="mt-1 text-xs text-slate-500">{filteredLeads.length} people in your workspace</div></div><Users className="h-4 w-4 text-[#d97706]" /></div><div className="relative mt-4"><Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" /><input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Find a lead..." className="h-9 w-full rounded-lg border-slate-200 bg-slate-50 pl-9 text-xs" /></div></div>
-          <div className="min-h-0 flex-1 overflow-y-auto p-2">
-            {filteredLeads.map((lead) => {
-              const id = leadId(lead)
-              const leadCalls = calls.filter((call) => String(call.lead_id || '') === id || (!call.lead_id && String(call.phone_number) === String(lead.phone || '')))
-              const latest = leadCalls[0]
-              return <button key={id} type="button" onClick={() => setSelectedLeadId(id)} className={`mb-1 w-full rounded-xl border p-3 text-left transition ${selectedLeadId === id ? 'border-[#fed7aa] bg-[#fff7ed] shadow-sm' : 'border-transparent hover:border-slate-200 hover:bg-slate-50'}`}><div className="flex items-center gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-900 text-xs font-bold text-white">{initials(lead.name)}</span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold text-slate-900">{lead.name || 'Unnamed lead'}</span><span className="mt-0.5 block truncate text-xs text-slate-500">{lead.company || lead.phone || 'No contact details'}</span></span>{leadCalls.length > 0 && <span className="rounded-full bg-white px-2 py-1 text-[10px] font-semibold text-slate-500 shadow-sm">{leadCalls.length}</span>}</div><div className="mt-3 flex items-center justify-between text-[10px] text-slate-500"><span>{latest ? formatDate(latest.call_date || latest.created_at).split(' ')[0] : 'No calls yet'}</span>{latest && <StatusBadge value={latest.status || 'unknown'} />}</div></button>
-            })}
-            {!filteredLeads.length && <div className="px-3 py-12 text-center"><Users className="mx-auto h-7 w-7 text-slate-300" /><p className="mt-3 text-sm font-medium text-slate-700">No leads found</p><p className="mt-1 text-xs text-slate-500">Try a different name or phone number.</p></div>}
-          </div>
-        </aside>
-
-        <main className="surface-panel flex min-h-[720px] min-w-0 flex-col overflow-hidden rounded-[22px]">
-          {selectedLead ? <>
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-5 py-4"><div className="flex min-w-0 items-center gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#fff7ed] text-sm font-bold text-[#b45309]">{initials(selectedLead.name)}</span><div className="min-w-0"><div className="truncate text-base font-bold text-slate-900">{selectedLead.name}</div><div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500"><span>{selectedLead.phone || 'No phone'}</span>{selectedLead.company && <><span>·</span><span>{selectedLead.company}</span></>}</div></div></div><Link href={`/leads/${leadId(selectedLead)}`} className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50">Open lead <ArrowUpRight className="h-3.5 w-3.5" /></Link></div>
-            <div className="border-b border-slate-200 bg-slate-50/70 px-5 py-3"><div className="flex items-center justify-between"><div><div className="text-xs font-semibold uppercase tracking-[.14em] text-slate-500">Call history</div><div className="mt-1 text-xs text-slate-500">{activeLeadCalls.length} matching call{activeLeadCalls.length === 1 ? '' : 's'}</div></div><span className="text-xs text-slate-400">Newest first</span></div><div className="mt-4 max-h-[300px] overflow-y-auto pr-1">{historyGroups.length ? historyGroups.map((group) => <div key={group.label} className="mb-5 last:mb-0"><div className="sticky top-0 z-10 mb-3 flex items-center gap-3 bg-slate-50/95 py-1 backdrop-blur"><span className="rounded-full bg-slate-900 px-3 py-1 text-[10px] font-semibold uppercase tracking-[.1em] text-white">{group.label}</span><span className="h-px flex-1 bg-slate-200" /></div><div className="relative ml-2 border-l border-slate-200 pl-5">{group.calls.map((call) => <div key={call._id} className="relative pb-3 last:pb-0"><span className={`absolute -left-[25px] top-4 flex h-4 w-4 items-center justify-center rounded-full border-4 border-slate-50 ${currentCall?._id === call._id ? 'bg-[#d97706]' : 'bg-slate-300'}`} /><button type="button" onClick={() => setSelectedCall(call)} className={`w-full rounded-xl border p-3 text-left transition ${currentCall?._id === call._id ? 'border-[#fed7aa] bg-white shadow-sm' : 'border-slate-200 bg-white hover:border-[#fed7aa] hover:bg-[#fffaf5]'}`}><div className="flex flex-wrap items-center justify-between gap-2"><span className="flex items-center gap-2 text-xs font-semibold text-slate-800"><PhoneCall className="h-3.5 w-3.5 text-[#d97706]" />{call.direction === 'inbound' ? 'Incoming call' : 'Outgoing call'}</span><div className="flex items-center gap-2"><span className="text-[10px] text-slate-400">{formatDate(call.call_date || call.created_at).split(' ').slice(1).join(' ')}</span><StatusBadge value={call.status || 'unknown'} /></div></div><div className="mt-2 flex flex-wrap items-center gap-3 text-[11px] text-slate-500"><span className="inline-flex items-center gap-1"><Clock3 className="h-3 w-3" />{formatDuration(call.duration)}</span><span className="capitalize">{call.status || 'unknown'}</span>{(call.recording_url || call.recording || call.audio_url) && <span className="inline-flex items-center gap-1 font-semibold text-[#b45309]"><Headphones className="h-3 w-3" />Recording ready</span>}</div><div className="mt-2 truncate text-xs text-slate-500">{call.call_summary || `Call with ${selectedLead.name}`}</div></button></div>)}</div></div>) : <EmptyConversation text="No calls match the current filters." />}</div></div>
-            {currentCall ? <><div className="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-3"><div className="flex items-center gap-2"><button type="button" onClick={() => setView('messages')} className={`inline-flex h-8 items-center gap-2 rounded-md px-3 text-xs font-semibold transition ${view === 'messages' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-100'}`}><MessageSquare className="h-3.5 w-3.5" />Messages</button><button type="button" onClick={() => setView('transcript')} className={`inline-flex h-8 items-center gap-2 rounded-md px-3 text-xs font-semibold transition ${view === 'transcript' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-100'}`}><FileText className="h-3.5 w-3.5" />Transcript</button></div><span className="text-xs text-slate-400">{conversation.length} entries</span></div><div className="min-h-0 flex-1 overflow-y-auto p-5">{view === 'messages' ? <div className="space-y-3">{conversation.length ? conversation.map((message, index) => <div key={`${message.timestamp}-${index}`} className={`flex ${message.type === 'user' ? 'justify-start' : 'justify-end'}`}><div className={`max-w-[82%] rounded-2xl px-4 py-3 ${message.type === 'user' ? 'border border-slate-200 bg-slate-50' : 'bg-[#fff7ed] text-slate-800'}`}><div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[.1em] text-slate-400"><span>{message.type === 'user' ? 'Customer' : 'AI agent'}</span><span>·</span><span>{message.timestamp ? new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}</span></div><p className="mt-2 text-sm leading-6 text-slate-700">{message.content}</p></div></div>) : <EmptyConversation text="No messages were stored for this call." />}</div> : <div className="divide-y divide-slate-100 rounded-xl border border-slate-200">{conversation.length ? conversation.map((message, index) => <div key={`${message.timestamp}-${index}`} className="flex gap-3 p-4"><span className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${message.type === 'user' ? 'bg-slate-100 text-slate-500' : 'bg-[#fff7ed] text-[#b45309]'}`}>{message.type === 'user' ? <User className="h-3.5 w-3.5" /> : <MessageSquare className="h-3.5 w-3.5" />}</span><div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-3"><span className="text-xs font-semibold text-slate-700">{message.type === 'user' ? 'Customer' : 'AI agent'}</span><span className="text-[10px] text-slate-400">{message.timestamp ? new Date(message.timestamp).toLocaleString() : '—'}</span></div><p className="mt-1 text-sm leading-6 text-slate-600">{message.content}</p></div></div>) : <EmptyConversation text="No transcript was stored for this call." />}</div>}</div></> : <EmptyConversation text="No calls match the current filters." />}
-          </> : <div className="flex flex-1 flex-col items-center justify-center p-8 text-center"><Users className="h-8 w-8 text-slate-300" /><p className="mt-3 text-sm font-semibold text-slate-700">Select a lead</p><p className="mt-1 max-w-xs text-xs leading-5 text-slate-500">Choose a lead from the list to see their complete call history.</p></div>}
-        </main>
-
-        <aside className="space-y-4 xl:min-h-[720px]">
-          {currentCall ? <>
-            <section className="surface-panel rounded-[22px] p-5"><div className="flex items-center justify-between gap-3"><div><div className="text-xs font-semibold uppercase tracking-[.14em] text-slate-500">Selected call</div><div className="mt-2 text-sm font-bold text-slate-900">{formatDate(currentCall.call_date || currentCall.created_at)}</div></div><PhoneCall className="h-5 w-5 text-[#d97706]" /></div><div className="mt-5 grid grid-cols-2 gap-3"><div className="rounded-xl border border-slate-200 bg-slate-50 p-3"><div className="text-[10px] uppercase tracking-wider text-slate-400">Duration</div><div className="mt-1 text-sm font-bold text-slate-800">{formatDuration(currentCall.duration)}</div></div><div className="rounded-xl border border-slate-200 bg-slate-50 p-3"><div className="text-[10px] uppercase tracking-wider text-slate-400">Direction</div><div className="mt-1 text-sm font-bold capitalize text-slate-800">{currentCall.direction || 'Outbound'}</div></div></div><div className="mt-4 flex flex-wrap items-center gap-2"><StatusBadge value={currentCall.status || 'unknown'} />{interestBadge(currentCall.interest_analysis)}</div></section>
-            <section className="surface-panel rounded-[22px] p-5"><div className="flex items-center gap-2 text-sm font-bold text-slate-900"><Headphones className="h-4 w-4 text-[#d97706]" />Call recording</div>{recordingUrl ? <><audio className="mt-4 w-full" controls src={recordingUrl}>Your browser does not support audio playback.</audio><a href={recordingUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-2 text-xs font-semibold text-[#b45309] hover:underline"><Download className="h-3.5 w-3.5" />Open recording</a></> : <div className="mt-4 rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-xs leading-5 text-slate-500">No recording is attached to this call yet. The player will appear here when the provider sends the recording URL.</div>}</section>
-            <section className="surface-panel rounded-[22px] p-5"><div className="flex items-center gap-2 text-sm font-bold text-slate-900"><FileText className="h-4 w-4 text-[#d97706]" />Call summary</div><p className="mt-3 text-sm leading-6 text-slate-600">{currentCall.call_summary || 'No summary available for this call.'}</p>{currentCall.next_action && <div className="mt-4 rounded-xl bg-[#fff7ed] p-3"><div className="text-[10px] font-semibold uppercase tracking-wider text-[#b45309]">Next action</div><div className="mt-1 text-xs leading-5 text-slate-700">{currentCall.next_action}</div></div>}</section>
-          </> : <section className="surface-panel flex min-h-48 items-center justify-center rounded-[22px] p-6 text-center text-sm text-slate-500">Select a call to view its recording and summary.</section>}
-        </aside>
+        <aside className="surface-panel flex min-h-[720px] flex-col overflow-hidden rounded-[22px]"><div className="border-b border-slate-200 px-4 py-4"><div className="flex items-center justify-between"><div><div className="text-sm font-bold text-slate-900">Leads</div><div className="mt-1 text-xs text-slate-500">{filteredLeads.length} people in your workspace</div></div><Users className="h-4 w-4 text-[#d97706]" /></div><div className="relative mt-4"><Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" /><input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Find a lead..." className="h-9 w-full rounded-lg border-slate-200 bg-slate-50 pl-9 text-xs" /></div></div><div className="min-h-0 flex-1 overflow-y-auto p-2">{filteredLeads.map((lead) => { const id = leadId(lead); const leadCalls = calls.filter((call) => String(call.lead_id || '') === id || (!call.lead_id && String(call.phone_number) === String(lead.phone || ''))); return <button key={id} type="button" onClick={() => setSelectedLeadId(id)} className={`mb-1 w-full rounded-xl border p-3 text-left transition ${selectedLeadId === id ? 'border-[#fed7aa] bg-[#fff7ed] shadow-sm' : 'border-transparent hover:border-slate-200 hover:bg-slate-50'}`}><div className="flex items-center gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-900 text-xs font-bold text-white">{initials(lead.name)}</span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold text-slate-900">{lead.name || 'Unnamed lead'}</span><span className="mt-0.5 block truncate text-xs text-slate-500">{lead.company || lead.phone || 'No contact details'}</span></span>{leadCalls.length > 0 && <span className="rounded-full bg-white px-2 py-1 text-[10px] font-semibold text-slate-500 shadow-sm">{leadCalls.length}</span>}</div><div className="mt-3 flex items-center justify-between text-[10px] text-slate-500"><span>{leadCalls.length ? `${leadCalls.length} ${leadCalls.length === 1 ? 'call' : 'calls'} in history` : 'No calls yet'}</span><span className="font-semibold text-[#b45309]">View history</span></div></button> })}{!filteredLeads.length && <div className="px-3 py-12 text-center"><Users className="mx-auto h-7 w-7 text-slate-300" /><p className="mt-3 text-sm font-medium text-slate-700">No leads found</p><p className="mt-1 text-xs text-slate-500">Try a different name or phone number.</p></div>}</div></aside>
+        <main className="surface-panel flex min-h-[720px] min-w-0 flex-col overflow-hidden rounded-[22px]">{selectedLead ? <><div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-5 py-4"><div className="flex min-w-0 items-center gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#fff7ed] text-sm font-bold text-[#b45309]">{initials(selectedLead.name)}</span><div className="min-w-0"><div className="truncate text-base font-bold text-slate-900">{selectedLead.name}</div><div className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-slate-500"><span>{selectedLead.phone || 'No phone'}</span>{selectedLead.company && <><span>·</span><span>{selectedLead.company}</span></>}</div></div></div><Link href={`/leads/${leadId(selectedLead)}`} className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50">Open lead <ArrowUpRight className="h-3.5 w-3.5" /></Link></div><div className="flex items-center justify-between border-b border-slate-200 bg-slate-50/70 px-5 py-3"><div><div className="text-xs font-semibold uppercase tracking-[.14em] text-slate-500">Call conversation</div><div className="mt-1 text-xs text-slate-500">{activeLeadCalls.length} call{activeLeadCalls.length === 1 ? '' : 's'} · click a call to open its chat</div></div><span className="text-xs text-slate-400">Customer left · agent right</span></div><div className="min-h-0 flex-1 overflow-y-auto p-5"><RecordingTimeline groups={historyGroups} selectedCallId={currentCall?._id} selectedLeadName={selectedLead.name} onSelect={setSelectedCall} onOpen={openConversation} /></div></> : <div className="flex flex-1 flex-col items-center justify-center p-8 text-center"><Users className="h-8 w-8 text-slate-300" /><p className="mt-3 text-sm font-semibold text-slate-700">Select a lead</p><p className="mt-1 max-w-xs text-sm text-slate-500">Choose a lead to see their call conversation.</p></div>}</main>
+        <aside className="space-y-4 xl:min-h-[720px]">{currentCall ? <><section className="surface-panel rounded-[22px] p-5"><div className="flex items-center justify-between gap-3"><div><div className="text-xs font-semibold uppercase tracking-[.14em] text-slate-500">Selected recording</div><div className="mt-2 text-sm font-bold text-slate-900">Call details</div></div><PhoneCall className="h-5 w-5 text-[#d97706]" /></div><div className="mt-5 grid grid-cols-2 gap-3"><div className="rounded-xl border border-slate-200 bg-slate-50 p-3"><div className="text-[10px] uppercase tracking-wider text-slate-400">Duration</div><div className="mt-1 text-sm font-bold text-slate-800">{formatDuration(currentCall.duration)}</div></div><div className="rounded-xl border border-slate-200 bg-slate-50 p-3"><div className="text-[10px] uppercase tracking-wider text-slate-400">Direction</div><div className="mt-1 text-sm font-bold capitalize text-slate-800">{currentCall.direction || 'outbound'}</div></div></div><div className="mt-4 flex flex-wrap items-center gap-2"><StatusBadge value={currentCall.status || 'unknown'} />{currentCall.interest_analysis?.interest_status && <StatusBadge value={currentCall.interest_analysis.interest_status} />}</div></section><section className="surface-panel rounded-[22px] p-5"><div className="flex items-center gap-2 text-sm font-bold text-slate-900"><Headphones className="h-4 w-4 text-[#d97706]" />Recording</div>{recordingUrl ? <><audio className="mt-4 w-full" controls src={recordingUrl}>Your browser does not support audio playback.</audio><a href={recordingUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-2 text-xs font-semibold text-[#b45309] hover:underline"><Download className="h-3.5 w-3.5" />Open recording</a></> : <div className="mt-4 rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-xs leading-5 text-slate-500">No recording is attached to this call yet.</div>}</section><section className="surface-panel rounded-[22px] p-5"><div className="flex items-center gap-2 text-sm font-bold text-slate-900"><FileText className="h-4 w-4 text-[#d97706]" />Call summary</div><p className="mt-3 text-sm leading-6 text-slate-600">{currentCall.call_summary || 'No summary available for this recording.'}</p>{currentCall.next_action && <div className="mt-4 rounded-xl bg-[#fff7ed] p-3"><div className="text-[10px] font-semibold uppercase tracking-wider text-[#b45309]">Next action</div><div className="mt-1 text-xs leading-5 text-slate-700">{currentCall.next_action}</div></div>}</section></> : <section className="surface-panel flex min-h-48 items-center justify-center rounded-[22px] p-6 text-center text-sm text-slate-500">Select a call to view details.</section>}</aside>
       </div>
     </DataState>
+    {conversationCall && <ConversationModal call={conversationCall} leadName={conversationCall.lead?.name || selectedLead?.name || 'Customer'} view={conversationView} onViewChange={setConversationView} onClose={() => setConversationCall(null)} />}
   </div>
 }
 
-function EmptyConversation({ text }: { text: string }) {
-  return <div className="flex min-h-56 flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/60 p-6 text-center"><Phone className="h-7 w-7 text-slate-300" /><p className="mt-3 text-sm font-medium text-slate-700">{text}</p><p className="mt-1 text-xs text-slate-500">Try another call from the history above.</p></div>
+function getCallHandler(call: Call) {
+  const human = call.accepted_by || call.handled_by
+  if (human) return { label: human, type: 'Human' }
+  if (call.transfer_requested || ['requested', 'dialing', 'ringing', 'connected', 'accepted', 'completed'].includes(String(call.transfer_status || '').toLowerCase())) return { label: call.transfer_destination || 'Human team', type: 'Human' }
+  return { label: 'AI agent', type: 'AI' }
 }
+
+function CallActivityTable({ calls, selectedCallId, onOpen }: { calls: Call[]; selectedCallId?: string; onOpen: (call: Call) => void }) {
+  return <section className="surface-panel overflow-hidden rounded-[22px]">
+    <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4"><div><div className="text-sm font-bold text-slate-900">Call activity</div><div className="mt-1 text-xs text-slate-500">{calls.length} matching calls · newest first</div></div><PhoneCall className="h-4 w-4 text-[#d97706]" /></div>
+    <div className="overflow-x-auto"><table className="w-full min-w-[880px] text-left text-sm"><thead className="border-b border-slate-200 bg-slate-50/70 text-[10px] font-bold uppercase tracking-[.12em] text-slate-400"><tr><th className="px-5 py-3">Caller</th><th className="px-3 py-3">Direction</th><th className="px-3 py-3">Outcome</th><th className="px-3 py-3">Handled by</th><th className="px-3 py-3">Length</th><th className="px-5 py-3">Started</th></tr></thead><tbody className="divide-y divide-slate-100">{calls.slice(0, 200).map((call) => { const handler = getCallHandler(call); const inbound = call.direction === 'inbound'; return <tr key={call._id} onClick={() => onOpen(call)} className={`cursor-pointer transition hover:bg-slate-50 ${selectedCallId === call._id ? 'bg-[#fff7ed]/60' : ''}`}><td className="px-5 py-3.5"><div className="font-semibold text-slate-800">{call.lead?.name || call.phone_number || 'Unknown caller'}</div><div className="mt-0.5 text-xs text-slate-500">{call.lead?.company || call.phone_number || 'No phone number'}</div></td><td className="px-3 py-3.5"><span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold ${inbound ? 'bg-slate-100 text-slate-600' : 'bg-[#fff7ed] text-[#b45309]'}`}>{inbound ? 'Inbound' : 'Outbound'}</span></td><td className="px-3 py-3.5"><StatusBadge value={call.status || 'Unknown'} /></td><td className="px-3 py-3.5"><div className={`text-xs font-semibold ${handler.type === 'Human' ? 'text-[#16805c]' : 'text-[#5a67b1]'}`}>{handler.label}</div><div className="mt-0.5 text-[10px] text-slate-400">{handler.type} handling</div></td><td className="px-3 py-3.5 text-xs text-slate-600">{formatDuration(call.duration)}</td><td className="px-5 py-3.5 text-xs text-slate-500">{formatDate(call.call_date || call.created_at)}</td></tr> })}</tbody></table>{!calls.length && <div className="p-10 text-center text-sm text-slate-500">No calls match the current filters.</div>}</div>
+  </section>
+}
+
+function RecordingTimeline({ groups, selectedCallId, selectedLeadName, onSelect, onOpen }: { groups: { label: string; calls: Call[] }[]; selectedCallId?: string; selectedLeadName: string; onSelect: (call: Call) => void; onOpen: (call: Call, view: 'messages' | 'transcript') => void }) {
+  if (!groups.length) return <EmptyState text="No calls match the current filters." />
+  return <div className="space-y-7">{groups.map((group) => <section key={group.label}><div className="mb-4 flex items-center gap-3"><span className="h-px flex-1 bg-slate-200" /><span className="rounded-full bg-slate-900 px-3 py-1 text-[10px] font-bold uppercase tracking-[.1em] text-white">{group.label}</span><span className="h-px flex-1 bg-slate-200" /></div><div className="space-y-3">{group.calls.map((call) => <RecordingBubble key={call._id} call={call} selected={selectedCallId === call._id} leadName={selectedLeadName} onSelect={onSelect} onOpen={onOpen} />)}</div></section>)}</div>
+}
+
+function RecordingBubble({ call, selected, leadName, onSelect, onOpen }: { call: Call; selected: boolean; leadName: string; onSelect: (call: Call) => void; onOpen: (call: Call, view: 'messages' | 'transcript') => void }) {
+  const inbound = call.direction === 'inbound'
+  const recording = call.recording_url || call.recording || call.audio_url
+  return <div className={`flex ${inbound ? 'justify-start' : 'justify-end'}`}><div className={`group w-full max-w-[78%] cursor-pointer rounded-2xl px-4 py-3 transition sm:max-w-[72%] ${selected ? 'bg-[#fff7ed] shadow-[0_8px_20px_rgba(217,119,6,.1)] ring-1 ring-[#fed7aa]' : 'border border-slate-200 bg-white hover:border-[#fed7aa] hover:shadow-sm'}`} onClick={() => { onSelect(call); onOpen(call, 'messages') }}><div className="flex items-start justify-between gap-3"><div className="flex items-center gap-2"><span className={`flex h-8 w-8 items-center justify-center rounded-lg ${inbound ? 'bg-slate-100 text-slate-500' : 'bg-[#fff7ed] text-[#b45309]'}`}><PhoneCall className="h-3.5 w-3.5" /></span><div><div className="text-xs font-bold text-slate-800">{inbound ? 'Incoming call' : 'Outgoing call'}</div><div className="mt-0.5 text-[10px] uppercase tracking-[.08em] text-slate-400">{inbound ? 'Customer → AI agent' : 'AI / human agent → customer'}</div></div></div><StatusBadge value={call.status || 'unknown'} /></div><div className="mt-3 flex flex-wrap items-center gap-3 text-[11px] text-slate-500"><span>{formatDate(call.call_date || call.created_at).split(' ').slice(1).join(' ')}</span><span className="inline-flex items-center gap-1"><Clock3 className="h-3 w-3" />{formatDuration(call.duration)}</span>{recording && <span className="inline-flex items-center gap-1 font-semibold text-[#b45309]"><Headphones className="h-3 w-3" />Recording</span>}</div><div className="mt-3 line-clamp-2 text-xs leading-5 text-slate-500">{call.call_summary || `Call with ${leadName}`}</div><div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-100 pt-3"><span className="text-[10px] text-slate-400">Click to open chat</span><div className="flex gap-1 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100"><button type="button" onClick={(event) => { event.stopPropagation(); onOpen(call, 'messages') }} className="rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-600 hover:bg-slate-50">Messages</button><button type="button" onClick={(event) => { event.stopPropagation(); onOpen(call, 'transcript') }} className="rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-600 hover:bg-slate-50">Transcript</button></div></div></div></div>
+}
+
+function ConversationModal({ call, leadName, view, onViewChange, onClose }: { call: Call; leadName: string; view: 'messages' | 'transcript'; onViewChange: (view: 'messages' | 'transcript') => void; onClose: () => void }) {
+  const conversation = getConversation(call)
+  return <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-sm" onClick={onClose}><div className="surface-panel flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-[22px]" onClick={(event) => event.stopPropagation()}><div className="flex items-center justify-between gap-4 border-b border-slate-200 px-5 py-4"><div><div className="text-sm font-bold text-slate-900">{view === 'messages' ? 'Messages' : 'Transcript'} · {leadName}</div><div className="mt-1 text-xs text-slate-500">{formatDate(call.call_date || call.created_at)} · {call.direction || 'outbound'} call</div></div><button type="button" onClick={onClose} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Close conversation"><X className="h-4 w-4" /></button></div><div className="flex items-center justify-between border-b border-slate-200 bg-slate-50/70 px-5 py-3"><div className="flex gap-1"><button type="button" onClick={() => onViewChange('messages')} className={`inline-flex h-8 items-center gap-2 rounded-md px-3 text-xs font-semibold ${view === 'messages' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-100'}`}><MessageSquare className="h-3.5 w-3.5" />Messages</button><button type="button" onClick={() => onViewChange('transcript')} className={`inline-flex h-8 items-center gap-2 rounded-md px-3 text-xs font-semibold ${view === 'transcript' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-100'}`}><FileText className="h-3.5 w-3.5" />Transcript</button></div><span className="text-xs text-slate-400">{conversation.length} entries</span></div><div className="min-h-0 overflow-y-auto p-5"><ConversationChat conversation={conversation} view={view} leadName={leadName} /></div></div></div>
+}
+
+function ConversationChat({ conversation, view, leadName }: { conversation: Message[]; view: 'messages' | 'transcript'; leadName: string }) {
+  if (!conversation.length) return <EmptyState text={`No ${view} were stored for this call.`} />
+  return <div className="relative space-y-4"><div className="pointer-events-none absolute bottom-2 left-1/2 top-2 -translate-x-1/2 border-l border-dashed border-slate-200" />{conversation.map((message, index) => { const customer = message.type === 'user'; const human = ['human', 'agent', 'human_agent'].includes(String(message.type || '').toLowerCase()); const timestamp = message.timestamp ? new Date(message.timestamp) : null; const time = timestamp && !Number.isNaN(timestamp.getTime()) ? timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'; const detail = view === 'transcript' ? `${customer ? 'Inbound' : 'Outbound'} · ${message.type || 'assistant'} · ${time}` : `${customer ? 'Incoming' : 'Outgoing'} · ${time}`; const Icon = customer ? User : human ? Users : Bot; const bubble = <div className={`max-w-[92%] rounded-2xl border px-4 py-3 shadow-sm ${customer ? 'border-slate-200 bg-white' : human ? 'border-slate-200 bg-slate-50' : 'border-[#fed7aa] bg-[#fff7ed]'}`}><div className="flex items-center gap-2"><span className={`flex h-7 w-7 items-center justify-center rounded-lg ${customer ? 'bg-slate-100 text-slate-500' : 'bg-white text-[#b45309]'}`}><Icon className="h-3.5 w-3.5" /></span><div><div className="text-xs font-bold text-slate-800">{getSpeaker(message)}</div><div className="mt-0.5 text-[10px] uppercase tracking-[.08em] text-slate-400">{detail}</div></div></div><p className="mt-3 text-sm leading-6 text-slate-700">{message.content}</p>{view === 'transcript' && <div className="mt-3 border-t border-slate-200/80 pt-2 text-[10px] text-slate-400">Transcript line {index + 1} · {leadName}</div>}</div>; return <div key={`${message.timestamp}-${index}`} className="relative grid grid-cols-[minmax(0,1fr)_18px_minmax(0,1fr)] items-start gap-3"><div className={`flex ${customer ? 'justify-end pr-1' : ''}`}>{customer ? bubble : null}</div><div className="relative z-10 mt-5 flex justify-center"><span className={`h-3 w-3 rounded-full border-2 border-white shadow-sm ${customer ? 'bg-slate-400' : 'bg-[#d97706]'}`} /></div><div className="flex">{!customer ? bubble : null}</div></div> })}</div>
+}
+
+function EmptyState({ text }: { text: string }) { return <div className="flex min-h-56 flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/60 p-6 text-center"><Phone className="h-7 w-7 text-slate-300" /><p className="mt-3 text-sm font-medium text-slate-700">{text}</p><p className="mt-1 text-xs text-slate-500">Try another call or filter.</p></div> }
