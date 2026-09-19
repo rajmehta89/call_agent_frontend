@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
-import { Check, Clock3, FileText, Mail, Plus, Save, Send, ShieldCheck, UserX } from 'lucide-react'
+import { Check, Clock3, FileText, Mail, Plus, Save, Send, ShieldCheck, Target, UserX } from 'lucide-react'
 import { PageHeader } from '@/components/OmniPage'
 import { ActionButton, api, DataState, MetricGrid, StatusBadge, Toolbar } from '@/components/PlatformUI'
 
@@ -21,6 +21,7 @@ export default function CampaignsPage() {
   const [policy, setPolicy] = useState<Policy>(defaultPolicy)
   const [drafts, setDrafts] = useState<Draft[]>([])
   const [templates, setTemplates] = useState<EmailTemplate[]>([])
+  const [discovery, setDiscovery] = useState<any>({})
   const [campaign, setCampaign] = useState<Campaign>(defaultCampaign)
   const [gmail, setGmail] = useState<any>({})
   const [form, setForm] = useState(emptyForm)
@@ -31,18 +32,21 @@ export default function CampaignsPage() {
   const [saving, setSaving] = useState(false)
   const [savingTemplate, setSavingTemplate] = useState(false)
   const [notifying, setNotifying] = useState(false)
+  const [discovering, setDiscovering] = useState(false)
+  const [discoveryForm, setDiscoveryForm] = useState({ query: 'AI automation for home services', location: 'United States', max_results: 20 })
   const [error, setError] = useState('')
 
   const load = async () => {
     setLoading(true)
     setError('')
     try {
-      const [policyResult, draftsResult, gmailResult, templatesResult, campaignResult] = await Promise.all([api<any>('/api/platform/email-policy'), api<any>('/api/platform/email-outbox'), api<any>('/api/platform/gmail/status'), api<any>('/api/platform/email-templates'), api<any>('/api/platform/email-campaign')])
+      const [policyResult, draftsResult, gmailResult, templatesResult, campaignResult, discoveryResult] = await Promise.all([api<any>('/api/platform/email-policy'), api<any>('/api/platform/email-outbox'), api<any>('/api/platform/gmail/status'), api<any>('/api/platform/email-templates'), api<any>('/api/platform/email-campaign'), api<any>('/api/platform/prospects/discovery-status')])
       setPolicy(policyResult.data || defaultPolicy)
       setDrafts(draftsResult.data || [])
       setGmail(gmailResult.data || {})
       setTemplates(templatesResult.data || [])
       setCampaign(campaignResult.data || defaultCampaign)
+      setDiscovery(discoveryResult.data || {})
     } catch (exception) {
       setError(exception instanceof Error ? exception.message : 'Unable to load campaign workspace')
     } finally {
@@ -137,6 +141,21 @@ export default function CampaignsPage() {
     }
   }
 
+  const discoverProspects = async () => {
+    if (!discoveryForm.query.trim()) return toast.error('Enter the type of USA business to find')
+    setDiscovering(true)
+    try {
+      const result = await api<any>('/api/platform/prospects/discover', { method: 'POST', body: JSON.stringify(discoveryForm) })
+      const summary = result.data || {}
+      toast.success(`Found ${summary.found || 0} businesses and created ${summary.drafts_created || 0} email drafts`)
+      await load()
+    } catch (exception) {
+      toast.error(exception instanceof Error ? exception.message : 'Unable to discover prospects')
+    } finally {
+      setDiscovering(false)
+    }
+  }
+
   const pending = useMemo(() => drafts.filter((draft) => draft.status === 'pending_approval'), [drafts])
   const sent = drafts.filter((draft) => draft.status === 'sent').length
   const excluded = drafts.filter((draft) => draft.status === 'excluded').length
@@ -150,6 +169,7 @@ export default function CampaignsPage() {
         <section className="surface-panel rounded-[24px] p-6">
           <div className="flex flex-wrap items-start justify-between gap-4"><div><div className="flex items-center gap-2 text-base font-bold text-slate-900"><Mail className="h-5 w-5 text-[#d97706]" />Prospect email queue</div><p className="mt-1 text-sm text-slate-500">Exclude any company you do not want to contact. Excluded drafts are permanently blocked from sending.</p></div><div className="flex flex-wrap gap-2"><ActionButton onClick={notifyOwner} disabled={notifying || !pending.length || !gmail.connected} icon={<Send className="h-4 w-4" />}>{notifying ? 'Sending review...' : 'Email me review'}</ActionButton><ActionButton primary onClick={() => setShowCreate((current) => !current)} icon={<Plus className="h-4 w-4" />}>{showCreate ? 'Close' : 'Add prospect'}</ActionButton></div></div>
           <div className="mt-4 rounded-xl border border-[#d9def7] bg-[#f8f9ff] px-4 py-3 text-xs leading-5 text-slate-600"><span className="font-semibold text-slate-800">Review flow:</span> click <span className="font-semibold">Email me review</span> to receive the prepared prospects at {gmail.address || 'your Gmail'}, then use this page to approve and send only the good ones or exclude the rest. The review email never contacts prospects.</div>
+          <div className="mt-5 rounded-2xl border border-[#d9def7] bg-white p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><div className="text-sm font-bold text-slate-900">Find USA prospects automatically</div><p className="mt-1 text-xs leading-5 text-slate-500">Google Places finds businesses, then their public website is checked for a contact email. Ready businesses become personalized drafts automatically.</p></div><StatusBadge value={discovery.configured ? 'Discovery ready' : 'Setup needed'} /></div><div className="mt-4 grid gap-3 md:grid-cols-[1.3fr_1fr_100px_auto]"><input value={discoveryForm.query} onChange={(event) => setDiscoveryForm({ ...discoveryForm, query: event.target.value })} placeholder="Business type or search query" className="h-10 rounded-lg border-slate-200 text-sm" /><input value={discoveryForm.location} onChange={(event) => setDiscoveryForm({ ...discoveryForm, location: event.target.value })} placeholder="USA location" className="h-10 rounded-lg border-slate-200 text-sm" /><input type="number" min="1" max="20" value={discoveryForm.max_results} onChange={(event) => setDiscoveryForm({ ...discoveryForm, max_results: Number(event.target.value) })} className="h-10 rounded-lg border-slate-200 text-sm" /><ActionButton primary onClick={discoverProspects} disabled={discovering || !discovery.configured} icon={<Target className="h-4 w-4" />}>{discovering ? 'Finding...' : 'Find prospects'}</ActionButton></div>{!discovery.configured && <div className="mt-3 text-xs text-amber-700">Add GOOGLE_PLACES_API_KEY on the backend/Render service to enable discovery.</div>}</div>
           {showCreate && <div className="mt-5 rounded-2xl border border-[#d9def7] bg-[#f8f9ff] p-5"><div className="grid gap-4 md:grid-cols-2"><label className="text-xs font-semibold text-slate-600">Company name<input value={form.company_name} onChange={(event) => setForm({ ...form, company_name: event.target.value })} placeholder="Example: Acme Home Services" className="mt-2 h-10 w-full rounded-lg border-slate-200 bg-white text-sm" /></label><label className="text-xs font-semibold text-slate-600">Recipient email<input value={form.recipient_email} onChange={(event) => setForm({ ...form, recipient_email: event.target.value })} placeholder="owner@example.com" className="mt-2 h-10 w-full rounded-lg border-slate-200 bg-white text-sm" /></label></div><label className="mt-4 block text-xs font-semibold text-slate-600">Email template<select value={form.template_id} onChange={(event) => setForm({ ...form, template_id: event.target.value })} className="mt-2 h-10 w-full rounded-lg border-slate-200 bg-white text-sm"><option value="">Automatic — use best Raj template</option>{templates.filter((template) => template.active !== false).map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}</select><span className="mt-1 block font-normal text-slate-400">Leave this automatic to let the campaign choose Raj’s default template and personalize it.</span></label><label className="mt-4 block text-xs font-semibold text-slate-600">Website or source URL<input value={form.website} onChange={(event) => setForm({ ...form, website: event.target.value })} placeholder="https://example.com" className="mt-2 h-10 w-full rounded-lg border-slate-200 bg-white text-sm" /></label><label className="mt-4 block text-xs font-semibold text-slate-600">Company context<textarea value={form.context} onChange={(event) => setForm({ ...form, context: event.target.value })} placeholder="What they do, likely problem, or why Raj can help" className="mt-2 min-h-24 w-full rounded-lg border-slate-200 bg-white text-sm" /></label><div className="mt-4 flex justify-end"><ActionButton primary onClick={createDraft} disabled={saving}>{saving ? 'Creating...' : 'Create personalized draft'}</ActionButton></div></div>}
           <div className="mt-5 space-y-3">{drafts.length ? drafts.map((draft) => <div key={draft._id} className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><div className="flex items-center gap-2"><div className="truncate text-sm font-bold text-slate-900">{draft.company_name}</div><StatusBadge value={draft.status === 'pending_approval' ? 'Needs approval' : draft.status} /></div><div className="mt-1 text-xs text-slate-500">{draft.recipient_email}{draft.website ? ` · ${draft.website}` : ''}{draft.template_name ? ` · ${draft.template_name}` : ''}</div></div>{draft.status === 'pending_approval' && <div className="flex shrink-0 gap-2"><ActionButton primary onClick={() => decide(draft, 'approve')} icon={<Check className="h-3.5 w-3.5" />}>Approve & send</ActionButton><ActionButton onClick={() => decide(draft, 'exclude')} icon={<UserX className="h-3.5 w-3.5" />}>Exclude</ActionButton></div>}</div><div className="mt-4 rounded-xl bg-slate-50 p-3"><div className="text-xs font-semibold text-slate-800">{draft.subject}</div><p className="mt-2 whitespace-pre-wrap text-xs leading-5 text-slate-600">{draft.body}</p></div></div>) : <div className="rounded-2xl border border-dashed border-slate-200 py-12 text-center"><Mail className="mx-auto h-7 w-7 text-slate-300" /><div className="mt-3 text-sm font-semibold text-slate-800">No prospect drafts yet</div><div className="mt-1 text-xs text-slate-500">Add your first USA business prospect or connect a discovery source.</div></div>}</div>
         </section>
