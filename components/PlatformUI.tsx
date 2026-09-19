@@ -55,5 +55,5 @@ export function StatusBadge({ value }: { value: string | boolean }) {
 }
 
 export function FeatureSection({ title, description, features }: { title: string; description?: string; features: string[] }) {
-  return <section className="surface-panel rounded-[24px] p-6"><div className="text-lg font-bold tracking-[-.03em] text-slate-900">{title}</div>{description && <p className="mt-2 text-sm leading-6 text-slate-500">{description}</p>}<div className="mt-5 flex flex-wrap gap-2">{features.map((feature) => <span key={feature} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">{feature}</span>)}</div></section>
+  return <section className="surface-panel rounded-[24px] p-6"><div className="text-lg font-bold tracking-[-.03em] text-slate-900">{title}</div>{description && <p className="mt-2 text-sm leading-6 text-slate-500">{description}</p>}<div className="mt-5 flex flex-wrap gap-2">{features.map((feature, index) => <span key={`${feature}-${index}`} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">{feature}</span>)}</div></section>
 }

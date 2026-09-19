@@ -2,7 +2,7 @@ import {
   BarChart3, BookOpen, Bot, Inbox, LayoutDashboard,
   MessageCircle, MessagesSquare, Mic2, PhoneCall, PhoneIncoming,
   PhoneOutgoing, Plug, Settings, Sparkles, SlidersHorizontal, UserPlus,
-  UserRound, Users, Workflow, Wrench,
+  Mail, UserRound, Users, Workflow, Wrench,
 } from 'lucide-react'
 
 export const navigationGroups = [
@@ -29,6 +29,7 @@ export const navigationGroups = [
     { name: 'Leads', href: '/leads', icon: UserPlus, tone: 'red', permission: 'manage_assigned_leads' },
   ]},
   { label: 'Operations', items: [
+    { name: 'Campaigns', href: '/campaigns', icon: Mail, tone: 'orange', permission: 'manage_automations' },
     { name: 'Automations', href: '/automations', icon: Workflow, tone: 'green', permission: 'manage_automations' },
     { name: 'Integrations', href: '/integrations', icon: Plug, tone: 'slate', permission: 'manage_integrations' },
     { name: 'Analytics', href: '/analytics', icon: BarChart3, tone: 'purple', permission: 'view_analytics' },

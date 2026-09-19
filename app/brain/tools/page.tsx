@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
-import { ArrowUpRight, Bot, Database, KeyRound, Save, ShieldCheck, ShoppingBag, Sparkles } from 'lucide-react'
+import { ArrowUpRight, Bot, Database, KeyRound, Mail, Save, ShieldCheck, ShoppingBag, Sparkles } from 'lucide-react'
 import { PageHeader } from '@/components/OmniPage'
 import { ActionButton, api, DataState, MetricGrid, StatusBadge } from '@/components/PlatformUI'
 
@@ -17,6 +17,7 @@ const labels: Record<string, string> = {
   create_lead: 'Create lead',
   update_lead: 'Update lead',
   send_whatsapp_message: 'Send WhatsApp message',
+  send_gmail_email: 'Send Gmail email',
   transfer_voice_call: 'Transfer voice call',
   human_handoff: 'Human handoff',
   custom_api_calls: 'Custom API calls',
@@ -32,6 +33,7 @@ const descriptions: Record<string, string> = {
   create_lead: 'Create a lead from a qualified conversation.',
   update_lead: 'Update captured requirements and lead status.',
   send_whatsapp_message: 'Send an approved outbound WhatsApp response.',
+  send_gmail_email: 'Send a lead follow-up email through the connected Gmail account.',
   transfer_voice_call: 'Route a voice call to a human team member.',
   human_handoff: 'Create a human takeover request with context.',
   custom_api_calls: 'Call configured external APIs; keep disabled until reviewed.',
@@ -43,16 +45,18 @@ const commerceKeys = new Set(['search_shopify_products', 'check_inventory', 'get
 export default function ToolsPage() {
   const [tools, setTools] = useState<Record<string, boolean>>({})
   const [shopify, setShopify] = useState<any>({})
+  const [gmail, setGmail] = useState<any>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   const load = () => {
     setLoading(true)
     setError('')
-    Promise.all([api<any>('/api/platform/tools'), api<any>('/api/platform/shopify/status')])
-      .then(([toolPayload, shopifyPayload]) => {
+    Promise.all([api<any>('/api/platform/tools'), api<any>('/api/platform/shopify/status'), api<any>('/api/platform/gmail/status')])
+      .then(([toolPayload, shopifyPayload, gmailPayload]) => {
         setTools(toolPayload.data || {})
         setShopify(shopifyPayload.data || {})
+        setGmail(gmailPayload.data || {})
       })
       .catch((exception) => setError(exception instanceof Error ? exception.message : 'Unable to load AI tools'))
       .finally(() => setLoading(false))
@@ -94,6 +98,16 @@ export default function ToolsPage() {
             </div>
           </div>
           <Link href="/brain/shopify" className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-[#5a67b1] px-4 text-sm font-semibold text-white shadow-[0_8px_16px_rgba(90,103,177,.18)] transition hover:brightness-105"><KeyRound className="h-4 w-4" />{shopify.connected ? 'Manage Shopify' : 'Configure Shopify'}<ArrowUpRight className="h-4 w-4" /></Link>
+        </div>
+      </section>
+
+      <section className="surface-panel mt-6 overflow-hidden rounded-[24px] border border-[#f4d7b5] bg-[linear-gradient(110deg,#fff8ef_0%,#ffffff_62%,#f4f6ff_100%)]">
+        <div className="flex flex-col gap-5 p-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 items-start gap-4">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-[#b45309] shadow-sm"><Mail className="h-5 w-5" /></span>
+            <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h2 className="text-base font-bold text-slate-900">Gmail email automation</h2><StatusBadge value={gmail.connected ? 'Connected' : 'Needs setup'} /></div><p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600">Send opt-in lead follow-ups from Gmail when an automation matches a new or qualified lead. Use a Gmail App Password; the agent will not send anything until this tool is enabled.</p><div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500"><span className="rounded-lg bg-white/80 px-3 py-2">{gmail.address || 'No Gmail account connected'}</span><span className="rounded-lg bg-white/80 px-3 py-2">SMTP App Password</span></div></div>
+          </div>
+          <span className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600"><KeyRound className="h-4 w-4" />Configure in backend environment</span>
         </div>
       </section>
 

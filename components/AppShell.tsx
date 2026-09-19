@@ -19,6 +19,7 @@ function requiredPermission(pathname: string) {
   if (pathname.startsWith('/customers')) return 'view_customers'
   if (pathname.startsWith('/leads')) return 'manage_assigned_leads'
   if (pathname.startsWith('/automations')) return 'manage_automations'
+  if (pathname.startsWith('/campaigns')) return 'manage_automations'
   if (pathname.startsWith('/integrations')) return 'manage_integrations'
   if (pathname.startsWith('/analytics')) return 'view_analytics'
   if (pathname.startsWith('/team')) return 'manage_team'

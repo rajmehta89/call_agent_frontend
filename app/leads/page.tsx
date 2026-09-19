@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
+import { COUNTRY_CODE_OPTIONS } from './country-codes'
 
 interface Lead {
   id: string
@@ -35,6 +36,17 @@ interface LeadStats {
 }
 
 const API_BASE = process.env.NEXT_PUBLIC_CALL_API_URL || process.env.NEXT_PUBLIC_LEAD_API_URL || 'https://call-agent-backend-ssrw.onrender.com'
+
+const toInternationalPhone = (countryCode: string, value: string) => {
+  const trimmed = value.trim()
+  const digits = trimmed.replace(/\D/g, '')
+
+  if (!digits) return ''
+  if (trimmed.startsWith('+')) return `+${digits}`
+  if (trimmed.startsWith('00')) return `+${digits.slice(2)}`
+
+  return `${countryCode}${digits.replace(/^0+/, '')}`
+}
 
 export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([])
@@ -63,6 +75,7 @@ export default function LeadsPage() {
 
   const [formData, setFormData] = useState({
     name: '',
+    countryCode: '+91',
     phone: '',
     email: '',
     company: '',
@@ -120,12 +133,23 @@ export default function LeadsPage() {
     e.preventDefault()
 
     try {
+      const phone = toInternationalPhone(formData.countryCode, formData.phone)
+      if (!phone) {
+        toast.error('Phone number is required')
+        return
+      }
       const response = await fetch(`${API_BASE}/api/leads`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          name: formData.name,
+          phone,
+          email: formData.email,
+          company: formData.company,
+          notes: formData.notes,
+        }),
       })
 
       const data = await response.json()
@@ -136,7 +160,7 @@ export default function LeadsPage() {
           id: data.data._id || data.data.id
         }
         setLeads([newLead, ...leads])
-        setFormData({ name: '', phone: '', email: '', company: '', notes: '' })
+        setFormData({ name: '', countryCode: '+91', phone: '', email: '', company: '', notes: '' })
         setShowAddForm(false)
         toast.success('Lead added successfully!')
         loadStats()
@@ -231,7 +255,8 @@ export default function LeadsPage() {
       })
 
       const data = await response.json()
-      if (data.success) {
+      const responseError = data?.detail?.error || data?.detail || data?.error
+      if (response.ok && data.success) {
         // Update the lead in the list with the new data
         const updatedLead = data.data.lead
         if (updatedLead) {
@@ -246,10 +271,10 @@ export default function LeadsPage() {
         setTimeout(() => { loadLeads(); loadStats(); }, 3000)
         setTimeout(() => { loadLeads(); loadStats(); }, 8000)
       } else {
-        toast.error(data.error || 'Failed to initiate call')
+        toast.error(responseError || 'Failed to initiate call')
       }
     } catch (error) {
-      toast.error('Error initiating call')
+      toast.error(error instanceof Error ? error.message : 'Error initiating call')
       console.error('Error calling lead:', error)
     }
   }
@@ -821,13 +846,31 @@ export default function LeadsPage() {
                   </div>
                   <div>
                     <label className="block text-xs md:text-sm font-medium text-slate-200 mb-1">Phone *</label>
-                    <input
-                        type="tel"
-                        required
-                        value={formData.phone}
-                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm md:text-base"
-                    />
+                    <div className="grid grid-cols-[minmax(135px,0.9fr)_minmax(0,1.5fr)] gap-2">
+                      <select
+                          aria-label="Country code"
+                          value={formData.countryCode}
+                          onChange={(e) => setFormData({ ...formData, countryCode: e.target.value })}
+                          className="w-full px-2 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm md:text-base"
+                      >
+                        {COUNTRY_CODE_OPTIONS.map(({ region, code, name }) => (
+                          <option key={`${region}-${code}`} value={code}>
+                            {name} ({code})
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                          type="tel"
+                          required
+                          inputMode="numeric"
+                          autoComplete="tel-national"
+                          placeholder="Phone number"
+                          value={formData.phone}
+                          onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                          className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm md:text-base"
+                      />
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">Choose the country, then enter the local number. It will be saved for international calling.</p>
                   </div>
                   <div>
                     <label className="block text-xs md:text-sm font-medium text-slate-200 mb-1">Email</label>
@@ -867,7 +910,7 @@ export default function LeadsPage() {
                         type="button"
                         onClick={() => {
                           setShowAddForm(false)
-                          setFormData({ name: '', phone: '', email: '', company: '', notes: '' })
+                          setFormData({ name: '', countryCode: '+91', phone: '', email: '', company: '', notes: '' })
                         }}
                         className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 px-4 rounded-xl transition-all text-sm md:text-base"
                     >
