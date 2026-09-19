@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import Sidebar from './Sidebar'
 import GlobalHeader from './GlobalHeader'
-import { api } from './PlatformUI'
+import { apiWithRetry } from './PlatformUI'
 
 const publicRoutes = ['/login', '/signup', '/invite/accept']
 
@@ -35,15 +35,19 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const isPublic = publicRoutes.some((route) => pathname?.startsWith(route))
   const [user, setUser] = useState<any>(null)
   const [checking, setChecking] = useState(!isPublic)
+  const [authError, setAuthError] = useState('')
+  const [authAttempt, setAuthAttempt] = useState(0)
 
   useEffect(() => {
     if (isPublic) { setChecking(false); return }
     if (!window.localStorage.getItem('agentflow_token')) { window.location.href = '/login'; return }
-    api<any>('/api/auth/me').then((result) => setUser(result.data)).catch(() => {}).finally(() => setChecking(false))
-  }, [isPublic, pathname])
+    setAuthError('')
+    apiWithRetry<any>('/api/auth/me', undefined, 2).then((result) => setUser(result.data)).catch(() => setAuthError('The backend is waking up or temporarily unavailable.')).finally(() => setChecking(false))
+  }, [isPublic, pathname, authAttempt])
 
   if (isPublic) return <>{children}</>
-  if (checking || !user) return <div className="flex min-h-screen items-center justify-center bg-[#eef2f6] text-sm text-slate-500">Checking workspace access...</div>
+  if (checking) return <div className="flex min-h-screen items-center justify-center bg-[#eef2f6] text-sm text-slate-500">Checking workspace access...</div>
+  if (!user) return <div className="flex min-h-screen items-center justify-center bg-[#eef2f6] p-6"><div className="surface-panel max-w-md rounded-[24px] p-8 text-center"><div className="text-lg font-bold text-slate-900">Unable to reach the workspace</div><p className="mt-2 text-sm leading-6 text-slate-500">{authError || 'Please try again.'} Render free services can take a few seconds to wake up.</p><button type="button" onClick={() => { setChecking(true); setUser(null); setAuthError(''); setAuthAttempt((current) => current + 1) }} className="mt-5 inline-flex h-9 items-center rounded-md bg-[#d97706] px-4 text-sm font-semibold text-white">Try again</button></div></div>
   const permission = requiredPermission(pathname || '/')
   const allowed = !permission || user.permissions?.includes('*') || user.permissions?.includes(permission)
   if (!allowed) return <div className="flex min-h-screen items-center justify-center bg-[#eef2f6] p-6"><div className="surface-panel max-w-md rounded-[24px] p-8 text-center"><div className="text-lg font-bold text-slate-900">Access restricted</div><p className="mt-2 text-sm leading-6 text-slate-500">Your role does not have permission to open this page.</p><a href="/" className="mt-5 inline-flex h-9 items-center rounded-md bg-[#d97706] px-4 text-sm font-semibold text-white">Back to dashboard</a></div></div>

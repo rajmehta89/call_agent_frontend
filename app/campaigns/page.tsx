@@ -122,7 +122,11 @@ export default function CampaignsPage() {
   const decide = async (draft: Draft, decision: 'approve' | 'exclude') => {
     try {
       const result = await api<any>(`/api/platform/email-outbox/${draft._id}/decision`, { method: 'PUT', body: JSON.stringify({ value: { decision } }) })
-      toast.success(decision === 'approve' ? (result.data?.status === 'sent' ? 'Email sent' : 'Approved; waiting for campaign capacity') : 'Company excluded; it will never be mailed')
+      if (decision === 'approve' && result.data?.status === 'error') {
+        toast.error('Approved, but Gmail delivery failed. Configure Gmail API on Render before retrying.')
+      } else {
+        toast.success(decision === 'approve' ? (result.data?.status === 'sent' ? 'Email sent' : 'Approved; waiting for campaign capacity') : 'Company excluded; it will never be mailed')
+      }
       await load()
     } catch (exception) {
       toast.error(exception instanceof Error ? exception.message : 'Unable to update draft')
