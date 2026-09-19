@@ -9,8 +9,10 @@ import { ActionButton, api, DataState, MetricGrid, StatusBadge, Toolbar } from '
 type Policy = { approval_required: boolean; timezone: string; approval_start_hour: number; approval_end_hour: number; send_start_hour: number; send_end_hour: number; approval_start_time: string; approval_end_time: string; send_start_time: string; send_end_time: string; send_days: number[]; approval_window_open?: boolean; send_window_open?: boolean }
 type Draft = { _id: string; company_name: string; recipient_email: string; website?: string; company_context?: string; campaign_name?: string; subject: string; body: string; status: string; created_at: string; source?: string; template_name?: string }
 type EmailTemplate = { id: string; name: string; description?: string; subject: string; body: string; built_in?: boolean; active?: boolean }
+type Campaign = { status: 'running' | 'paused' | 'stopped'; max_emails: number; interval_minutes: number; rate_used: number; rate_remaining: number; can_process: boolean; approval_window_open?: boolean; send_window_open?: boolean }
 
 const defaultPolicy: Policy = { approval_required: true, timezone: 'Asia/Kolkata', approval_start_hour: 9, approval_end_hour: 18, approval_start_time: '09:00', approval_end_time: '18:00', send_start_hour: 9, send_end_hour: 18, send_start_time: '09:00', send_end_time: '18:00', send_days: [0, 1, 2, 3, 4] }
+const defaultCampaign: Campaign = { status: 'stopped', max_emails: 20, interval_minutes: 60, rate_used: 0, rate_remaining: 20, can_process: false }
 const emptyForm = { company_name: '', recipient_email: '', website: '', context: '', template_id: '' }
 const emptyTemplate = { name: '', description: '', subject: '', body: '' }
 const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -19,6 +21,7 @@ export default function CampaignsPage() {
   const [policy, setPolicy] = useState<Policy>(defaultPolicy)
   const [drafts, setDrafts] = useState<Draft[]>([])
   const [templates, setTemplates] = useState<EmailTemplate[]>([])
+  const [campaign, setCampaign] = useState<Campaign>(defaultCampaign)
   const [gmail, setGmail] = useState<any>({})
   const [form, setForm] = useState(emptyForm)
   const [templateForm, setTemplateForm] = useState(emptyTemplate)
@@ -34,11 +37,12 @@ export default function CampaignsPage() {
     setLoading(true)
     setError('')
     try {
-      const [policyResult, draftsResult, gmailResult, templatesResult] = await Promise.all([api<any>('/api/platform/email-policy'), api<any>('/api/platform/email-outbox'), api<any>('/api/platform/gmail/status'), api<any>('/api/platform/email-templates')])
+      const [policyResult, draftsResult, gmailResult, templatesResult, campaignResult] = await Promise.all([api<any>('/api/platform/email-policy'), api<any>('/api/platform/email-outbox'), api<any>('/api/platform/gmail/status'), api<any>('/api/platform/email-templates'), api<any>('/api/platform/email-campaign')])
       setPolicy(policyResult.data || defaultPolicy)
       setDrafts(draftsResult.data || [])
       setGmail(gmailResult.data || {})
       setTemplates(templatesResult.data || [])
+      setCampaign(campaignResult.data || defaultCampaign)
     } catch (exception) {
       setError(exception instanceof Error ? exception.message : 'Unable to load campaign workspace')
     } finally {
@@ -90,10 +94,31 @@ export default function CampaignsPage() {
     }
   }
 
+  const saveCampaign = async (next: Campaign) => {
+    try {
+      const result = await api<any>('/api/platform/email-campaign', { method: 'PUT', body: JSON.stringify({ value: { max_emails: next.max_emails, interval_minutes: next.interval_minutes } }) })
+      setCampaign(result.data)
+      toast.success('Campaign rate limit saved')
+    } catch (exception) {
+      toast.error(exception instanceof Error ? exception.message : 'Unable to save campaign settings')
+    }
+  }
+
+  const campaignAction = async (action: 'start' | 'pause' | 'resume' | 'stop') => {
+    try {
+      const result = await api<any>('/api/platform/email-campaign/action', { method: 'POST', body: JSON.stringify({ value: { action } }) })
+      setCampaign(result.data)
+      await load()
+      toast.success(action === 'start' ? 'Campaign started' : action === 'resume' ? 'Campaign resumed' : action === 'pause' ? 'Campaign paused' : 'Campaign stopped')
+    } catch (exception) {
+      toast.error(exception instanceof Error ? exception.message : 'Unable to update campaign')
+    }
+  }
+
   const decide = async (draft: Draft, decision: 'approve' | 'exclude') => {
     try {
-      await api(`/api/platform/email-outbox/${draft._id}/decision`, { method: 'PUT', body: JSON.stringify({ value: { decision } }) })
-      toast.success(decision === 'approve' ? 'Email sent' : 'Company excluded; it will never be mailed')
+      const result = await api<any>(`/api/platform/email-outbox/${draft._id}/decision`, { method: 'PUT', body: JSON.stringify({ value: { decision } }) })
+      toast.success(decision === 'approve' ? (result.data?.status === 'sent' ? 'Email sent' : 'Approved; waiting for campaign capacity') : 'Company excluded; it will never be mailed')
       await load()
     } catch (exception) {
       toast.error(exception instanceof Error ? exception.message : 'Unable to update draft')
@@ -129,13 +154,18 @@ export default function CampaignsPage() {
           <div className="mt-5 space-y-3">{drafts.length ? drafts.map((draft) => <div key={draft._id} className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><div className="flex items-center gap-2"><div className="truncate text-sm font-bold text-slate-900">{draft.company_name}</div><StatusBadge value={draft.status === 'pending_approval' ? 'Needs approval' : draft.status} /></div><div className="mt-1 text-xs text-slate-500">{draft.recipient_email}{draft.website ? ` · ${draft.website}` : ''}{draft.template_name ? ` · ${draft.template_name}` : ''}</div></div>{draft.status === 'pending_approval' && <div className="flex shrink-0 gap-2"><ActionButton primary onClick={() => decide(draft, 'approve')} icon={<Check className="h-3.5 w-3.5" />}>Approve & send</ActionButton><ActionButton onClick={() => decide(draft, 'exclude')} icon={<UserX className="h-3.5 w-3.5" />}>Exclude</ActionButton></div>}</div><div className="mt-4 rounded-xl bg-slate-50 p-3"><div className="text-xs font-semibold text-slate-800">{draft.subject}</div><p className="mt-2 whitespace-pre-wrap text-xs leading-5 text-slate-600">{draft.body}</p></div></div>) : <div className="rounded-2xl border border-dashed border-slate-200 py-12 text-center"><Mail className="mx-auto h-7 w-7 text-slate-300" /><div className="mt-3 text-sm font-semibold text-slate-800">No prospect drafts yet</div><div className="mt-1 text-xs text-slate-500">Add your first USA business prospect or connect a discovery source.</div></div>}</div>
         </section>
         <section className="surface-panel rounded-[24px] p-6">
-          <div className="flex items-center gap-2 text-base font-bold text-slate-900"><Clock3 className="h-5 w-5 text-[#5a67b1]" />IST approval controls</div>
-          <p className="mt-1 text-sm leading-6 text-slate-500">Set different approval and sending times in IST. At night, drafts stay queued until the next allowed window.</p>
-          <div className="mt-5 flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-4"><div><div className="text-sm font-semibold text-slate-800">Require approval</div><div className="mt-1 text-xs text-slate-500">{policy.approval_required ? 'Every email waits for your approval.' : 'Emails can auto-send during the send window.'}</div></div><button type="button" onClick={() => savePolicy({ ...policy, approval_required: !policy.approval_required })} className={`h-7 w-12 rounded-full p-1 transition ${policy.approval_required ? 'bg-[#d97706]' : 'bg-slate-300'}`}><span className={`block h-5 w-5 rounded-full bg-white shadow-sm transition ${policy.approval_required ? 'translate-x-5' : ''}`} /></button></div>
+          <div className="flex items-center justify-between gap-3"><div><div className="flex items-center gap-2 text-base font-bold text-slate-900"><Send className="h-5 w-5 text-[#16805c]" />Campaign controls</div><p className="mt-1 text-sm leading-6 text-slate-500">Start, pause, resume, or stop sending. The campaign rate is limited to the configured number per interval.</p></div><StatusBadge value={campaign.status} /></div>
+          <div className="mt-4 flex flex-wrap gap-2"><ActionButton primary={campaign.status !== 'running'} onClick={() => campaignAction(campaign.status === 'paused' ? 'resume' : 'start')} icon={<Send className="h-3.5 w-3.5" />}>{campaign.status === 'paused' ? 'Resume campaign' : 'Start campaign'}</ActionButton>{campaign.status === 'running' && <ActionButton onClick={() => campaignAction('pause')}>Pause</ActionButton>}{campaign.status !== 'stopped' && <ActionButton onClick={() => campaignAction('stop')}>Stop / end</ActionButton>}</div>
+          <div className="mt-4 grid grid-cols-2 gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4"><div><div className="text-[10px] uppercase tracking-wider text-slate-400">Rate used</div><div className="mt-1 text-lg font-bold text-slate-800">{campaign.rate_used} / {campaign.max_emails}</div></div><div><div className="text-[10px] uppercase tracking-wider text-slate-400">Interval</div><div className="mt-1 text-lg font-bold text-slate-800">{campaign.interval_minutes} min</div></div></div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2"><label className="text-xs font-semibold text-slate-600">Emails per interval<input type="number" min="1" max="10000" value={campaign.max_emails} onChange={(event) => setCampaign({ ...campaign, max_emails: Number(event.target.value) })} onBlur={() => saveCampaign(campaign)} className="mt-2 h-10 w-full rounded-lg border-slate-200 text-sm" /></label><label className="text-xs font-semibold text-slate-600">Interval in minutes<input type="number" min="1" max="10080" value={campaign.interval_minutes} onChange={(event) => setCampaign({ ...campaign, interval_minutes: Number(event.target.value) })} onBlur={() => saveCampaign(campaign)} className="mt-2 h-10 w-full rounded-lg border-slate-200 text-sm" /></label></div>
+          <div className="mt-6 border-t border-slate-100 pt-6"><div className="flex items-center gap-2 text-base font-bold text-slate-900"><Clock3 className="h-5 w-5 text-[#5a67b1]" />IST approval controls</div>
+          <p className="mt-1 text-sm leading-6 text-slate-500">Set different approval and sending times in IST. During the approval window drafts wait for you; outside it, a running campaign can send automatically inside the send window.</p>
+          <div className="mt-5 flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-4"><div><div className="text-sm font-semibold text-slate-800">Require approval during approval window</div><div className="mt-1 text-xs text-slate-500">{policy.approval_required ? 'Emails wait for your approval during the approval window.' : 'Emails can auto-send during the send window.'}</div></div><button type="button" onClick={() => savePolicy({ ...policy, approval_required: !policy.approval_required })} className={`h-7 w-12 rounded-full p-1 transition ${policy.approval_required ? 'bg-[#d97706]' : 'bg-slate-300'}`}><span className={`block h-5 w-5 rounded-full bg-white shadow-sm transition ${policy.approval_required ? 'translate-x-5' : ''}`} /></button></div>
           <div className="mt-5 rounded-xl border border-slate-200 p-4"><div className="text-xs font-bold uppercase tracking-wider text-slate-400">Current status</div><div className="mt-3 grid grid-cols-2 gap-3"><div className="rounded-lg bg-slate-50 p-3"><div className="text-[10px] text-slate-400">Approval window</div><div className="mt-1 text-sm font-bold text-slate-800">{policy.approval_start_time}–{policy.approval_end_time} IST</div><div className="mt-1 text-xs text-slate-500">{policy.approval_window_open ? 'Open now' : 'Closed now'}</div></div><div className="rounded-lg bg-slate-50 p-3"><div className="text-[10px] text-slate-400">Send window</div><div className="mt-1 text-sm font-bold text-slate-800">{policy.send_start_time}–{policy.send_end_time} IST</div><div className="mt-1 text-xs text-slate-500">{policy.send_window_open ? 'Open now' : 'Closed now'}</div></div></div></div>
           <div className="mt-5 grid gap-3 sm:grid-cols-2"><label className="text-xs font-semibold text-slate-600">Approval starts<input type="time" value={policy.approval_start_time} onChange={(event) => setPolicy({ ...policy, approval_start_time: event.target.value })} onBlur={() => savePolicy(policy)} className="mt-2 h-10 w-full rounded-lg border-slate-200 text-sm" /></label><label className="text-xs font-semibold text-slate-600">Approval ends<input type="time" value={policy.approval_end_time} onChange={(event) => setPolicy({ ...policy, approval_end_time: event.target.value })} onBlur={() => savePolicy(policy)} className="mt-2 h-10 w-full rounded-lg border-slate-200 text-sm" /></label><label className="text-xs font-semibold text-slate-600">Send starts<input type="time" value={policy.send_start_time} onChange={(event) => setPolicy({ ...policy, send_start_time: event.target.value })} onBlur={() => savePolicy(policy)} className="mt-2 h-10 w-full rounded-lg border-slate-200 text-sm" /></label><label className="text-xs font-semibold text-slate-600">Send ends<input type="time" value={policy.send_end_time} onChange={(event) => setPolicy({ ...policy, send_end_time: event.target.value })} onBlur={() => savePolicy(policy)} className="mt-2 h-10 w-full rounded-lg border-slate-200 text-sm" /></label></div>
           <div className="mt-5 text-xs font-semibold text-slate-600">Allowed days<div className="mt-2 flex flex-wrap gap-2">{days.map((day, index) => <button type="button" key={day} onClick={() => { const next = policy.send_days.includes(index) ? policy.send_days.filter((item) => item !== index) : [...policy.send_days, index].sort(); const updated = { ...policy, send_days: next }; setPolicy(updated); savePolicy(updated) }} className={`rounded-lg px-3 py-2 text-xs font-semibold ${policy.send_days.includes(index) ? 'bg-[#d97706] text-white' : 'bg-slate-100 text-slate-400'}`}>{day}</button>)}</div></div>
           <div className="mt-6 border-t border-slate-100 pt-6"><div className="flex items-center justify-between gap-3"><div><div className="flex items-center gap-2 text-base font-bold text-slate-900"><FileText className="h-4 w-4 text-[#d97706]" />Email templates</div><p className="mt-1 text-xs text-slate-500">Choose a template for each draft, then review the personalized subject and body before sending.</p></div><ActionButton onClick={() => setShowTemplateForm((current) => !current)} icon={<Plus className="h-4 w-4" />}>{showTemplateForm ? 'Close' : 'New template'}</ActionButton></div>{showTemplateForm && <div className="mt-4 space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4"><input value={templateForm.name} onChange={(event) => setTemplateForm({ ...templateForm, name: event.target.value })} placeholder="Template name" className="h-10 w-full rounded-lg border-slate-200 text-sm" /><input value={templateForm.subject} onChange={(event) => setTemplateForm({ ...templateForm, subject: event.target.value })} placeholder="Subject, e.g. A practical idea for {{company_name}}" className="h-10 w-full rounded-lg border-slate-200 text-sm" /><textarea value={templateForm.body} onChange={(event) => setTemplateForm({ ...templateForm, body: event.target.value })} placeholder="Body. Use {{company_name}}, {{company_context}}, and {{website}}." className="min-h-28 w-full rounded-lg border-slate-200 text-sm" /><ActionButton primary onClick={createTemplate} disabled={savingTemplate} icon={<Save className="h-4 w-4" />}>{savingTemplate ? 'Saving...' : 'Save template'}</ActionButton></div>}<div className="mt-4 space-y-2">{templates.map((template) => <div key={template.id} className="rounded-xl bg-slate-50 p-3"><div className="text-xs font-semibold text-slate-800">{template.name}</div><div className="mt-1 text-[11px] text-slate-500">{template.description}</div></div>)}</div></div>
+          </div>
         </section>
       </div>
     </DataState>
