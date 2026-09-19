@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import { Check, Clock3, FileText, Mail, Plus, Save, Send, ShieldCheck, Target, UserX } from 'lucide-react'
 import { PageHeader } from '@/components/OmniPage'
-import { ActionButton, api, DataState, MetricGrid, StatusBadge, Toolbar } from '@/components/PlatformUI'
+import { ActionButton, api, apiWithRetry, DataState, MetricGrid, StatusBadge, Toolbar } from '@/components/PlatformUI'
 
 type Policy = { approval_required: boolean; timezone: string; approval_start_hour: number; approval_end_hour: number; send_start_hour: number; send_end_hour: number; approval_start_time: string; approval_end_time: string; send_start_time: string; send_end_time: string; send_days: number[]; approval_window_open?: boolean; send_window_open?: boolean }
 type Draft = { _id: string; company_name: string; recipient_email: string; website?: string; company_context?: string; campaign_name?: string; subject: string; body: string; status: string; created_at: string; source?: string; template_name?: string }
@@ -40,7 +40,7 @@ export default function CampaignsPage() {
     setLoading(true)
     setError('')
     try {
-      const [policyResult, draftsResult, gmailResult, templatesResult, campaignResult, discoveryResult] = await Promise.all([api<any>('/api/platform/email-policy'), api<any>('/api/platform/email-outbox'), api<any>('/api/platform/gmail/status'), api<any>('/api/platform/email-templates'), api<any>('/api/platform/email-campaign'), api<any>('/api/platform/prospects/discovery-status')])
+      const [policyResult, draftsResult, gmailResult, templatesResult, campaignResult, discoveryResult] = await Promise.all([apiWithRetry<any>('/api/platform/email-policy'), apiWithRetry<any>('/api/platform/email-outbox'), apiWithRetry<any>('/api/platform/gmail/status'), apiWithRetry<any>('/api/platform/email-templates'), apiWithRetry<any>('/api/platform/email-campaign'), apiWithRetry<any>('/api/platform/prospects/discovery-status')])
       setPolicy(policyResult.data || defaultPolicy)
       setDrafts(draftsResult.data || [])
       setGmail(gmailResult.data || {})
@@ -145,7 +145,7 @@ export default function CampaignsPage() {
     if (!discoveryForm.query.trim()) return toast.error('Enter the type of USA business to find')
     setDiscovering(true)
     try {
-      const result = await api<any>('/api/platform/prospects/discover', { method: 'POST', body: JSON.stringify(discoveryForm) })
+      const result = await apiWithRetry<any>('/api/platform/prospects/discover', { method: 'POST', body: JSON.stringify(discoveryForm) })
       const summary = result.data || {}
       toast.success(`Found ${summary.found || 0} businesses and created ${summary.drafts_created || 0} email drafts`)
       await load()

@@ -14,8 +14,32 @@ export async function api<T = any>(path: string, options?: RequestInit): Promise
     window.localStorage.removeItem('agentflow_token')
     window.location.href = '/login'
   }
-  if (!response.ok) throw new Error(payload?.detail?.error || payload?.detail || payload?.error || `Request failed (${response.status})`)
+  if (!response.ok) {
+    const error = new Error(payload?.detail?.error || payload?.detail || payload?.error || `Request failed (${response.status})`) as Error & { status?: number }
+    error.status = response.status
+    throw error
+  }
   return payload
+}
+
+export async function apiWithRetry<T = any>(path: string, options?: RequestInit, attempts = 3): Promise<T> {
+  let lastError: unknown
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    const controller = new AbortController()
+    const timeout = window.setTimeout(() => controller.abort(), 25000)
+    try {
+      return await api<T>(path, { ...options, signal: controller.signal })
+    } catch (error) {
+      lastError = error
+      const status = (error as Error & { status?: number }).status
+      const transient = !status || status === 408 || status === 429 || status >= 500 || (error instanceof DOMException && error.name === 'AbortError')
+      if (!transient || attempt === attempts) throw error
+      await new Promise((resolve) => window.setTimeout(resolve, attempt * 1200))
+    } finally {
+      window.clearTimeout(timeout)
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error('Request failed after retries')
 }
 
 export function downloadCsv(resource: string) { window.open(`${API_BASE}/api/platform/export/${resource}.csv`, '_blank') }
