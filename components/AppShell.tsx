@@ -42,7 +42,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     if (isPublic) { setChecking(false); return }
     if (!window.localStorage.getItem('agentflow_token')) { window.location.href = '/login'; return }
     setAuthError('')
-    apiWithRetry<any>('/api/auth/me', undefined, 2).then((result) => setUser(result.data)).catch(() => setAuthError('The backend is waking up or temporarily unavailable.')).finally(() => setChecking(false))
+    apiWithRetry<any>('/api/auth/me', undefined, 1, 8000).then((result) => setUser(result.data)).catch(() => setAuthError('The workspace service is unavailable or your session has expired.')).finally(() => setChecking(false))
   }, [isPublic, pathname, authAttempt])
 
   if (isPublic) return <>{children}</>

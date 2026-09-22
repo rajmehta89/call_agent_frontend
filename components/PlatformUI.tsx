@@ -22,11 +22,11 @@ export async function api<T = any>(path: string, options?: RequestInit): Promise
   return payload
 }
 
-export async function apiWithRetry<T = any>(path: string, options?: RequestInit, attempts = 3): Promise<T> {
+export async function apiWithRetry<T = any>(path: string, options?: RequestInit, attempts = 3, timeoutMs = 25000): Promise<T> {
   let lastError: unknown
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     const controller = new AbortController()
-    const timeout = window.setTimeout(() => controller.abort(), 25000)
+    const timeout = window.setTimeout(() => controller.abort(), timeoutMs)
     try {
       return await api<T>(path, { ...options, signal: controller.signal })
     } catch (error) {
@@ -58,8 +58,10 @@ export function Toolbar({ search, onSearch, onRefresh, onExport, children }: { s
   </div>
 }
 
-export function ActionButton({ children, onClick, icon, primary = false, disabled = false }: { children: ReactNode; onClick?: () => void; icon?: ReactNode; primary?: boolean; disabled?: boolean }) {
-  return <button type="button" onClick={onClick} disabled={disabled} className={`inline-flex h-9 items-center justify-center gap-2 rounded-md px-3.5 text-sm font-medium transition active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-40 ${primary ? 'bg-[#d97706] text-white shadow-[0_8px_16px_rgba(217,119,6,.18)] hover:brightness-105' : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}>{icon}{children}</button>
+export function ActionButton({ children, onClick, icon, primary = false, disabled = false, title, tone = 'default' }: { children: ReactNode; onClick?: () => void; icon?: ReactNode; primary?: boolean; disabled?: boolean; title?: string; tone?: 'default' | 'warning' | 'danger' | 'success' }) {
+  const accessibleTitle = title || (typeof children === 'string' ? children : undefined)
+  const toneClass = primary ? 'action-button-primary' : tone === 'warning' ? 'action-button-warning' : tone === 'danger' ? 'action-button-danger' : tone === 'success' ? 'action-button-success' : 'action-button-neutral'
+  return <button type="button" title={accessibleTitle} aria-label={accessibleTitle} onClick={onClick} disabled={disabled} className={`action-button ${toneClass} inline-flex h-9 items-center justify-center gap-2 rounded-md px-3.5 text-sm font-semibold transition active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-40`}>{icon}{children}</button>
 }
 
 export function DataState({ loading, error, empty, onRetry, children }: { loading: boolean; error?: string; empty?: boolean; onRetry?: () => void; children: ReactNode }) {
