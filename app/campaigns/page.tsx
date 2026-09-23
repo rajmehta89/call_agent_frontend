@@ -770,10 +770,14 @@ export default function CampaignsPage() {
     templates.find((template) => template.id === form.template_id) ||
     templates.find((template) => template.active !== false) ||
     null;
+  const selectedCampaignDefinition = campaignDefinitions.find((item) => item.id === selectedCampaignId) || null;
+  const selectedCampaignTemplateId = scrapeForms[selectedCampaignId]?.template_id || selectedCampaignDefinition?.scrape?.template_id || "";
   const libraryTemplate =
-    templates.find((template) => template.id === expandedTemplateId) ||
-    templates.find((template) => template.active !== false) ||
-    null;
+    selectedCampaignTemplateId
+      ? templates.find((template) => template.id === selectedCampaignTemplateId) || null
+      : expandedTemplateId
+        ? templates.find((template) => template.id === expandedTemplateId) || null
+        : null;
   const selectedDraft =
     drafts.find((draft) => draft._id === selectedDraftId) || null;
   const filteredDrafts = useMemo(
@@ -2385,7 +2389,7 @@ export default function CampaignsPage() {
                       </button>
                     ))}
                   </div>
-                  {libraryTemplate && (
+                  {libraryTemplate ? (
                     <div className="overflow-hidden rounded-xl border border-[#cfe1f5] bg-white">
                       <div className="border-b border-slate-200 bg-[#f8fbff] p-4">
                         <div className="text-[10px] font-bold uppercase tracking-[.14em] text-[#5a67b1]">
@@ -2423,6 +2427,15 @@ export default function CampaignsPage() {
                         >
                           Use this template
                         </ActionButton>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="overflow-hidden rounded-xl border border-[#d9def7] bg-[#f8f9ff]">
+                      <div className="border-b border-[#d9def7] p-4">
+                        <div className="text-[10px] font-bold uppercase tracking-[.14em] text-[#5a67b1]">Automatic template</div>
+                        <div className="mt-1 text-sm font-bold text-slate-900">AI chooses the best active template</div>
+                        <p className="mt-2 text-xs leading-5 text-slate-600">This campaign is set to Automatic template. When scraping creates a draft, the system chooses the active template that best matches the campaign goal, search intent, and verified business type.</p>
+                        <p className="mt-2 text-[11px] leading-5 text-slate-500">No predefined template is selected for this campaign. Choose a specific template in Scraping parameters if you want to lock the wording.</p>
                       </div>
                     </div>
                   )}
