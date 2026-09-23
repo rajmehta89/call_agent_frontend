@@ -54,6 +54,7 @@ type Draft = {
   body: string;
   status: string;
   created_at: string;
+  sent_at?: string;
   source?: string;
   template_name?: string;
 };
@@ -176,6 +177,7 @@ export default function CampaignsPage() {
   const [queueSearch, setQueueSearch] = useState("");
   const [queueStatus, setQueueStatus] = useState("all");
   const [queueTemplate, setQueueTemplate] = useState("all");
+  const [queueDate, setQueueDate] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savingTemplate, setSavingTemplate] = useState(false);
@@ -782,9 +784,11 @@ export default function CampaignsPage() {
         const matchesTemplate =
           queueTemplate === "all" ||
           (draft.template_name || "Automatic template") === queueTemplate;
-        return matchesSearch && matchesStatus && matchesTemplate;
+        const activityDate = String(draft.sent_at || draft.created_at || "").slice(0, 10);
+        const matchesDate = !queueDate || activityDate === queueDate;
+        return matchesSearch && matchesStatus && matchesTemplate && matchesDate;
       }),
-    [drafts, queueSearch, queueStatus, queueTemplate],
+    [drafts, queueSearch, queueStatus, queueTemplate, queueDate],
   );
   const sent = drafts.filter((draft) => draft.status === "sent").length;
   const excluded = drafts.filter((draft) => draft.status === "excluded").length;
@@ -1439,6 +1443,7 @@ export default function CampaignsPage() {
                         setQueueSearch("");
                         setQueueStatus("all");
                         setQueueTemplate("all");
+                        setQueueDate("");
                       }}
                       className="text-xs font-semibold text-[#b45309] hover:underline"
                     >
@@ -1446,7 +1451,7 @@ export default function CampaignsPage() {
                     </button>
                   </div>
                 </div>
-                <div className="mt-3 grid min-w-0 grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1.7fr)_minmax(220px,1fr)_minmax(260px,1.2fr)]">
+                <div className="mt-3 grid min-w-0 grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1.5fr)_minmax(180px,1fr)_minmax(220px,1.1fr)_minmax(160px,.7fr)]">
                   <label className="min-w-0 text-[11px] font-semibold text-slate-600">
                     Search business, email, subject, or message
                     <input
@@ -1495,6 +1500,10 @@ export default function CampaignsPage() {
                         </option>
                       ))}
                     </select>
+                  </label>
+                  <label className="min-w-0 text-[11px] font-semibold text-slate-600">
+                    Activity date
+                    <input type="date" title="Show outreach created or sent on this date." value={queueDate} onChange={(event) => setQueueDate(event.target.value)} className="mt-1 h-11 w-full min-w-0 rounded-lg border-slate-200 text-sm" />
                   </label>
                 </div>
               </div>
@@ -1805,6 +1814,10 @@ export default function CampaignsPage() {
                 <div className="mt-1 text-lg font-bold text-slate-800">
                   {campaign.daily_used} / {campaign.daily_limit}
                 </div>
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200" title={`${campaign.daily_used} of ${campaign.daily_limit} daily emails used`}>
+                  <div className="h-full rounded-full bg-[#d97706] transition-all" style={{ width: `${Math.min(100, campaign.daily_limit ? (campaign.daily_used / campaign.daily_limit) * 100 : 0)}%` }} />
+                </div>
+                <div className="mt-1 text-[10px] text-slate-400">{campaign.daily_remaining} remaining today</div>
               </div>
             </div>
             <div className="mt-4 grid grid-cols-1 gap-3">
