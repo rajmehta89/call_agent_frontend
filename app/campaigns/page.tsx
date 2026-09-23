@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import {
   Check,
@@ -92,12 +92,17 @@ type CampaignDefinition = {
   status: string;
   audience?: string;
   description?: string;
+  goal?: string;
+  scrape_intent?: string;
+  context_mode?: "brain" | "campaign";
+  campaign_context?: string;
   steps?: string[];
   scrape?: {
     query: string;
     location: string;
     max_results: number;
     create_drafts: boolean;
+    template_id?: string;
   };
   last_scrape?: any;
 };
@@ -140,6 +145,8 @@ const predefinedTemplateVariables = [
   { name: "company_name", meaning: "The prospect's business name; use it in the subject or greeting." },
   { name: "company_context", meaning: "AI-generated, evidence-based context about this specific business." },
   { name: "website", meaning: "The prospect's public website; use it when relevant to the message." },
+  { name: "campaign_goal", meaning: "The selected campaign's goal or audience objective." },
+  { name: "shared_context", meaning: "Shared sender/company context supplied for this campaign." },
   { name: "recipient_email", meaning: "The recipient address; usually useful for internal routing, not the email body." },
   { name: "name", meaning: "The contact's first name when it is available." },
 ];
@@ -191,6 +198,10 @@ export default function CampaignsPage() {
     type: "email_outreach",
     audience: "",
     description: "",
+    goal: "",
+    scrape_intent: "",
+    context_mode: "brain" as "brain" | "campaign",
+    campaign_context: "",
   });
   const [scrapeForms, setScrapeForms] = useState<
     Record<
@@ -200,10 +211,40 @@ export default function CampaignsPage() {
         location: string;
         max_results: number;
         create_drafts: boolean;
+        template_id: string;
       }
     >
   >({});
   const [scrapingId, setScrapingId] = useState("");
+  const [editingCampaignId, setEditingCampaignId] = useState("");
+  const [savingCampaignId, setSavingCampaignId] = useState("");
+  const [campaignEdit, setCampaignEdit] = useState<any>({});
+  const [openLocationPicker, setOpenLocationPicker] = useState("");
+  const [locationSearch, setLocationSearch] = useState("");
+  const [locationSuggestions, setLocationSuggestions] = useState<{ value: string; label: string }[]>([]);
+  const [locationSearching, setLocationSearching] = useState(false);
+  const locationSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const searchCampaignLocations = async (query: string) => {
+    setLocationSearch(query);
+    if (locationSearchTimer.current) clearTimeout(locationSearchTimer.current);
+    if (query.trim().length < 2) {
+      setLocationSuggestions([]);
+      setLocationSearching(false);
+      return;
+    }
+    setLocationSearching(true);
+    locationSearchTimer.current = setTimeout(async () => {
+      try {
+        const result = await apiWithRetry<any>(`/api/platform/campaign-locations?query=${encodeURIComponent(query.trim())}`);
+        setLocationSuggestions(result.data || []);
+      } catch {
+        setLocationSuggestions([]);
+      } finally {
+        setLocationSearching(false);
+      }
+    }, 350);
+  };
 
   const load = async () => {
     setLoading(true);
@@ -285,6 +326,10 @@ export default function CampaignsPage() {
         type: "email_outreach",
         audience: "",
         description: "",
+        goal: "",
+        scrape_intent: "",
+        context_mode: "brain",
+        campaign_context: "",
       });
       setShowCampaignForm(false);
       toast.success("Campaign added");
@@ -314,12 +359,34 @@ export default function CampaignsPage() {
     }
   };
 
+  const startCampaignEdit = (item: CampaignDefinition) => {
+    setEditingCampaignId(item.id);
+    setCampaignEdit({ name: item.name, audience: item.audience || "", description: item.description || "", goal: item.goal || "", scrape_intent: item.scrape_intent || "", context_mode: item.context_mode || "brain", campaign_context: item.campaign_context || "" });
+    setScrapeForms((current) => ({ ...current, [item.id]: current[item.id] || { query: item.scrape?.query || "", location: item.scrape?.location || "United States", max_results: item.scrape?.max_results || 20, create_drafts: item.scrape?.create_drafts ?? true, template_id: item.scrape?.template_id || "" } }));
+  };
+
+  const saveCampaignDefinition = async (item: CampaignDefinition) => {
+    setSavingCampaignId(item.id);
+    try {
+      const scrape = scrapeForms[item.id] || { query: item.scrape?.query || "", location: item.scrape?.location || "United States", max_results: item.scrape?.max_results || 20, create_drafts: item.scrape?.create_drafts ?? true, template_id: item.scrape?.template_id || "" };
+      const result = await api<any>(`/api/platform/campaigns/${item.id}`, { method: "PUT", body: JSON.stringify({ value: { ...campaignEdit, scrape } }) });
+      setCampaignDefinitions((current) => current.map((campaign) => campaign.id === item.id ? result.data : campaign));
+      setEditingCampaignId("");
+      toast.success("Campaign settings saved");
+    } catch (exception) {
+      toast.error(exception instanceof Error ? exception.message : "Unable to save campaign settings");
+    } finally {
+      setSavingCampaignId("");
+    }
+  };
+
   const scrapeCampaign = async (item: CampaignDefinition) => {
     const form = scrapeForms[item.id] || {
-      query: "",
-      location: "United States",
-      max_results: 20,
-      create_drafts: true,
+      query: item.scrape?.query || "",
+      location: item.scrape?.location || "United States",
+      max_results: item.scrape?.max_results || 20,
+      create_drafts: item.scrape?.create_drafts ?? true,
+      template_id: item.scrape?.template_id || "",
     };
     if (!form.query.trim())
       return toast.error("Add a search query before scraping");
@@ -485,16 +552,27 @@ export default function CampaignsPage() {
   };
 
   const reviewTemplate = async () => {
-    if (!templateForm.subject.trim() || !templateForm.body.trim()) {
-      return toast.error("Add a subject and body before asking AI to review it");
+    const selectedCampaign = campaignDefinitions.find((item) => item.id === selectedCampaignId);
+    if ((!templateForm.subject.trim() || !templateForm.body.trim()) && !selectedCampaign) {
+      return toast.error("Select a campaign or add a subject and body before asking AI to review it");
     }
     setReviewingTemplate(true);
     try {
       const result = await api<any>("/api/platform/email-templates/review", {
         method: "POST",
-        body: JSON.stringify({ value: templateForm }),
+        body: JSON.stringify({
+          value: {
+            ...templateForm,
+            name: templateForm.name || `${selectedCampaign?.name || "Campaign"} outreach template`,
+            campaign_goal: selectedCampaign?.description || "",
+            campaign_audience: selectedCampaign?.audience || "",
+            scrape_intent: selectedCampaign?.scrape_intent || "",
+            campaign_context_mode: selectedCampaign?.context_mode || "brain",
+          },
+        }),
       });
       setTemplateReview(result.data);
+      if (!templateForm.name.trim() && selectedCampaign) setTemplateForm((current) => ({ ...current, name: `${selectedCampaign.name} outreach template` }));
       toast.success("AI review is ready");
     } catch (exception) {
       toast.error(exception instanceof Error ? exception.message : "Unable to review template");
@@ -804,11 +882,11 @@ export default function CampaignsPage() {
                 />
               </label>
               <label
-                title="Optional internal context about the goal of this campaign."
+                title="Explain what this campaign is for, how the outreach should approach the audience, and what outcome it should achieve. AI uses this brief to generate the template and guide scraping."
                 className="text-xs font-semibold text-slate-600"
               >
-                Goal or notes
-                <input
+                Campaign brief: goal and approach
+                <textarea
                   value={newCampaign.description}
                   onChange={(event) =>
                     setNewCampaign({
@@ -816,10 +894,38 @@ export default function CampaignsPage() {
                       description: event.target.value,
                     })
                   }
-                  placeholder="What should this campaign achieve?"
-                  className="mt-2 h-10 w-full rounded-lg border-slate-200 bg-white text-sm"
+                  placeholder="What is this campaign for? Who should it reach? What problem or outcome should the outreach focus on?"
+                  className="mt-2 min-h-20 w-full rounded-lg border-slate-200 bg-white text-sm"
                 />
+                <span className="mt-1 block text-[11px] font-normal leading-5 text-slate-400">Write this like an instruction for the campaign AI. Example: Reach US home-service businesses that miss calls or enquiries and introduce a practical Voice AI appointment-booking workflow.</span>
               </label>
+              <label title="The outcome this campaign should achieve. AI uses this to shape the message and call to action." className="text-xs font-semibold text-slate-600">
+                Outreach goal
+                <textarea value={newCampaign.goal} onChange={(event) => setNewCampaign({ ...newCampaign, goal: event.target.value })} placeholder="What result should this outreach create?" className="mt-2 min-h-20 w-full rounded-lg border-slate-200 bg-white text-sm" />
+              </label>
+              <label title="Describe what kind of lead can genuinely benefit from the offer. This guides prospect scraping and filtering." className="text-xs font-semibold text-slate-600">
+                Lead-finding intent
+                <textarea value={newCampaign.scrape_intent} onChange={(event) => setNewCampaign({ ...newCampaign, scrape_intent: event.target.value })} placeholder="Which businesses should we find because they may benefit? Include signals such as calls, enquiries, estimates, or appointments." className="mt-2 min-h-20 w-full rounded-lg border-slate-200 bg-white text-sm" />
+              </label>
+              <div className="md:col-span-2 rounded-xl border border-slate-200 bg-white p-3">
+                <div className="text-xs font-semibold text-slate-600">Shared context source</div>
+                <p className="mt-1 text-[11px] leading-5 text-slate-400">
+                  Choose whether this campaign should use the existing AI Brain or its own campaign-specific context.
+                </p>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <label title="Use the approved company profile, services, website positioning, and knowledge already stored in AI Brain." className={`flex cursor-pointer items-start gap-2 rounded-lg border p-3 text-xs ${newCampaign.context_mode === "brain" ? "border-[#d97706] bg-[#fff7ed]" : "border-slate-200"}`}>
+                    <input type="radio" name="campaign-context-mode" checked={newCampaign.context_mode === "brain"} onChange={() => setNewCampaign({ ...newCampaign, context_mode: "brain" })} />
+                    <span><span className="block font-semibold text-slate-800">Use AI Brain context</span><span className="mt-1 block text-[11px] font-normal leading-4 text-slate-500">Recommended for normal outreach.</span></span>
+                  </label>
+                  <label title="Use context written specifically for this campaign instead of the shared AI Brain context." className={`flex cursor-pointer items-start gap-2 rounded-lg border p-3 text-xs ${newCampaign.context_mode === "campaign" ? "border-[#d97706] bg-[#fff7ed]" : "border-slate-200"}`}>
+                    <input type="radio" name="campaign-context-mode" checked={newCampaign.context_mode === "campaign"} onChange={() => setNewCampaign({ ...newCampaign, context_mode: "campaign" })} />
+                    <span><span className="block font-semibold text-slate-800">Use campaign-specific context</span><span className="mt-1 block text-[11px] font-normal leading-4 text-slate-500">Useful for a different offer or positioning.</span></span>
+                  </label>
+                </div>
+                {newCampaign.context_mode === "campaign" && (
+                  <textarea value={newCampaign.campaign_context} onChange={(event) => setNewCampaign({ ...newCampaign, campaign_context: event.target.value })} placeholder="Describe the offer, positioning, proof points, and sender details for this campaign." className="mt-3 min-h-24 w-full rounded-lg border-slate-200 bg-white text-sm" />
+                )}
+              </div>
               <div className="md:col-span-2 flex items-center justify-between gap-3">
                 <p className="text-xs text-slate-500">
                   {campaignTypes[newCampaign.type]?.description ||
@@ -864,11 +970,13 @@ export default function CampaignsPage() {
                       ? Zap
                       : Mail;
               const scrape = scrapeForms[item.id] || {
-                query: "",
-                location: "United States",
-                max_results: 20,
-                create_drafts: true,
+                query: item.scrape?.query || "",
+                location: item.scrape?.location || "United States",
+                max_results: item.scrape?.max_results || 20,
+                create_drafts: item.scrape?.create_drafts ?? true,
+                template_id: item.scrape?.template_id || "",
               };
+              const selectedLocations = (scrape.location || "United States").split(/[\n,;]+/).map((location) => location.trim()).filter(Boolean);
               const updateScrape = (next: Partial<typeof scrape>) =>
                 setScrapeForms((current) => ({
                   ...current,
@@ -896,20 +1004,17 @@ export default function CampaignsPage() {
                         </div>
                       </div>
                     </div>
-                    {item.id !== "usa-ai-automation-outreach" && (
-                      <button
-                        title="Remove this campaign definition."
-                        type="button"
-                        onClick={() => deleteCampaign(item.id)}
-                        className="text-xs text-slate-400 hover:text-rose-600"
-                      >
-                        Remove
-                      </button>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <button title="Edit this campaign definition and its scraping settings." type="button" onClick={() => editingCampaignId === item.id ? setEditingCampaignId("") : startCampaignEdit(item)} className="text-xs font-semibold text-[#5a67b1] hover:text-[#394784]">{editingCampaignId === item.id ? "Close edit" : "Edit"}</button>
+                      {item.id !== "usa-ai-automation-outreach" && <button title="Remove this campaign definition." type="button" onClick={() => deleteCampaign(item.id)} className="text-xs text-slate-400 hover:text-rose-600">Remove</button>}
+                    </div>
                   </div>
-                  <p className="mt-3 line-clamp-2 text-xs leading-5 text-slate-500">
-                    {item.description || meta?.description}
-                  </p>
+                  <div className="mt-3 grid gap-2 rounded-xl border border-slate-100 bg-slate-50 p-3 text-xs">
+                    <div><span className="font-bold text-slate-500">Campaign description:</span> <span className="leading-5 text-slate-600">{item.description || meta?.description}</span></div>
+                    <div><span className="font-bold text-slate-500">Outreach goal:</span> <span className="leading-5 text-slate-600">{item.goal || item.description || "Not set"}</span></div>
+                    <div><span className="font-bold text-slate-500">Lead-finding intent:</span> <span className="leading-5 text-slate-600">{item.scrape_intent || item.audience || "Not set"}</span></div>
+                    <div><span className="font-bold text-slate-500">Context source:</span> <span className="text-slate-600">{item.context_mode === "campaign" ? "Campaign-specific context" : "AI Brain context"}</span></div>
+                  </div>
                   <div className="mt-3 flex items-center justify-between text-[11px] text-slate-400">
                     <span title="The audience saved for this campaign.">
                       {item.audience || "Audience not set"}
@@ -921,6 +1026,19 @@ export default function CampaignsPage() {
                     />
                     {selectedCampaignId === item.id && <span className="rounded-full bg-[#fff7ed] px-2 py-1 text-[10px] font-bold text-[#b45309]">Selected campaign</span>}
                   </div>
+                  <div className="mt-2 flex flex-wrap gap-1.5" title="These locations will be searched separately for this campaign.">
+                    {(scrape.location || item.scrape?.location || "United States").split(/[\n,;]+/).map((location) => location.trim()).filter(Boolean).map((location) => <span key={location} className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-500">{location}</span>)}
+                  </div>
+                  {editingCampaignId === item.id && <div className="mt-3 grid gap-3 rounded-xl border border-[#cfd6f4] bg-[#f8f9ff] p-4 md:grid-cols-2">
+                    <label className="text-xs font-semibold text-slate-600">Campaign name<input value={campaignEdit.name || ""} onChange={(event) => setCampaignEdit({ ...campaignEdit, name: event.target.value })} className="mt-1 h-9 w-full rounded-lg border-slate-200 bg-white text-xs" /></label>
+                    <label className="text-xs font-semibold text-slate-600">Audience<input value={campaignEdit.audience || ""} onChange={(event) => setCampaignEdit({ ...campaignEdit, audience: event.target.value })} className="mt-1 h-9 w-full rounded-lg border-slate-200 bg-white text-xs" /></label>
+                    <label className="text-xs font-semibold text-slate-600 md:col-span-2">Campaign description<textarea value={campaignEdit.description || ""} onChange={(event) => setCampaignEdit({ ...campaignEdit, description: event.target.value })} className="mt-1 min-h-16 w-full rounded-lg border-slate-200 bg-white text-xs" /></label>
+                    <label className="text-xs font-semibold text-slate-600">Outreach goal<textarea value={campaignEdit.goal || ""} onChange={(event) => setCampaignEdit({ ...campaignEdit, goal: event.target.value })} className="mt-1 min-h-16 w-full rounded-lg border-slate-200 bg-white text-xs" /></label>
+                    <label className="text-xs font-semibold text-slate-600">Lead-finding intent<textarea value={campaignEdit.scrape_intent || ""} onChange={(event) => setCampaignEdit({ ...campaignEdit, scrape_intent: event.target.value })} className="mt-1 min-h-16 w-full rounded-lg border-slate-200 bg-white text-xs" /></label>
+                    <label className="text-xs font-semibold text-slate-600">Context source<select value={campaignEdit.context_mode || "brain"} onChange={(event) => setCampaignEdit({ ...campaignEdit, context_mode: event.target.value })} className="campaign-select mt-1 h-9 w-full rounded-lg border-slate-200 bg-white text-xs"><option value="brain">AI Brain context</option><option value="campaign">Campaign-specific context</option></select></label>
+                    {campaignEdit.context_mode === "campaign" && <label className="text-xs font-semibold text-slate-600">Campaign-specific context<textarea value={campaignEdit.campaign_context || ""} onChange={(event) => setCampaignEdit({ ...campaignEdit, campaign_context: event.target.value })} className="mt-1 min-h-16 w-full rounded-lg border-slate-200 bg-white text-xs" /></label>}
+                    <div className="flex items-end justify-end md:col-span-2"><ActionButton primary disabled={savingCampaignId === item.id} onClick={() => saveCampaignDefinition(item)} icon={<Save className="h-3.5 w-3.5" />}>{savingCampaignId === item.id ? "Saving..." : "Save campaign settings"}</ActionButton></div>
+                  </div>}
                   <div className="mt-4 border-t border-slate-100 pt-4">
                     <div
                       title="These values control what the prospect finder searches for."
@@ -931,7 +1049,8 @@ export default function CampaignsPage() {
                     <p className="mt-1 text-[11px] leading-5 text-slate-400">
                       Tell the system what to find, then start scraping.
                     </p>
-                    <div className="mt-3 grid gap-2 sm:grid-cols-[1.4fr_1fr_70px]">
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1.25fr)_110px_minmax(0,1.25fr)]">
+                      <label className="flex min-w-0 flex-col text-[10px] font-bold uppercase tracking-[.12em] text-slate-400">Business search
                       <input
                         title="Business category or search phrase sent to Google Places."
                         value={scrape.query}
@@ -939,17 +1058,25 @@ export default function CampaignsPage() {
                           updateScrape({ query: event.target.value })
                         }
                         placeholder="Business type or search"
-                        className="h-9 rounded-lg border-slate-200 text-xs"
+                        className="mt-1 h-9 w-full rounded-lg border-slate-200 text-xs"
                       />
-                      <input
-                        title="City, region, or country where businesses should be found."
-                        value={scrape.location}
-                        onChange={(event) =>
-                          updateScrape({ location: event.target.value })
-                        }
-                        placeholder="Location"
-                        className="h-9 rounded-lg border-slate-200 text-xs"
-                      />
+                      </label>
+                      <div className="relative">
+                        <label className="block text-[10px] font-bold uppercase tracking-[.12em] text-slate-400">Locations</label>
+                        <button type="button" aria-expanded={openLocationPicker === item.id} title="Search and select one or more locations. Each selected location is searched separately." onClick={() => setOpenLocationPicker(openLocationPicker === item.id ? "" : item.id)} className="mt-1 flex min-h-9 w-full items-center justify-between gap-2 rounded-lg border border-[#cfd6f4] bg-white px-3 py-2 text-left text-xs font-semibold text-[#4f5da6] shadow-sm hover:border-[#9da9e6]">
+                          <span className="truncate">{selectedLocations.length ? `${selectedLocations.length} location${selectedLocations.length === 1 ? "" : "s"} selected — click to change` : "Search and select locations"}</span><span className="text-slate-400">▾</span>
+                        </button>
+                        {openLocationPicker === item.id && <div className="absolute left-0 right-0 z-20 mt-1 max-h-72 overflow-auto rounded-xl border border-slate-200 bg-white p-2 shadow-xl">
+                          <input autoFocus value={locationSearch} onChange={(event) => searchCampaignLocations(event.target.value)} placeholder="Search city, region, state, or country" className="h-9 w-full rounded-lg border-slate-200 text-xs" />
+                          <div className="mt-2 space-y-1">
+                            {locationSearching && <div className="px-2 py-2 text-[11px] text-slate-400">Searching Google Places...</div>}
+                            {!locationSearching && locationSearch.trim().length >= 2 && !locationSuggestions.length && <div className="px-2 py-2 text-[11px] text-slate-400">No location suggestions found.</div>}
+                            {locationSuggestions.map((suggestion) => <label key={suggestion.value} className="flex cursor-pointer items-start gap-2 rounded-lg px-2 py-2 text-xs text-slate-700 hover:bg-slate-50"><input type="checkbox" checked={selectedLocations.includes(suggestion.value)} onChange={(event) => { updateScrape({ location: event.target.checked ? [...selectedLocations, suggestion.value].join("\n") : selectedLocations.filter((item) => item !== suggestion.value).join("\n") }); }} /><span className="leading-4">{suggestion.label}</span></label>)}
+                          </div>
+                          <div className="border-t border-slate-100 px-2 pt-2 text-[10px] leading-4 text-slate-400">Search and select multiple locations. Google Places will run a separate campaign search for each selected location.</div>
+                        </div>}
+                      </div>
+                      <label className="flex min-w-0 flex-col text-[10px] font-bold uppercase tracking-[.12em] text-slate-400">Results per location
                       <input
                         title="Maximum number of businesses to request, from 1 to 20."
                         type="number"
@@ -958,12 +1085,27 @@ export default function CampaignsPage() {
                         value={scrape.max_results}
                         onChange={(event) =>
                           updateScrape({
-                            max_results: Number(event.target.value),
+                        max_results: Number(event.target.value),
                           })
                         }
-                        className="h-9 rounded-lg border-slate-200 text-xs"
+                        className="mt-1 h-9 w-full rounded-lg border-slate-200 text-xs"
                       />
+                      </label>
+                      <label className="flex min-w-0 flex-col text-[10px] font-bold uppercase tracking-[.12em] text-slate-400">Email template
+                      <select
+                        title="Template used to create drafts for this campaign."
+                        value={scrape.template_id || ""}
+                        onChange={(event) => updateScrape({ template_id: event.target.value })}
+                        className="campaign-select mt-1 h-9 rounded-lg border-slate-200 text-xs"
+                      >
+                        <option value="">Automatic template</option>
+                        {templates.filter((template) => template.active !== false).map((template) => (
+                          <option key={template.id} value={template.id}>{template.name}</option>
+                        ))}
+                      </select>
+                      </label>
                     </div>
+                    <p className="mt-2 text-[10px] leading-4 text-slate-400">Click Locations to search Google Places, then select one or more results. Each selected location is searched separately.</p>
                     <label
                       title="When enabled, businesses with a public email are turned into personalised drafts for review."
                       className="mt-3 flex items-center gap-2 text-[11px] text-slate-500"
@@ -1603,8 +1745,9 @@ export default function CampaignsPage() {
                   Campaign controls
                 </div>
                 <p className="mt-1 text-sm leading-6 text-slate-500">
-                  Start, pause, resume, or stop sending. The campaign rate is
-                  limited to the configured number per interval.
+                  Start, pause, resume, or stop sending. While running, the
+                  recurring worker checks the queue every 30 seconds and sends
+                  only inside the configured timezone window and limits.
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -1904,7 +2047,9 @@ export default function CampaignsPage() {
                 <label className="text-xs font-semibold text-slate-600">
                   Approval ends
                   <input
-                    type="time"
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={5}
                     placeholder="24:00"
                     value={policy.approval_end_time}
                     onChange={(event) =>
@@ -1936,7 +2081,9 @@ export default function CampaignsPage() {
                 <label className="text-xs font-semibold text-slate-600">
                   Send ends
                   <input
-                    type="time"
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={5}
                     placeholder="24:00"
                     value={policy.send_end_time}
                     onChange={(event) =>
@@ -1999,6 +2146,11 @@ export default function CampaignsPage() {
                 </div>
                 {showTemplateForm && (
                   <div className="mt-4 space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="rounded-lg border border-[#d9def7] bg-white p-3 text-xs text-slate-600">
+                      <div className="font-semibold text-slate-800">Template source campaign</div>
+                      <div className="mt-1">{campaignDefinitions.find((item) => item.id === selectedCampaignId)?.name || "Select a campaign above"}</div>
+                      <div className="mt-1 text-[11px] leading-5 text-slate-400">Generate from campaign uses its goal and audience, then adds the selected AI Brain or campaign-specific context.</div>
+                    </div>
                     <input
                       value={templateForm.name}
                       onChange={(event) =>
@@ -2011,6 +2163,12 @@ export default function CampaignsPage() {
                       className="h-10 w-full rounded-lg border-slate-200 text-sm"
                     />
                     <input
+                      value={templateForm.description}
+                      onChange={(event) => setTemplateForm({ ...templateForm, description: event.target.value })}
+                      placeholder="When should this template be used? e.g. Service businesses with appointment enquiries"
+                      className="h-10 w-full rounded-lg border-slate-200 text-sm"
+                    />
+                    <input
                       value={templateForm.subject}
                       onChange={(event) =>
                         setTemplateForm({
@@ -2018,7 +2176,7 @@ export default function CampaignsPage() {
                           subject: event.target.value,
                         })
                       }
-                      placeholder="Subject, e.g. A practical idea for {{company_name}}"
+                      placeholder="Clear subject, e.g. A practical idea for {{company_name}}"
                       className="h-10 w-full rounded-lg border-slate-200 text-sm"
                     />
                     <textarea
@@ -2029,7 +2187,7 @@ export default function CampaignsPage() {
                           body: event.target.value,
                         })
                       }
-                      placeholder="Body. Use {{company_name}}, {{company_context}}, and {{website}}."
+                      placeholder="Write a short email with a greeting, your introduction, one relevant idea, a low-pressure question, and your signature."
                       className="min-h-28 w-full rounded-lg border-slate-200 text-sm"
                     />
                     <div className="rounded-lg border border-slate-200 bg-white p-3">
@@ -2050,9 +2208,9 @@ export default function CampaignsPage() {
                       <ActionButton
                         onClick={reviewTemplate}
                         disabled={reviewingTemplate}
-                        title="Ask AI to check clarity and add safe personalization variables without inventing company facts."
+                        title="Generate or refine this template from the selected campaign goal, audience, and AI Brain context."
                       >
-                        {reviewingTemplate ? "Reviewing..." : "Review with AI"}
+                        {reviewingTemplate ? "Generating..." : "Generate from campaign"}
                       </ActionButton>
                       <ActionButton
                         primary
@@ -2064,7 +2222,7 @@ export default function CampaignsPage() {
                       </ActionButton>
                     </div>
                     <div className="rounded-lg border border-[#d9def7] bg-white p-3 text-[11px] leading-5 text-slate-500">
-                      Variables you can use: <code className="font-semibold text-slate-700">{"{{company_name}}"}</code>, <code className="font-semibold text-slate-700">{"{{company_context}}"}</code>, and <code className="font-semibold text-slate-700">{"{{website}}"}</code>. Their values are filled separately for each prospect before sending.
+                      Best practice: keep the subject specific, introduce yourself once, use one practical idea, ask one simple question, and avoid unsupported claims. Variables are filled before sending: <code className="font-semibold text-slate-700">{"{{company_name}}"}</code>, <code className="font-semibold text-slate-700">{"{{company_context}}"}</code>, <code className="font-semibold text-slate-700">{"{{campaign_goal}}"}</code>, and <code className="font-semibold text-slate-700">{"{{website}}"}</code>.
                     </div>
                     {templateReview && (
                       <div className="space-y-3 rounded-xl border-2 border-[#f6c56f] bg-[#fffaf4] p-4">
