@@ -382,6 +382,20 @@ export default function CampaignsPage() {
     }
   };
 
+  const saveScrapeSettings = async (item: CampaignDefinition) => {
+    setSavingCampaignId(item.id);
+    try {
+      const scrape = scrapeForms[item.id] || { query: item.scrape?.query || "", location: item.scrape?.location || "United States", max_results: item.scrape?.max_results || 20, create_drafts: item.scrape?.create_drafts ?? true, template_id: item.scrape?.template_id || "" };
+      const result = await api<any>(`/api/platform/campaigns/${item.id}`, { method: "PUT", body: JSON.stringify({ value: { ...item, scrape } }) });
+      setCampaignDefinitions((current) => current.map((campaign) => campaign.id === item.id ? result.data : campaign));
+      toast.success("Scraping settings saved");
+    } catch (exception) {
+      toast.error(exception instanceof Error ? exception.message : "Unable to save scraping settings");
+    } finally {
+      setSavingCampaignId("");
+    }
+  };
+
   const scrapeCampaign = async (item: CampaignDefinition) => {
     const form = scrapeForms[item.id] || {
       query: item.scrape?.query || "",
@@ -1109,7 +1123,7 @@ export default function CampaignsPage() {
                       </select>
                       </label>
                     </div>
-                    <p className="mt-2 text-[10px] leading-4 text-slate-400">Click Locations to search Google Places, then select one or more results. Each selected location is searched separately.</p>
+                    <p className="mt-2 text-[10px] leading-4 text-slate-400">Click Locations to search Google Places, then select one or more results. Each selected location is searched separately. Automatic template lets the system choose the best active template from the campaign goal and business type.</p>
                     <label
                       title="When enabled, businesses with a public email are turned into personalised drafts for review."
                       className="mt-3 flex items-center gap-2 text-[11px] text-slate-500"
@@ -1123,7 +1137,16 @@ export default function CampaignsPage() {
                       />
                       Create personalised drafts from businesses with emails
                     </label>
-                    <div className="mt-3 flex items-center justify-between gap-2">
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex flex-wrap gap-2">
+                      <ActionButton
+                        title="Save the search, locations, result limit, draft setting, and selected email template without starting a scrape."
+                        onClick={() => saveScrapeSettings(item)}
+                        disabled={savingCampaignId === item.id}
+                        icon={<Save className="h-3.5 w-3.5" />}
+                      >
+                        {savingCampaignId === item.id ? "Saving..." : "Save scraping settings"}
+                      </ActionButton>
                       <ActionButton
                         title="Run the scrape with these parameters and save the results to this campaign."
                         primary
@@ -1135,6 +1158,7 @@ export default function CampaignsPage() {
                           ? "Scraping..."
                           : "Start scraping"}
                       </ActionButton>
+                      </div>
                       {item.last_scrape && (
                         <span
                           title="Summary from the latest completed scrape."
