@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { Copy, Download, FileText, Headphones, PhoneCall, UserRoundCheck } from 'lucide-react'
 import { PageHeader } from '@/components/OmniPage'
-import { ActionButton, API_BASE, DataState, StatusBadge } from '@/components/PlatformUI'
+import { ActionButton, API_BASE, DataState, StatusBadge, authFetch } from '@/components/PlatformUI'
 
 type Message = { content?: string; timestamp?: string; type?: string }
 type Call = {
@@ -39,7 +39,7 @@ export default function CallDetail() {
   const load = () => {
     setLoading(true)
     setError('')
-    fetch(`${API_BASE}/api/calls/${id}`)
+    authFetch(`${API_BASE}/api/calls/${id}`)
       .then(async (response) => {
         const payload = await response.json()
         if (!response.ok || !payload.success) throw new Error(payload.error || 'Call not found')

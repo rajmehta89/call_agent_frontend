@@ -31,15 +31,28 @@ export function userFacingError(error: unknown, fallback = 'Something went wrong
   return message
 }
 
-export async function api<T = any>(path: string, options?: RequestInit): Promise<T> {
-  const isFormData = typeof FormData !== 'undefined' && options?.body instanceof FormData
-  const token = typeof window !== 'undefined' ? window.localStorage.getItem('agentflow_token') : null
-  const response = await fetch(`${API_BASE}${path}`, { ...options, headers: { ...(isFormData ? {} : { 'Content-Type': 'application/json' }), ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(options?.headers || {}) } })
-  const payload = await response.json().catch(() => ({}))
-  if (response.status === 401 && typeof window !== 'undefined' && !['/login', '/signup', '/invite/accept'].some((route) => window.location.pathname.startsWith(route))) {
+const PUBLIC_PAGES = ['/login', '/signup', '/invite/accept']
+
+function signOutIfUnauthorized(status: number) {
+  if (status === 401 && typeof window !== 'undefined' && !PUBLIC_PAGES.some((route) => window.location.pathname.startsWith(route))) {
     window.localStorage.removeItem('agentflow_token')
     window.location.href = '/login'
   }
+}
+
+/** fetch() that always sends the signed-in user's token. Accepts a full URL or an API path. */
+export async function authFetch(input: string, options: RequestInit = {}): Promise<Response> {
+  const token = typeof window !== 'undefined' ? window.localStorage.getItem('agentflow_token') : null
+  const url = input.startsWith('http') ? input : `${API_BASE}${input}`
+  const response = await fetch(url, { ...options, headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(options.headers || {}) } })
+  signOutIfUnauthorized(response.status)
+  return response
+}
+
+export async function api<T = any>(path: string, options?: RequestInit): Promise<T> {
+  const isFormData = typeof FormData !== 'undefined' && options?.body instanceof FormData
+  const response = await authFetch(path, { ...options, headers: { ...(isFormData ? {} : { 'Content-Type': 'application/json' }), ...(options?.headers || {}) } })
+  const payload = await response.json().catch(() => ({}))
   if (!response.ok) {
     const error = new Error(messageFromPayload(payload) || `Request failed (${response.status})`) as ApiError
     error.status = response.status
@@ -68,7 +81,15 @@ export async function apiWithRetry<T = any>(path: string, options?: RequestInit,
   throw lastError instanceof Error ? lastError : new Error('Request failed after retries')
 }
 
-export function downloadCsv(resource: string) { window.open(`${API_BASE}/api/platform/export/${resource}.csv`, '_blank') }
+/** Download a CSV export with the user's token (a plain link cannot send it). */
+export async function downloadCsv(resource: string) {
+  const response = await authFetch(`/api/platform/export/${resource}.csv`)
+  if (!response.ok) throw new Error(`Export failed (${response.status})`)
+  const url = URL.createObjectURL(await response.blob())
+  const link = Object.assign(document.createElement('a'), { href: url, download: `${resource}.csv` })
+  document.body.appendChild(link); link.click(); link.remove()
+  URL.revokeObjectURL(url)
+}
 
 export function MetricGrid({ items }: { items: { label: string; value: string | number; detail?: string; tone?: string }[] }) {
   return <div className="product-metric-grid grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{items.map((item) => <div key={item.label} className="product-metric surface-panel"><div className="product-metric-label">{item.label}</div><div className="product-metric-value">{item.value}</div>{item.detail && <div className="product-metric-detail">{item.detail}</div>}</div>)}</div>

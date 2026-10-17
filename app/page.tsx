@@ -4,12 +4,12 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Activity, ArrowUpRight, BarChart3, Bot, CalendarDays, CheckCircle2, ChevronRight, Clock3, Mail, MessageSquare, PhoneCall, Sparkles, Target, TrendingUp, Users, WalletCards } from 'lucide-react'
 import { PageHeader } from '@/components/OmniPage'
-import { API_BASE, DataState, StatusBadge, Toolbar } from '@/components/PlatformUI'
+import { API_BASE, DataState, StatusBadge, Toolbar, authFetch } from '@/components/PlatformUI'
 
 type DashboardPayload = { metrics?: any; channels?: any; shopify?: any; email?: any; recent_activity?: any[] }
 
 const read = async (url: string) => {
-  const response = await fetch(url)
+  const response = await authFetch(url)
   const payload = await response.json()
   if (!response.ok || !payload.success) throw new Error(payload.error || 'Unable to load dashboard data')
   return payload

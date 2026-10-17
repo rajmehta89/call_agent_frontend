@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { ArrowUpRight, Bot, Clock3, Download, FileText, Headphones, MessageSquare, Phone, PhoneCall, Search, User, Users, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { PageHeader } from '../../components/OmniPage'
-import { API_BASE, DataState, MetricGrid, StatusBadge, Toolbar } from '../../components/PlatformUI'
+import { API_BASE, DataState, MetricGrid, StatusBadge, Toolbar, authFetch } from '../../components/PlatformUI'
 
 type Message = { type?: string; content?: string; timestamp?: string }
 type Lead = { _id?: string; id?: string; name: string; phone?: string | number; email?: string; company?: string; callOnly?: boolean; callId?: string }
@@ -39,7 +39,7 @@ export default function CallsPage() {
   const load = async () => {
     setLoading(true); setError('')
     try {
-      const read = async (url: string) => { const response = await fetch(url); const payload = await response.json(); if (!response.ok || !payload.success) throw new Error(payload.error || 'Unable to load call data'); return payload }
+      const read = async (url: string) => { const response = await authFetch(url); const payload = await response.json(); if (!response.ok || !payload.success) throw new Error(payload.error || 'Unable to load call data'); return payload }
       const [callsResult, statsResult, leadsResult] = await Promise.allSettled([read(`${API_BASE}/api/calls?direction=inbound&limit=200`), read(`${API_BASE}/api/calls/stats`), read(`${API_BASE}/api/leads/?limit=200`)]);
       if (callsResult.status === 'rejected') throw callsResult.reason
       const nextCalls: Call[] = callsResult.value.data || []

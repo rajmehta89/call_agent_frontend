@@ -10,6 +10,7 @@ import {
 import toast from 'react-hot-toast'
 import Link from 'next/link'
 import { COUNTRY_CODE_OPTIONS } from './country-codes'
+import { authFetch } from '@/components/PlatformUI'
 
 interface Lead {
   id: string
@@ -84,7 +85,7 @@ export default function LeadsPage() {
       const params = new URLSearchParams({ limit: '200' })
       if (searchTerm.trim()) params.set('search', searchTerm.trim())
       if (statusFilter !== 'all') params.set('status', statusFilter)
-      const response = await fetch(`${API_BASE}/api/leads/?${params.toString()}`)
+      const response = await authFetch(`${API_BASE}/api/leads/?${params.toString()}`)
       const data = await response.json()
 
       if (data.success) {
@@ -107,7 +108,7 @@ export default function LeadsPage() {
 
   const loadStats = async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/leads/stats`)
+      const response = await authFetch(`${API_BASE}/api/leads/stats`)
       const data = await response.json()
 
       if (data.success) {
@@ -127,7 +128,7 @@ export default function LeadsPage() {
         toast.error('Phone number is required')
         return
       }
-      const response = await fetch(`${API_BASE}/api/leads`, {
+      const response = await authFetch(`${API_BASE}/api/leads`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -170,7 +171,7 @@ export default function LeadsPage() {
         return
       }
 
-      const response = await fetch(`${API_BASE}/api/leads/${leadId}`, {
+      const response = await authFetch(`${API_BASE}/api/leads/${leadId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -211,7 +212,7 @@ export default function LeadsPage() {
     }
 
     try {
-      const response = await fetch(`${API_BASE}/api/leads/${leadId}`, {
+      const response = await authFetch(`${API_BASE}/api/leads/${leadId}`, {
         method: 'DELETE',
       })
 
@@ -239,7 +240,7 @@ export default function LeadsPage() {
     formData.append('file', file)
 
     try {
-      const response = await fetch(`${API_BASE}/api/leads/upload`, {
+      const response = await authFetch(`${API_BASE}/api/leads/upload`, {
         method: 'POST',
         body: formData,
       })

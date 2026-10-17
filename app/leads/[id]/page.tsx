@@ -6,7 +6,7 @@ import { useParams } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { ArrowUpRight, Bot, ClipboardCheck, Clock3, FileText, PhoneCall, User } from 'lucide-react'
 import { PageHeader } from '@/components/OmniPage'
-import { ActionButton, API_BASE, DataState, StatusBadge } from '@/components/PlatformUI'
+import { ActionButton, API_BASE, DataState, StatusBadge, authFetch } from '@/components/PlatformUI'
 
 type Lead = { _id?: string; name?: string; phone?: string; email?: string; company?: string; notes?: string; status?: string; source?: string; last_call?: string; created_at?: string }
 type Message = { role?: string; type?: string; content?: string; timestamp?: string; time_sec?: number }
@@ -35,8 +35,8 @@ export default function LeadDetail() {
     setLoading(true); setError('')
     try {
       const [leadResponse, callsResponse] = await Promise.all([
-        fetch(`${API_BASE}/api/leads/${id}`).then(async (response) => ({ ok: response.ok, payload: await response.json() })),
-        fetch(`${API_BASE}/api/calls?lead_id=${id}&limit=100`).then(async (response) => ({ ok: response.ok, payload: await response.json() })),
+        authFetch(`${API_BASE}/api/leads/${id}`).then(async (response) => ({ ok: response.ok, payload: await response.json() })),
+        authFetch(`${API_BASE}/api/calls?lead_id=${id}&limit=100`).then(async (response) => ({ ok: response.ok, payload: await response.json() })),
       ])
       if (!leadResponse.ok || !leadResponse.payload.success) throw new Error(leadResponse.payload.error || 'Lead not found')
       if (!callsResponse.ok || !callsResponse.payload.success) throw new Error(callsResponse.payload.error || 'Unable to load call history')
@@ -54,7 +54,7 @@ export default function LeadDetail() {
     if (status === lead.status || updating) return
     setUpdating(true)
     try {
-      const response = await fetch(`${API_BASE}/api/leads/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) })
+      const response = await authFetch(`${API_BASE}/api/leads/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) })
       const payload = await response.json()
       if (!response.ok || !payload.success) throw new Error(payload.error || 'Status update failed')
       setLead(payload.data)
