@@ -1,8 +1,88 @@
 'use client'
-import { useEffect,useState } from 'react'
+
+import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import toast from 'react-hot-toast'
-import { MessageSquare, PhoneCall } from 'lucide-react'
+import { ArrowUpRight, Bot, ClipboardCheck, Clock3, FileText, PhoneCall, User } from 'lucide-react'
 import { PageHeader } from '@/components/OmniPage'
-import { ActionButton, API_BASE, DataState, FeatureSection, StatusBadge } from '@/components/PlatformUI'
-export default function LeadDetail(){const {id}=useParams<{id:string}>();const [data,setData]=useState<any>({});const [calls,setCalls]=useState<any[]>([]);const [loading,setLoading]=useState(true);const [error,setError]=useState('');const load=async()=>{setLoading(true);try{const [l,c]=await Promise.all([fetch(`${API_BASE}/api/leads/${id}`).then(r=>r.json()),fetch(`${API_BASE}/api/calls?lead_id=${id}`).then(r=>r.json())]);if(!l.success)throw new Error(l.error||'Lead not found');setData(l.data);setCalls(c.data||[])}catch(e){setError(e instanceof Error?e.message:'Load failed')}finally{setLoading(false)}};useEffect(()=>{load()},[id]);const update=async(status:string)=>{const r=await fetch(`${API_BASE}/api/leads/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});if(r.ok){toast.success(`Lead moved to ${status}`);load()}else toast.error('Status update failed')};const call=async()=>{const r=await fetch(`${API_BASE}/api/leads/${id}/call`,{method:'POST'});r.ok?toast.success('Call initiated'):toast.error('Call failed')};return <div className="space-y-7"><PageHeader title={data.name||'Lead Detail'} description="Requirement, AI summary, conversations, calls, Shopify activity, score, notes, assignment, and complete lead timeline."/><DataState loading={loading} error={error} onRetry={load}><div className="grid gap-6 xl:grid-cols-[380px_1fr]"><aside className="surface-panel rounded-[26px] p-6"><div className="text-xs uppercase tracking-wider text-slate-500">Lead status</div><div className="mt-3"><StatusBadge value={data.status||'new'}/></div><div className="mt-6 space-y-3 text-sm"><div><span className="text-slate-500">Phone</span><div className="text-white">{data.phone}</div></div><div><span className="text-slate-500">Email</span><div className="text-white">{data.email||'—'}</div></div><div><span className="text-slate-500">Source</span><div className="text-white">{data.source||'Manual'}</div></div><div><span className="text-slate-500">Requirement</span><div className="text-white">{data.requirement||data.notes||'Not captured'}</div></div><div><span className="text-slate-500">Score</span><div className="text-white">{data.lead_score||'Not scored'}</div></div></div><div className="mt-6 grid grid-cols-2 gap-2"><ActionButton primary onClick={call} icon={<PhoneCall className="h-4 w-4"/>}>Call</ActionButton><ActionButton icon={<MessageSquare className="h-4 w-4"/>}>WhatsApp</ActionButton></div></aside><main className="space-y-5"><section className="surface-panel rounded-[26px] p-6"><div className="font-bold text-white">Pipeline actions</div><div className="mt-4 flex flex-wrap gap-2">{['new','qualified','hot','converted','lost','unqualified'].map(s=><ActionButton key={s} primary={data.status===s} onClick={()=>update(s)}>{s}</ActionButton>)}</div></section><FeatureSection title="AI summary & next action" features={[data.ai_summary||'AI summary will appear after a channel interaction.',data.next_action||'Review requirement and contact the customer.',`Assigned: ${data.assigned_to||'Unassigned'}`]}/><FeatureSection title="Voice history" features={calls.length?calls.map(c=>`${c.status} · ${c.duration||0}s · ${c.call_summary||'No summary'}`):['No calls linked to this lead yet.']}/><FeatureSection title="Shopify activity" features={['Product and inventory lookups are captured in AI Activity.','Orders are loaded live when the customer identity matches Shopify.']} /></main></div></DataState></div>}
+import { ActionButton, API_BASE, DataState, StatusBadge } from '@/components/PlatformUI'
+
+type Lead = { _id?: string; name?: string; phone?: string; email?: string; company?: string; notes?: string; status?: string; source?: string; last_call?: string; created_at?: string }
+type Message = { role?: string; type?: string; content?: string; timestamp?: string; time_sec?: number }
+type Call = { _id: string; call_date?: string; duration?: number; status?: string; direction?: string; call_summary?: string; summary?: string; sentiment?: string; transcription?: Message[]; ai_responses?: Message[]; transcript_with_tool_calls?: Message[]; human_callback_requested?: boolean; transfer_requested?: boolean; recording_url?: string; public_log_url?: string }
+
+const statuses = ['new', 'called', 'contacted', 'qualified', 'hot', 'converted', 'lost', 'unqualified']
+const durationLabel = (seconds?: number) => { const value = Math.max(0, Math.round(Number(seconds) || 0)); return `${Math.floor(value / 60)}m ${String(value % 60).padStart(2, '0')}s` }
+const dateLabel = (value?: string) => value ? new Intl.DateTimeFormat('en-AU', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : 'Not available'
+
+function callMessages(call: Call): Message[] {
+  if (call.transcript_with_tool_calls?.length) return call.transcript_with_tool_calls.filter((message) => message.content)
+  return [...(call.transcription || []), ...(call.ai_responses || [])]
+    .filter((message) => message.content)
+    .sort((left, right) => new Date(left.timestamp || 0).getTime() - new Date(right.timestamp || 0).getTime())
+}
+
+export default function LeadDetail() {
+  const { id } = useParams<{ id: string }>()
+  const [lead, setLead] = useState<Lead>({})
+  const [calls, setCalls] = useState<Call[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [updating, setUpdating] = useState(false)
+
+  const load = async () => {
+    setLoading(true); setError('')
+    try {
+      const [leadResponse, callsResponse] = await Promise.all([
+        fetch(`${API_BASE}/api/leads/${id}`).then(async (response) => ({ ok: response.ok, payload: await response.json() })),
+        fetch(`${API_BASE}/api/calls?lead_id=${id}&limit=100`).then(async (response) => ({ ok: response.ok, payload: await response.json() })),
+      ])
+      if (!leadResponse.ok || !leadResponse.payload.success) throw new Error(leadResponse.payload.error || 'Lead not found')
+      if (!callsResponse.ok || !callsResponse.payload.success) throw new Error(callsResponse.payload.error || 'Unable to load call history')
+      setLead(leadResponse.payload.data)
+      setCalls(callsResponse.payload.data || [])
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to load this lead')
+    } finally { setLoading(false) }
+  }
+
+  useEffect(() => { load() }, [id])
+  const messages = useMemo(() => calls.flatMap((call) => callMessages(call).map((message, index) => ({ ...message, call, key: `${call._id}-${index}` }))), [calls])
+
+  const updateStatus = async (status: string) => {
+    if (status === lead.status || updating) return
+    setUpdating(true)
+    try {
+      const response = await fetch(`${API_BASE}/api/leads/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) })
+      const payload = await response.json()
+      if (!response.ok || !payload.success) throw new Error(payload.error || 'Status update failed')
+      setLead(payload.data)
+      toast.success(`Lead moved to ${status}`)
+    } catch (reason) { toast.error(reason instanceof Error ? reason.message : 'Status update failed') } finally { setUpdating(false) }
+  }
+
+  return <div className="space-y-7">
+    <PageHeader title={lead.name || 'Lead detail'} description="Every inbound call, AI conversation, follow-up request, and pipeline decision in one place." />
+    <DataState loading={loading} error={error} onRetry={load}>
+      <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
+        <aside className="space-y-5">
+          <section className="surface-panel rounded-2xl p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-lg font-semibold text-white">{lead.name || 'Unnamed lead'}</h2><StatusBadge value={lead.status || 'new'} /></div>
+            <dl className="mt-5 space-y-3 text-sm"><Detail label="Phone" value={lead.phone || 'Not captured'} /><Detail label="Email" value={lead.email || 'Not captured'} /><Detail label="Company" value={lead.company || 'Not captured'} /><Detail label="Source" value={lead.source || 'Manual'} /><Detail label="Last activity" value={dateLabel(lead.last_call || lead.created_at)} /></dl>
+            {lead.notes && <div className="mt-5 border-t border-white/10 pt-4"><div className="text-xs font-medium uppercase tracking-[0.12em] text-slate-500">Notes</div><p className="mt-2 text-sm leading-6 text-slate-200">{lead.notes}</p></div>}
+          </section>
+          <section className="surface-panel rounded-2xl p-5"><h2 className="font-semibold text-white">Pipeline status</h2><p className="mt-1 text-sm text-slate-400">Update this after reviewing the conversation.</p><div className="mt-4 flex flex-wrap gap-2">{statuses.map((status) => <button key={status} type="button" disabled={updating} onClick={() => updateStatus(status)} className={`rounded-lg px-3 py-2 text-xs font-medium capitalize transition ${lead.status === status ? 'bg-[#68d2c8] text-slate-950' : 'bg-white/[.05] text-slate-300 hover:bg-white/[.1]'} disabled:cursor-wait disabled:opacity-60`}>{status}</button>)}</div></section>
+          <ActionButton primary icon={<PhoneCall className="h-4 w-4" />}>Start follow-up call</ActionButton>
+        </aside>
+
+        <main className="min-w-0 space-y-6">
+          <section className="surface-panel rounded-2xl p-5 sm:p-6"><div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><h2 className="text-lg font-semibold text-white">Conversation timeline</h2><p className="mt-1 text-sm text-slate-400">{calls.length} call{calls.length === 1 ? '' : 's'} · {messages.length} captured messages</p></div>{calls.some((call) => call.human_callback_requested || call.transfer_requested) && <div className="inline-flex items-center gap-2 rounded-lg bg-amber-400/10 px-3 py-2 text-sm font-medium text-amber-200"><ClipboardCheck className="h-4 w-4" />Human follow-up requested</div>}</div></section>
+          {calls.length === 0 ? <section className="surface-panel rounded-2xl p-10 text-center"><FileText className="mx-auto h-7 w-7 text-slate-500" /><h2 className="mt-3 font-semibold text-white">No conversation yet</h2><p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-400">Calls, transcripts, and Retell analysis will appear automatically as soon as this lead contacts the business.</p></section> : calls.map((call) => <section key={call._id} className="surface-panel overflow-hidden rounded-2xl"><div className="flex flex-col gap-3 border-b border-white/10 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"><div><div className="flex items-center gap-2"><PhoneCall className="h-4 w-4 text-[#8ce5dc]" /><h2 className="font-semibold text-white">{call.direction || 'Inbound'} call</h2><StatusBadge value={call.status || 'completed'} /></div><p className="mt-1 text-sm text-slate-400">{dateLabel(call.call_date)} · {durationLabel(call.duration)} · {call.sentiment || 'Neutral'} sentiment</p></div><Link href={`/voice/calls/${call._id}`} className="inline-flex items-center gap-1 text-sm font-medium text-[#8ce5dc] hover:underline">Full call detail <ArrowUpRight className="h-3.5 w-3.5" /></Link></div>
+            <div className="px-5 py-4"><p className="text-sm leading-6 text-slate-300">{call.call_summary || call.summary || 'No post-call summary is available yet.'}</p><div className="mt-5 space-y-3">{callMessages(call).map((message, index) => { const caller = message.role === 'user' || message.type === 'user'; return <article key={`${call._id}-${index}`} className={`rounded-xl px-4 py-3 ${caller ? 'bg-white/[.045]' : 'bg-[#68d2c8]/[.08]'}`}><div className="flex items-center justify-between gap-3 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500"><span className="inline-flex items-center gap-1.5">{caller ? <User className="h-3.5 w-3.5" /> : <Bot className="h-3.5 w-3.5" />}{caller ? 'Caller' : 'AI agent'}</span>{message.timestamp && <span>{new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}</div><p className="mt-2 text-sm leading-6 text-slate-100">{message.content}</p></article> })}</div></div></section>)}</main>
+      </div>
+    </DataState>
+  </div>
+}
+
+function Detail({ label, value }: { label: string; value: string }) { return <div className="flex items-start justify-between gap-4"><dt className="text-slate-500">{label}</dt><dd className="max-w-[62%] break-words text-right text-slate-200">{value}</dd></div> }

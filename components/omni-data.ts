@@ -1,51 +1,43 @@
-import {
-  BarChart3, BookOpen, Bot, Inbox, LayoutDashboard,
-  MessageCircle, MessagesSquare, Mic2, PhoneCall, PhoneIncoming,
-  PhoneOutgoing, Plug, Settings, Sparkles, SlidersHorizontal, UserPlus,
-  Mail, UserRound, Users, Workflow, Wrench,
-} from 'lucide-react'
+import { BrainCircuit, CircleDollarSign, Headphones, Mic2, PhoneCall, Settings2, ShoppingBag, UserPlus } from 'lucide-react'
 
 export const navigationGroups = [
-  { label: '', items: [{ name: 'Dashboard', href: '/', icon: LayoutDashboard, tone: 'amber' }] },
-  { label: 'WhatsApp', items: [
-    { name: 'Overview', href: '/whatsapp', icon: MessageCircle, tone: 'emerald', permission: 'handle_conversations' },
-    { name: 'Inbox', href: '/whatsapp/inbox', icon: Inbox, tone: 'cyan', permission: 'handle_conversations' },
-    { name: 'Message activity', href: '/whatsapp/activity', icon: MessagesSquare, tone: 'sky', permission: 'handle_conversations' },
-    { name: 'Agent', href: '/whatsapp/agent', icon: Bot, tone: 'violet', permission: 'manage_agents' },
-  ]},
-  { label: 'Voice', items: [
+  { label: 'Inbound voice', items: [
     { name: 'Overview', href: '/voice', icon: PhoneCall, tone: 'blue', permission: 'handle_calls' },
-    { name: 'Calls', href: '/voice/calls', icon: PhoneOutgoing, tone: 'indigo', permission: 'handle_calls' },
-    { name: 'Call activity', href: '/voice/activity', icon: PhoneIncoming, tone: 'rose', permission: 'handle_calls' },
-    { name: 'Agent', href: '/voice/agent', icon: Mic2, tone: 'orange', permission: 'manage_agents' },
+    { name: 'Browser test call', href: '/voice/browser-test', icon: Headphones, tone: 'orange', permission: 'handle_calls' },
+    { name: 'Call history', href: '/calls', icon: Mic2, tone: 'orange', permission: 'handle_calls' },
+    { name: 'Voice cost planner', href: '/voice/pricing', icon: CircleDollarSign, tone: 'green', permission: 'manage_integrations' },
+    { name: 'Voice providers', href: '/voice/providers', icon: Settings2, tone: 'blue', permission: 'manage_integrations' },
   ]},
-  { label: 'Assistant', items: [
-    { name: 'Knowledge Base', href: '/brain/knowledge', icon: BookOpen, tone: 'yellow', permission: 'manage_data' },
-    { name: 'AI Tools', href: '/brain/tools', icon: Wrench, tone: 'fuchsia', permission: 'manage_agents' },
-    { name: 'AI Activity', href: '/brain/activity', icon: Sparkles, tone: 'pink', permission: 'manage_agents' },
+  { label: 'AI Brain', items: [
+    { name: 'Knowledge', href: '/brain/knowledge', icon: BrainCircuit, tone: 'blue', permission: 'manage_data' },
   ]},
-  { label: 'Customers & Leads', items: [
-    { name: 'Customers', href: '/customers', icon: UserRound, tone: 'teal', permission: 'view_customers' },
+  { label: 'Integrations', items: [
+    { name: 'Shopify data access', href: '/integrations/shopify', icon: ShoppingBag, tone: 'green', permission: 'manage_integrations' },
+  ]},
+  { label: 'CRM', items: [
     { name: 'Leads', href: '/leads', icon: UserPlus, tone: 'red', permission: 'manage_assigned_leads' },
-  ]},
-  { label: 'Operations', items: [
-    { name: 'Campaigns', href: '/campaigns', icon: Mail, tone: 'orange', permission: 'manage_automations' },
-    { name: 'Automations', href: '/automations', icon: Workflow, tone: 'green', permission: 'manage_automations' },
-    { name: 'Integrations', href: '/integrations', icon: Plug, tone: 'slate', permission: 'manage_integrations' },
-    { name: 'Analytics', href: '/analytics', icon: BarChart3, tone: 'purple', permission: 'view_analytics' },
-  ]},
-  { label: 'Administration', items: [
-    { name: 'Team', href: '/team', icon: Users, tone: 'slate', permission: 'manage_team' },
-    { name: 'Settings', href: '/settings', icon: SlidersHorizontal, tone: 'gray', permission: 'manage_workspace' },
   ]},
 ]
 
 export const omniNavigation = navigationGroups.flatMap((group) => group.items)
 
-export const integrationRows = [
-  { name: 'Twilio Voice', detail: 'Inbound and outbound voice transport.', status: 'Connected' },
-  { name: 'WhatsApp', detail: 'Meta Cloud API or Twilio WhatsApp transport.', status: 'Credential gated' },
-  { name: 'OpenAI', detail: 'Shared reasoning layer for both channel agents.', status: 'Connected' },
-  { name: 'Shopify', detail: 'Live products, inventory, customers, and orders.', status: 'Credential gated' },
-  { name: 'MongoDB', detail: 'Customers, leads, calls, messages, tools, and logs.', status: 'Connected' },
-]
+const extraPages: Record<string, { section: string; title: string }> = {
+  '/login': { section: '', title: 'Sign in' },
+  '/signup': { section: '', title: 'Create account' },
+  '/invite/accept': { section: '', title: 'Accept invite' },
+  '/voice/calls/': { section: 'Inbound voice', title: 'Call details' },
+  '/leads/': { section: 'CRM', title: 'Lead details' },
+}
+
+/** Section and page name for a route, taken from the sidebar so the header and tab title always match it. */
+export function pageInfo(pathname: string): { section: string; title: string } {
+  for (const group of navigationGroups) {
+    const exact = group.items.find((item) => item.href === pathname)
+    if (exact) return { section: group.label, title: exact.name }
+  }
+  const extra = Object.keys(extraPages).filter((prefix) => pathname.startsWith(prefix)).sort((a, b) => b.length - a.length)[0]
+  if (extra) return extraPages[extra]
+  const matches = navigationGroups.flatMap((group) => group.items.filter((item) => pathname.startsWith(item.href)).map((item) => ({ section: group.label, title: item.name, length: item.href.length })))
+  const best = matches.sort((a, b) => b.length - a.length)[0]
+  return best ? { section: best.section, title: best.title } : { section: '', title: '' }
+}

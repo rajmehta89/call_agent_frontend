@@ -22,7 +22,7 @@ export function PageHeader({
   actionHref?: string
 }) {
   return (
-    <div className="relative mb-1 flex flex-col gap-3 px-1 py-1 sm:flex-row sm:items-start sm:justify-between">
+    <div className="product-page-heading page-heading relative mb-1 flex flex-col gap-3 px-1 py-1 sm:flex-row sm:items-start sm:justify-between">
       <div className="min-w-0">
         <h1 className="section-heading">{title}</h1>
         <p className="section-copy mt-1 max-w-3xl text-sm leading-6">{description}</p>
@@ -30,7 +30,7 @@ export function PageHeader({
         {actionLabel && actionHref ? (
           <Link
             href={actionHref}
-            className="inline-flex h-9 shrink-0 items-center gap-2 self-start rounded-md border border-[#fed7aa] bg-[#fff7ed] px-3.5 text-sm font-medium text-[#b45309] transition hover:bg-[#ffedd5]"
+            className="product-page-action inline-flex h-9 shrink-0 items-center gap-2 self-start px-3.5 text-sm font-medium transition"
           >
             {actionLabel}
             <ArrowUpRight className="h-4 w-4" />

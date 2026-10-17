@@ -5,22 +5,35 @@ import { FormEvent, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { ArrowRight, LockKeyhole, Sparkles } from 'lucide-react'
-import { api } from '@/components/PlatformUI'
+import { apiWithRetry, userFacingError } from '@/components/PlatformUI'
 
 export default function LoginPage() {
   const router = useRouter()
   const [form, setForm] = useState({ email: '', password: '' })
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const submit = async (event: FormEvent) => {
-    event.preventDefault(); setLoading(true)
+    event.preventDefault(); setLoading(true); setError('')
     try {
-      const result = await api<any>('/api/auth/login', { method: 'POST', body: JSON.stringify(form) })
+      const result = await apiWithRetry<any>('/api/auth/login', { method: 'POST', body: JSON.stringify(form) }, 1, 8000)
+      if (!result?.data?.token) throw new Error('The sign-in service returned an incomplete response. Please try again.')
       window.localStorage.setItem('agentflow_token', result.data.token)
       toast.success('Welcome back')
       router.replace('/')
-    } catch (exception) { toast.error(exception instanceof Error ? exception.message : 'Unable to sign in') } finally { setLoading(false) }
+    } catch (exception) {
+      const status = (exception as Error & { status?: number })?.status
+      const message = status === 401 || status === 403
+        ? 'We couldn’t sign you in with that email and password. Please try again.'
+        : status === 429
+          ? 'Too many sign-in attempts. Please wait a moment and try again.'
+          : status && status >= 500
+            ? 'The sign-in service is temporarily unavailable. Please try again in a few minutes.'
+            : userFacingError(exception, 'We couldn’t sign you in. Please try again.')
+      console.error('Sign-in failed', exception)
+      setError(message)
+    } finally { setLoading(false) }
   }
-  return <AuthFrame eyebrow="Workspace access" title="Welcome back" description="Sign in to manage your WhatsApp and voice workspace."><form onSubmit={submit} className="space-y-4"><label><span className="field-label">Email address</span><input required type="email" autoComplete="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} placeholder="you@company.com" /></label><label><span className="field-label">Password</span><input required type="password" autoComplete="current-password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} placeholder="Your password" /></label><button disabled={loading} className="mt-2 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#d97706] text-sm font-bold text-white shadow-[0_12px_24px_rgba(217,119,6,.2)] transition hover:brightness-105 disabled:opacity-60">{loading ? 'Signing in...' : 'Sign in'}<ArrowRight className="h-4 w-4" /></button></form><div className="mt-6 text-center text-sm text-slate-500">Need a workspace? <Link href="/signup" className="font-bold text-[#b45309] hover:underline">Create an account</Link></div></AuthFrame>
+  return <AuthFrame eyebrow="Workspace access" title="Welcome back" description="Sign in to manage your WhatsApp and voice workspace."><form onSubmit={submit} className="space-y-4">{error && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm leading-5 text-rose-800">{error}</div>}<label><span className="field-label">Email address</span><input required type="email" autoComplete="email" value={form.email} onChange={(event) => { setForm({ ...form, email: event.target.value }); setError('') }} placeholder="you@company.com" /></label><label><span className="field-label">Password</span><input required type="password" autoComplete="current-password" value={form.password} onChange={(event) => { setForm({ ...form, password: event.target.value }); setError('') }} placeholder="Your password" /></label><button disabled={loading} className="mt-2 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#d97706] text-sm font-bold text-white shadow-[0_12px_24px_rgba(217,119,6,.2)] transition hover:brightness-105 disabled:opacity-60">{loading ? 'Signing in...' : 'Sign in'}<ArrowRight className="h-4 w-4" /></button></form><div className="mt-6 text-center text-sm text-slate-500">Need a workspace? <Link href="/signup" className="font-bold text-[#b45309] hover:underline">Create an account</Link></div></AuthFrame>
 }
 
 function AuthFrame({ eyebrow, title, description, children }: { eyebrow: string; title: string; description: string; children: React.ReactNode }) {

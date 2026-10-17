@@ -1,14 +1,12 @@
 import type { Metadata } from 'next'
-import { Manrope } from 'next/font/google'
 import './globals.css'
 import AppShell from '../components/AppShell'
 import { Toaster } from 'react-hot-toast'
 
-const manrope = Manrope({ subsets: ['latin'] })
-
 export const metadata: Metadata = {
-  title: 'AgentFlow AI Workspace',
-  description: 'WhatsApp and voice AI operations workspace',
+  title: { default: 'RelayDesk', template: '%s · RelayDesk' },
+  description: 'Voice AI, CRM and AI Brain workspace',
+  applicationName: 'RelayDesk',
 }
 
 export default function RootLayout({
@@ -18,7 +16,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={manrope.className}>
+      <body>
         <AppShell>{children}</AppShell>
         <Toaster 
           position="top-right"

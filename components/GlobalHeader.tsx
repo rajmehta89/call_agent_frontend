@@ -1,28 +1,73 @@
 'use client'
 
-import Link from 'next/link'
-import { Bell, ChevronDown, LogOut, Search } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { Bell, ChevronRight } from 'lucide-react'
+import { usePathname } from 'next/navigation'
+import { useEffect, useRef, useState } from 'react'
 import { api } from './PlatformUI'
+import { pageInfo } from './omni-data'
 
-type Notification = { _id: string; title?: string; message?: string; channel?: string; recipient?: string; created_at?: string; read?: boolean }
+type Notification = { _id: string; title?: string; message?: string; channel?: string }
+type User = { name?: string; email?: string; role?: string } | null
 
-export default function GlobalHeader() {
-  const [query, setQuery] = useState('')
-  const [results, setResults] = useState<any>(null)
-  const [user, setUser] = useState<any>(null)
+function initials(user: User) {
+  const source = (user?.name || user?.email || '?').trim()
+  const parts = source.split(/[\s@._-]+/).filter(Boolean)
+  return ((parts[0]?.[0] || '?') + (parts.length > 1 ? parts[1][0] : '')).toUpperCase()
+}
+
+const titleCase = (value: string) => value.replace(/\b\w/g, (letter) => letter.toUpperCase())
+
+export default function GlobalHeader({ user }: { user?: User }) {
+  const pathname = usePathname()
+  const { section, title } = pageInfo(pathname || '/')
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [showNotifications, setShowNotifications] = useState(false)
-  const loadNotifications = () => api<any>('/api/platform/notifications?unread_only=true').then((result) => setNotifications(result.data || [])).catch(() => {})
+  const panelRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => { api<any>('/api/auth/me').then((result) => setUser(result.data)).catch(() => {}); loadNotifications(); const timer = window.setInterval(loadNotifications, 15000); return () => window.clearInterval(timer) }, [])
   useEffect(() => {
-    if (query.trim().length < 2) { setResults(null); return }
-    const timer = setTimeout(() => api(`/api/platform/search?q=${encodeURIComponent(query)}`).then((p) => setResults(p.data)).catch(() => setResults(null)), 250)
-    return () => clearTimeout(timer)
-  }, [query])
-  const count = results ? Object.values(results).reduce((sum: number, rows: any) => sum + rows.length, 0) : 0
-  const logout = () => { window.localStorage.removeItem('agentflow_token'); window.location.href = '/login' }
-  const markRead = async (notification: Notification) => { setNotifications((current) => current.filter((item) => item._id !== notification._id)); await api(`/api/platform/notifications/${notification._id}/read`, { method: 'POST' }).catch(() => {}) }
-  return <header className="sticky top-0 z-30 hidden h-16 border-b border-slate-200 bg-white/80 px-6 backdrop-blur-md lg:block"><div className="flex h-full items-center gap-6"><div className="relative min-w-0 max-w-[560px] flex-1"><Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search customers, leads, conversations, calls..." className="h-10 rounded-lg border-slate-200 bg-slate-50 pl-10 text-sm shadow-none" />{results && <div className="absolute left-0 right-0 top-12 rounded-xl border border-slate-200 bg-white p-2 shadow-[0_16px_40px_rgba(15,23,42,.12)]"><div className="px-2 py-1 text-xs text-slate-400">{count} results across the workspace</div>{Object.entries(results).map(([kind, rows]: any) => rows.slice(0, 3).map((row: any) => <Link key={row._id} href={kind === 'leads' ? `/leads/${row._id}` : kind === 'customers' ? `/customers/${row._id}` : kind === 'calls' ? `/voice/calls/${row._id}` : '/whatsapp/inbox'} className="block rounded-lg px-2 py-2 text-sm text-slate-600 hover:bg-slate-50">{row.name || row.customer_name || row.phone_number || row.customer_phone} <span className="ml-2 text-xs text-slate-400">{kind}</span></Link>))}</div>}</div><div className="ml-auto flex shrink-0 items-center gap-4"><div className="relative"><button type="button" aria-label="Notifications" onClick={() => setShowNotifications((open) => !open)} className="relative flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-[#fed7aa] hover:bg-[#fff7ed] hover:text-[#b45309]"><Bell className="h-4 w-4" />{notifications.length > 0 && <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#e4687a] px-1 text-[10px] font-bold text-white ring-2 ring-white">{notifications.length > 9 ? '9+' : notifications.length}</span>}</button>{showNotifications && <div className="absolute right-0 top-12 z-50 w-80 rounded-xl border border-slate-200 bg-white p-2 shadow-[0_16px_40px_rgba(15,23,42,.14)]"><div className="flex items-center justify-between px-2 py-2"><span className="text-xs font-bold text-slate-800">Notifications</span><span className="text-[10px] text-slate-400">{notifications.length} unread</span></div>{notifications.length ? notifications.slice(0, 6).map((notification) => <button type="button" key={notification._id} onClick={() => markRead(notification)} className="block w-full rounded-lg px-2 py-2 text-left hover:bg-slate-50"><span className="block text-xs font-semibold text-slate-800">{notification.title || 'Workspace update'}</span><span className="mt-1 block text-[11px] leading-4 text-slate-500">{notification.message || 'New activity needs your attention.'}</span><span className="mt-1 block text-[10px] uppercase tracking-wider text-[#b45309]">{notification.channel || 'workspace'} · {notification.recipient || 'team'}</span></button>) : <div className="px-2 py-6 text-center text-xs text-slate-500">You’re all caught up.</div>}</div>}</div><div className="flex min-w-[270px] items-center gap-3 rounded-lg border border-[#fed7aa] bg-[#fff7ed] px-3 py-1.5"><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#d97706] text-[11px] font-extrabold text-white">{(user?.name || 'Admin').split(' ').map((part: string) => part[0]).slice(0, 2).join('').toUpperCase()}</span><span className="min-w-0 flex-1"><span className="block truncate text-xs font-bold text-slate-800">{user?.name || 'Workspace Admin'}</span><span className="block truncate text-[10px] text-slate-500">{user?.workspace_name || 'AgentFlow workspace'}</span></span><span className="hidden text-[10px] font-bold capitalize text-[#b45309] xl:block">{user?.role || 'admin'}</span><button type="button" aria-label="Sign out" onClick={logout} className="rounded-md p-1.5 text-slate-400 transition hover:bg-white hover:text-[#b45309]"><LogOut className="h-4 w-4" /></button><ChevronDown className="h-4 w-4 text-[#b45309]" /></div></div></div></header>
+    const load = () => api<any>('/api/platform/notifications?unread_only=true').then((result) => setNotifications(result.data || [])).catch(() => {})
+    load()
+    const timer = window.setInterval(load, 15000)
+    return () => window.clearInterval(timer)
+  }, [])
+
+  // Close the notifications panel on outside click, Escape, or navigation.
+  useEffect(() => {
+    if (!showNotifications) return
+    const onClick = (event: MouseEvent) => { if (!panelRef.current?.contains(event.target as Node)) setShowNotifications(false) }
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') setShowNotifications(false) }
+    document.addEventListener('mousedown', onClick)
+    document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('mousedown', onClick); document.removeEventListener('keydown', onKey) }
+  }, [showNotifications])
+  useEffect(() => { setShowNotifications(false) }, [pathname])
+
+  const markRead = async (notification: Notification) => {
+    setNotifications((current) => current.filter((item) => item._id !== notification._id))
+    await api(`/api/platform/notifications/${notification._id}/read`, { method: 'POST' }).catch(() => {})
+  }
+
+  return <header className="app-header app-header-bar">
+    <nav aria-label="Breadcrumb" className="app-header-crumbs">
+      {section && <><span className="app-header-section">{section}</span><ChevronRight aria-hidden className="app-header-sep" /></>}
+      <strong>{title || 'RelayDesk'}</strong>
+    </nav>
+
+    <div className="app-header-tools">
+      <div className="app-notification-wrap" ref={panelRef}>
+        <button type="button" className="app-icon-button" aria-label={`Notifications${notifications.length ? `, ${notifications.length} unread` : ''}`} aria-expanded={showNotifications} onClick={() => setShowNotifications((open) => !open)}>
+          <Bell />
+          {notifications.length > 0 && <b>{notifications.length > 9 ? '9+' : notifications.length}</b>}
+        </button>
+        {showNotifications && <div className="app-notifications">
+          <header><strong>Notifications</strong><span>{notifications.length} unread</span></header>
+          {notifications.length ? notifications.slice(0, 6).map((notification) => <button type="button" key={notification._id} onClick={() => markRead(notification)}><strong>{notification.title || 'Workspace update'}</strong><span>{notification.message || 'New activity needs your attention.'}</span><small>{notification.channel || 'workspace'}</small></button>) : <p>You’re all caught up.</p>}
+        </div>}
+      </div>
+      {user && <div className="app-header-account" title={user.email || ''}>
+        <span className="app-header-initials" aria-hidden>{initials(user)}</span>
+        <span className="app-header-identity"><strong>{titleCase(user.name || user.email || 'Signed in')}</strong><small>{titleCase(user.role || 'member')}</small></span>
+      </div>}
+    </div>
+  </header>
 }

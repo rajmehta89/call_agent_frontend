@@ -5,7 +5,7 @@ import {
   Users, Plus, Upload, Phone, Edit, Trash,
   RefreshCw, Download, Filter, Search,
   PhoneCall, CheckCircle, AlertCircle,
-  FileText, User, Mail, Building, Phone as PhoneIcon, X
+  FileText, User, Mail, Building, X
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
@@ -35,7 +35,7 @@ interface LeadStats {
   total_calls: number
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_CALL_API_URL || process.env.NEXT_PUBLIC_LEAD_API_URL || 'https://call-agent-backend-ssrw.onrender.com'
+const API_BASE = process.env.NEXT_PUBLIC_CALL_API_URL || process.env.NEXT_PUBLIC_LEAD_API_URL || 'http://127.0.0.1:8000'
 
 const toInternationalPhone = (countryCode: string, value: string) => {
   const trimmed = value.trim()
@@ -59,17 +59,6 @@ export default function LeadsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [uploading, setUploading] = useState(false)
-
-  // Call All functionality state
-  const [isCallingAll, setIsCallingAll] = useState(false)
-  const [callAllProgress, setCallAllProgress] = useState({
-    currentIndex: 0,
-    currentLead: null as Lead | null,
-    totalCalls: 0,
-    completedCalls: 0,
-    failedCalls: 0
-  })
-  const [showCallModal, setShowCallModal] = useState(false)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -241,209 +230,6 @@ export default function LeadsPage() {
     }
   }
 
-  const handleCallLead = async (lead: Lead) => {
-    try {
-      // Ensure we have a valid lead ID
-      const leadId = lead._id || lead.id
-      if (!leadId) {
-        toast.error('Invalid lead ID')
-        return
-      }
-
-      const response = await fetch(`${API_BASE}/api/leads/${leadId}/call`, {
-        method: 'POST',
-      })
-
-      const data = await response.json()
-      const responseError = data?.detail?.error || data?.detail || data?.error
-      if (response.ok && data.success) {
-        // Update the lead in the list with the new data
-        const updatedLead = data.data.lead
-        if (updatedLead) {
-          setLeads(leads.map(l => (l.id === leadId || l._id === leadId) ? {
-            ...updatedLead,
-            id: updatedLead._id || updatedLead.id
-          } : l))
-        }
-        toast.success(`Call initiated to ${lead.name}`)
-        loadStats()
-        // Schedule refreshes to reflect webhook updates (answer -> contacted)
-        setTimeout(() => { loadLeads(); loadStats(); }, 3000)
-        setTimeout(() => { loadLeads(); loadStats(); }, 8000)
-      } else {
-        toast.error(responseError || 'Failed to initiate call')
-      }
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Error initiating call')
-      console.error('Error calling lead:', error)
-    }
-  }
-
-  const checkCallCompletion = async (leadId: string): Promise<boolean> => {
-    try {
-      // Check if there are active calls for this lead
-      const response = await fetch(`${API_BASE}/api/calls?lead_id=${leadId}&limit=1`)
-      const data = await response.json()
-
-      if (data.success && data.data.length > 0) {
-        const latestCall = data.data[0]
-        // Check if the call is completed (status is completed or failed, and has duration)
-        return latestCall.status === 'completed' || latestCall.status === 'failed'
-      }
-
-      // If no call records found, consider it completed (might be an error case)
-      return true
-    } catch (error) {
-      console.error('Error checking call completion:', error)
-      // If we can't check, assume it's completed to avoid infinite waiting
-      return true
-    }
-  }
-
-  const waitForCallCompletion = async (leadId: string, maxWaitTime: number = 120000): Promise<void> => {
-    const startTime = Date.now()
-    const pollInterval = 2000 // Check every 2 seconds
-
-    return new Promise((resolve) => {
-      const pollForCompletion = async () => {
-        const elapsed = Date.now() - startTime
-
-        // If max wait time exceeded, resolve anyway
-        if (elapsed >= maxWaitTime) {
-          console.log(`Max wait time exceeded for lead ${leadId}`)
-          resolve()
-          return
-        }
-
-        const isCompleted = await checkCallCompletion(leadId)
-
-        if (isCompleted) {
-          resolve()
-        } else {
-          // Continue polling
-          setTimeout(pollForCompletion, pollInterval)
-        }
-      }
-
-      // Start polling
-      pollForCompletion()
-    })
-  }
-
-  const handleCallAll = async () => {
-    const filtered = filteredLeads
-    if (filtered.length === 0) {
-      toast.error('No leads to call')
-      return
-    }
-
-    if (isCallingAll) {
-      toast.error('Call All is already in progress')
-      return
-    }
-
-    setIsCallingAll(true)
-    setShowCallModal(true)
-    setCallAllProgress({
-      currentIndex: 0,
-      currentLead: null,
-      totalCalls: filtered.length,
-      completedCalls: 0,
-      failedCalls: 0
-    })
-
-    try {
-      for (let i = 0; i < filtered.length; i++) {
-        const lead = filtered[i]
-
-        // Update progress to show current lead being called
-        setCallAllProgress(prev => ({
-          ...prev,
-          currentIndex: i,
-          currentLead: lead
-        }))
-
-        try {
-          // Initiate call to current lead
-          const leadId = lead._id || lead.id
-          if (!leadId) {
-            console.error(`No valid ID for lead ${lead.name}`)
-            setCallAllProgress(prev => ({ ...prev, failedCalls: prev.failedCalls + 1 }))
-            continue
-          }
-
-          const response = await fetch(`${API_BASE}/api/leads/${leadId}/call`, {
-            method: 'POST',
-          })
-
-          const data = await response.json()
-
-          if (data.success) {
-            // Update the lead in the list
-            const updatedLead = data.data.lead
-            if (updatedLead) {
-              setLeads(prevLeads => prevLeads.map(l => (l.id === leadId || l._id === leadId) ? {
-                ...updatedLead,
-                id: updatedLead._id || updatedLead.id
-              } : l))
-            }
-
-            // Wait for call to complete before proceeding to next lead
-            await waitForCallCompletion(leadId)
-
-            setCallAllProgress(prev => ({ ...prev, completedCalls: prev.completedCalls + 1 }))
-          } else {
-            console.error(`Failed to call ${lead.name}: ${data.error}`)
-            setCallAllProgress(prev => ({ ...prev, failedCalls: prev.failedCalls + 1 }))
-          }
-        } catch (error) {
-          console.error(`Error calling ${lead.name}:`, error)
-          setCallAllProgress(prev => ({ ...prev, failedCalls: prev.failedCalls + 1 }))
-        }
-
-        // Small delay between calls for safety
-        await new Promise(resolve => setTimeout(resolve, 1000))
-      }
-
-      // All calls completed
-      toast.success(`Call All completed! ${callAllProgress.completedCalls + filtered.length - callAllProgress.failedCalls} successful, ${callAllProgress.failedCalls} failed`)
-
-      // Refresh leads and stats
-      await loadLeads()
-      await loadStats()
-
-    } catch (error) {
-      console.error('Error in Call All:', error)
-      toast.error('Call All process encountered an error')
-    } finally {
-      setIsCallingAll(false)
-      // Keep modal open for a moment to show final results
-      setTimeout(() => {
-        setShowCallModal(false)
-        setCallAllProgress({
-          currentIndex: 0,
-          currentLead: null,
-          totalCalls: 0,
-          completedCalls: 0,
-          failedCalls: 0
-        })
-      }, 3000)
-    }
-  }
-
-  const handleStopCallAll = () => {
-    setIsCallingAll(false)
-    setShowCallModal(false)
-    toast('Call All stopped', { icon: 'ℹ️' })
-    setCallAllProgress({
-      currentIndex: 0,
-      currentLead: null,
-      totalCalls: 0,
-      completedCalls: 0,
-      failedCalls: 0
-    })
-  }
-
   const handleCSVUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) return
@@ -546,18 +332,6 @@ export default function LeadsPage() {
                   <Upload className="w-4 h-4" />
               )}
               <span>{uploading ? 'Uploading...' : 'Upload CSV'}</span>
-            </button>
-            <button
-                onClick={handleCallAll}
-                disabled={isCallingAll || filteredLeads.length === 0}
-                className="flex items-center space-x-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 disabled:bg-orange-400 text-white rounded-xl transition-all text-sm md:text-base"
-            >
-              {isCallingAll ? (
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-              ) : (
-                  <PhoneCall className="w-4 h-4" />
-              )}
-              <span>{isCallingAll ? 'Calling...' : `Call All (${filteredLeads.length})`}</span>
             </button>
             <button
                 onClick={() => setShowAddForm(true)}
@@ -727,13 +501,6 @@ export default function LeadsPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center space-x-2">
-                        <button
-                            onClick={() => handleCallLead(lead)}
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white p-1 md:p-2 rounded-lg transition-all"
-                            title="Call Lead"
-                        >
-                          <PhoneCall className="w-3 h-3 md:w-4 md:h-4" />
-                        </button>
                         <button
                             onClick={() => setEditingLead(lead)}
                             className="bg-blue-600 hover:bg-blue-700 text-white p-1 md:p-2 rounded-lg transition-all"
@@ -1017,90 +784,6 @@ export default function LeadsPage() {
             </div>
         )}
 
-        {/* Call All Progress Modal */}
-        {showCallModal && (
-            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-              <div className="bg-slate-900 rounded-xl border border-slate-800 p-6 w-full max-w-md shadow-xl">
-                <div className="text-center">
-                  <div className="w-12 h-12 md:w-16 md:h-16 bg-orange-600/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                    {isCallingAll ? (
-                        <PhoneIcon className="w-6 h-6 md:w-8 md:h-8 text-orange-400 animate-pulse" />
-                    ) : (
-                        <CheckCircle className="w-6 h-6 md:w-8 md:h-8 text-emerald-400" />
-                    )}
-                  </div>
-
-                  <h3 className="text-lg md:text-xl font-semibold text-white mb-2">
-                    {isCallingAll ? 'Calling Leads' : 'Call All Completed'}
-                  </h3>
-
-                  {callAllProgress.currentLead && (
-                      <div className="mb-4">
-                        <p className="text-slate-300 text-xs md:text-sm mb-1">Currently calling:</p>
-                        <p className="text-white font-medium text-sm md:text-base">{callAllProgress.currentLead.name}</p>
-                        <p className="text-slate-400 text-xs md:text-sm">{callAllProgress.currentLead.phone}</p>
-                      </div>
-                  )}
-
-                  {/* Progress Bar */}
-                  <div className="mb-4 md:mb-6">
-                    <div className="flex justify-between text-xs md:text-sm text-slate-400 mb-1 md:mb-2">
-                      <span>Progress</span>
-                      <span>{callAllProgress.currentIndex + 1} of {callAllProgress.totalCalls}</span>
-                    </div>
-                    <div className="w-full bg-slate-800 rounded-full h-2">
-                      <div
-                          className="bg-orange-600 h-2 rounded-full transition-all duration-300"
-                          style={{
-                            width: `${((callAllProgress.currentIndex + 1) / callAllProgress.totalCalls) * 100}%`
-                          }}
-                      ></div>
-                    </div>
-                  </div>
-
-                  {/* Stats */}
-                  <div className="grid grid-cols-3 gap-3 md:gap-4 mb-4 md:mb-6">
-                    <div className="text-center">
-                      <div className="text-xl md:text-2xl font-bold text-emerald-400">{callAllProgress.completedCalls}</div>
-                      <div className="text-xs text-slate-400">Completed</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-xl md:text-2xl font-bold text-red-400">{callAllProgress.failedCalls}</div>
-                      <div className="text-xs text-slate-400">Failed</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-xl md:text-2xl font-bold text-slate-400">
-                        {callAllProgress.totalCalls - callAllProgress.completedCalls - callAllProgress.failedCalls}
-                      </div>
-                      <div className="text-xs text-slate-400">Remaining</div>
-                    </div>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex space-x-2 md:space-x-3">
-                    {isCallingAll ? (
-                        <button
-                            onClick={handleStopCallAll}
-                            className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-xl transition-all text-sm md:text-base"
-                        >
-                          <div className="flex items-center justify-center space-x-2">
-                            <X className="w-3 h-3 md:w-4 md:h-4" />
-                            <span>Stop</span>
-                          </div>
-                        </button>
-                    ) : (
-                        <button
-                            onClick={() => setShowCallModal(false)}
-                            className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 px-4 rounded-xl transition-all text-sm md:text-base"
-                        >
-                          Close
-                        </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-        )}
       </div>
   )
 }

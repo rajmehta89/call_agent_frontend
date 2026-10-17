@@ -5,11 +5,11 @@ import Link from 'next/link'
 import { ArrowUpRight, Bot, Clock3, Download, FileText, Headphones, MessageSquare, Phone, PhoneCall, Search, User, Users, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { PageHeader } from '../../components/OmniPage'
-import { API_BASE, DataState, MetricGrid, StatusBadge, Toolbar, downloadCsv } from '../../components/PlatformUI'
+import { API_BASE, DataState, MetricGrid, StatusBadge, Toolbar } from '../../components/PlatformUI'
 
 type Message = { type?: string; content?: string; timestamp?: string }
-type Lead = { _id?: string; id?: string; name: string; phone?: string | number; email?: string; company?: string }
-type Call = { _id: string; phone_number: string | number; lead_id?: string; lead?: { name: string; company?: string; email?: string }; call_date?: string; created_at?: string; status?: string; direction?: string; duration?: number; transcription?: Message[]; ai_responses?: Message[]; call_summary?: string; next_action?: string; recording_url?: string; recording?: string; audio_url?: string; interest_analysis?: { interest_status?: string; confidence?: number }; transfer_requested?: boolean; transfer_status?: string; transfer_destination?: string; transfer_error?: string; transfer_succeeded?: boolean; accepted_by?: string; handled_by?: string }
+type Lead = { _id?: string; id?: string; name: string; phone?: string | number; email?: string; company?: string; callOnly?: boolean; callId?: string }
+type Call = { _id: string; phone_number: string | number; lead_id?: string; lead?: { name: string; company?: string; email?: string }; call_date?: string; created_at?: string; status?: string; direction?: string; duration?: number; transcription?: Message[]; ai_responses?: Message[]; call_summary?: string; next_action?: string; recording_url?: string; recording?: string; audio_url?: string; interest_analysis?: { interest_status?: string; confidence?: number }; transfer_requested?: boolean; transfer_status?: string; transfer_destination?: string; transfer_error?: string; transfer_succeeded?: boolean; accepted_by?: string; handled_by?: string; provider?: string; channel_type?: string; disconnection_reason?: string; call_cost?: { combined_cost?: number }; latency?: Record<string, unknown>; end_to_end_latency_ms?: number; sentiment?: string; call_successful?: boolean; human_callback_requested?: boolean; custom_analysis_data?: Record<string, unknown>; agent_name?: string; agent_version?: number }
 type CallStats = { total_calls?: number; calls_today?: number; average_duration?: number; status_counts?: { completed?: number; failed?: number; missed?: number } }
 
 const emptyStats: CallStats = { total_calls: 0, calls_today: 0, average_duration: 0, status_counts: {} }
@@ -18,7 +18,7 @@ const formatDate = (value?: string) => { if (!value) return '—'; const date = 
 const formatDay = (value?: string) => { if (!value) return 'Unknown day'; const date = new Date(value); return Number.isNaN(date.getTime()) ? 'Unknown day' : date.toLocaleDateString([], { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric' }) }
 const getConversation = (call?: Call | null) => [...(call?.transcription || []), ...(call?.ai_responses || [])].filter((message) => message.content).sort((a, b) => new Date(a.timestamp || '').getTime() - new Date(b.timestamp || '').getTime())
 const getSpeaker = (message: Message) => { const type = String(message.type || '').toLowerCase(); return message.type === 'user' ? 'Customer' : ['human', 'agent', 'human_agent'].includes(type) ? 'Human agent' : 'AI agent' }
-const isHumanHandled = (call: Call) => Boolean(call.accepted_by || call.handled_by || call.transfer_requested || ['requested', 'dialing', 'ringing', 'connected', 'accepted', 'completed'].includes(String(call.transfer_status || '').toLowerCase()))
+const isHumanHandled = (call: Call) => Boolean(call.accepted_by || call.handled_by || call.human_callback_requested || call.transfer_requested || ['requested', 'dialing', 'ringing', 'connected', 'accepted', 'completed'].includes(String(call.transfer_status || '').toLowerCase()))
 
 export default function CallsPage() {
   const [calls, setCalls] = useState<Call[]>([])
@@ -33,14 +33,14 @@ export default function CallsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [interestFilter, setInterestFilter] = useState('all')
-  const [directionFilter, setDirectionFilter] = useState('all')
+  const [directionFilter, setDirectionFilter] = useState('inbound')
   const [handlingFilter, setHandlingFilter] = useState('all')
 
   const load = async () => {
     setLoading(true); setError('')
     try {
       const read = async (url: string) => { const response = await fetch(url); const payload = await response.json(); if (!response.ok || !payload.success) throw new Error(payload.error || 'Unable to load call data'); return payload }
-      const [callsResult, statsResult, leadsResult] = await Promise.allSettled([read(`${API_BASE}/api/calls?limit=200`), read(`${API_BASE}/api/calls/stats`), read(`${API_BASE}/api/leads/?limit=200`)]);
+      const [callsResult, statsResult, leadsResult] = await Promise.allSettled([read(`${API_BASE}/api/calls?direction=inbound&limit=200`), read(`${API_BASE}/api/calls/stats`), read(`${API_BASE}/api/leads/?limit=200`)]);
       if (callsResult.status === 'rejected') throw callsResult.reason
       const nextCalls: Call[] = callsResult.value.data || []
       setCalls(nextCalls)
@@ -48,6 +48,17 @@ export default function CallsPage() {
       const loadedLeads: Lead[] = leadsResult.status === 'fulfilled' ? leadsResult.value.data || [] : []
       const leadMap = new Map(loadedLeads.map((lead) => [String(lead._id || lead.id), lead]))
       nextCalls.forEach((call) => { if (call.lead_id && !leadMap.has(String(call.lead_id)) && call.lead) leadMap.set(String(call.lead_id), { _id: String(call.lead_id), name: call.lead.name, company: call.lead.company, email: call.lead.email, phone: call.phone_number }) })
+      const knownPhones = new Set(Array.from(leadMap.values()).map((lead) => String(lead.phone || '')).filter(Boolean))
+      nextCalls.filter((call) => !call.lead_id && !knownPhones.has(String(call.phone_number || ''))).forEach((call) => {
+        leadMap.set(`call:${call._id}`, {
+          _id: `call:${call._id}`,
+          name: call.channel_type === 'web_call' ? 'Retell web call' : String(call.phone_number || 'Unknown caller'),
+          phone: call.phone_number,
+          company: call.provider === 'retell' ? 'Retell AI' : 'Unlinked call',
+          callOnly: true,
+          callId: call._id,
+        })
+      })
       const nextLeads = Array.from(leadMap.values()); setLeads(nextLeads)
       setSelectedLeadId((current) => current && nextLeads.some((lead) => String(lead._id || lead.id) === current) ? current : String(nextLeads[0]?._id || nextLeads[0]?.id || ''))
     } catch (err) { const message = err instanceof Error ? err.message : 'Unable to load calls'; setError(message); toast.error(message) } finally { setLoading(false) }
@@ -70,7 +81,7 @@ export default function CallsPage() {
   }), [calls, directionFilter, handlingFilter, interestFilter, searchTerm, statusFilter])
   const activeLeadCalls = useMemo(() => calls.filter((call) => {
     if (!selectedLead) return false
-    const sameLead = String(call.lead_id || '') === selectedLeadId || (!call.lead_id && String(call.phone_number) === String(selectedLead.phone || ''))
+    const sameLead = selectedLead.callOnly ? call._id === selectedLead.callId : String(call.lead_id || '') === selectedLeadId || (!call.lead_id && String(call.phone_number) === String(selectedLead.phone || ''))
     const matchesStatus = statusFilter === 'all' || call.status === statusFilter
     const matchesInterest = interestFilter === 'all' || (interestFilter === 'no_analysis' && !call.interest_analysis) || call.interest_analysis?.interest_status === interestFilter
     const matchesDirection = directionFilter === 'all' || (call.direction || 'outbound') === directionFilter
@@ -86,7 +97,7 @@ export default function CallsPage() {
 
   return <div className="space-y-6">
     <PageHeader title="Call recordings" description="Review each lead’s calls in a clean conversation view, with recordings and call details available for every event." />
-    <Toolbar search={searchTerm} onSearch={setSearchTerm} onRefresh={load} onExport={() => downloadCsv('calls')}><select value={directionFilter} onChange={(event) => setDirectionFilter(event.target.value)} aria-label="Call direction"><option value="all">All directions</option><option value="inbound">Inbound</option><option value="outbound">Outbound</option></select><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Call status"><option value="all">All outcomes</option><option value="completed">Completed</option><option value="transferred">Transferred</option><option value="transfer_requested">Transfer requested</option><option value="failed">Failed</option><option value="missed">Missed</option></select><select value={handlingFilter} onChange={(event) => setHandlingFilter(event.target.value)} aria-label="Call handler"><option value="all">AI + human</option><option value="ai">AI agent</option><option value="human">Human agent</option></select><select value={interestFilter} onChange={(event) => setInterestFilter(event.target.value)} aria-label="Call interest"><option value="all">All interest</option><option value="interested">Interested</option><option value="not_interested">Not interested</option><option value="neutral">Neutral</option><option value="no_analysis">No analysis</option></select></Toolbar>
+    <Toolbar search={searchTerm} onSearch={setSearchTerm}><span className="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700">Inbound calls</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Call status"><option value="all">All outcomes</option><option value="completed">Completed</option><option value="transferred">Transferred</option><option value="transfer_requested">Transfer requested</option><option value="failed">Failed</option><option value="missed">Missed</option></select><select value={handlingFilter} onChange={(event) => setHandlingFilter(event.target.value)} aria-label="Call handler"><option value="all">AI + human</option><option value="ai">AI agent</option><option value="human">Human agent</option></select><select value={interestFilter} onChange={(event) => setInterestFilter(event.target.value)} aria-label="Call interest"><option value="all">All interest</option><option value="interested">Interested</option><option value="not_interested">Not interested</option><option value="neutral">Neutral</option><option value="no_analysis">No analysis</option></select></Toolbar>
     <DataState loading={loading} error={error} onRetry={load}>
       <MetricGrid items={[{ label: 'Total calls', value: stats.total_calls || calls.length }, { label: 'Today', value: stats.calls_today || 0 }, { label: 'Completed', value: stats.status_counts?.completed || 0 }, { label: 'Average duration', value: formatDuration(stats.average_duration || 0) }]} />
       <div className="mt-5 grid min-h-[720px] gap-4 lg:grid-cols-[290px_minmax(0,1fr)] xl:grid-cols-[290px_minmax(0,1fr)_310px]">
@@ -102,7 +113,7 @@ export default function CallsPage() {
 function getCallHandler(call: Call) {
   const human = call.accepted_by || call.handled_by
   if (human) return { label: human, type: 'Human' }
-  if (call.transfer_requested || ['requested', 'dialing', 'ringing', 'connected', 'accepted', 'completed'].includes(String(call.transfer_status || '').toLowerCase())) return { label: call.transfer_destination || 'Human team', type: 'Human' }
+  if (call.human_callback_requested || call.transfer_requested || ['requested', 'dialing', 'ringing', 'connected', 'accepted', 'completed'].includes(String(call.transfer_status || '').toLowerCase())) return { label: call.transfer_destination || 'Human callback requested', type: 'Human' }
   return { label: 'AI agent', type: 'AI' }
 }
 

@@ -1,9 +1,35 @@
 'use client'
 
-import { AlertTriangle, Check, Download, Loader2, RefreshCw, Search, SlidersHorizontal, X } from 'lucide-react'
+import { AlertTriangle, Check, Download, Loader2, Search, SlidersHorizontal, X } from 'lucide-react'
 import { ReactNode } from 'react'
 
-export const API_BASE = process.env.NEXT_PUBLIC_CALL_API_URL || 'https://call-agent-backend-ssrw.onrender.com'
+export const API_BASE = process.env.NEXT_PUBLIC_CALL_API_URL || 'http://127.0.0.1:8000'
+
+type ApiError = Error & { status?: number }
+
+function messageFromPayload(payload: unknown): string | undefined {
+  if (typeof payload === 'string' && payload.trim()) return payload.trim()
+  if (Array.isArray(payload)) {
+    const messages = payload.map(messageFromPayload).filter(Boolean)
+    return messages.length ? messages.join('. ') : undefined
+  }
+  if (!payload || typeof payload !== 'object') return undefined
+
+  const value = payload as Record<string, unknown>
+  for (const key of ['message', 'msg', 'error', 'detail', 'reason']) {
+    const message = messageFromPayload(value[key])
+    if (message) return message
+  }
+  return undefined
+}
+
+export function userFacingError(error: unknown, fallback = 'Something went wrong. Please try again.'): string {
+  const message = error instanceof Error ? error.message : messageFromPayload(error)
+  if (!message || message === '[object Object]') return fallback
+  if (/^(failed to fetch|networkerror|load failed)$/i.test(message)) return 'Cannot reach the workspace service. Check your connection and try again.'
+  if (/aborted|timeout/i.test(message)) return 'The request took too long. Please try again.'
+  return message
+}
 
 export async function api<T = any>(path: string, options?: RequestInit): Promise<T> {
   const isFormData = typeof FormData !== 'undefined' && options?.body instanceof FormData
@@ -15,7 +41,7 @@ export async function api<T = any>(path: string, options?: RequestInit): Promise
     window.location.href = '/login'
   }
   if (!response.ok) {
-    const error = new Error(payload?.detail?.error || payload?.detail || payload?.error || `Request failed (${response.status})`) as Error & { status?: number }
+    const error = new Error(messageFromPayload(payload) || `Request failed (${response.status})`) as ApiError
     error.status = response.status
     throw error
   }
@@ -45,15 +71,15 @@ export async function apiWithRetry<T = any>(path: string, options?: RequestInit,
 export function downloadCsv(resource: string) { window.open(`${API_BASE}/api/platform/export/${resource}.csv`, '_blank') }
 
 export function MetricGrid({ items }: { items: { label: string; value: string | number; detail?: string; tone?: string }[] }) {
-  return <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{items.map((item) => <div key={item.label} className="surface-panel rounded-[20px] p-5"><div className="text-xs font-semibold uppercase tracking-[.14em] text-slate-400">{item.label}</div><div className="mt-3 text-3xl font-extrabold tracking-[-.04em] text-slate-900">{item.value}</div>{item.detail && <div className="mt-2 text-xs text-slate-500">{item.detail}</div>}</div>)}</div>
+  return <div className="product-metric-grid grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{items.map((item) => <div key={item.label} className="product-metric surface-panel"><div className="product-metric-label">{item.label}</div><div className="product-metric-value">{item.value}</div>{item.detail && <div className="product-metric-detail">{item.detail}</div>}</div>)}</div>
 }
 
-export function Toolbar({ search, onSearch, onRefresh, onExport, children }: { search?: string; onSearch?: (value: string) => void; onRefresh?: () => void; onExport?: () => void; children?: ReactNode }) {
-  return <div className="surface-panel flex flex-col gap-2.5 rounded-[22px] p-2.5 lg:flex-row lg:items-center">
-    {onSearch && <div className="relative min-w-0 flex-1 lg:max-w-[440px]"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input value={search} onChange={(e) => onSearch(e.target.value)} placeholder="Search records..." className="h-10 rounded-lg border-slate-200 bg-white pl-9 pr-10 text-sm shadow-none" />{search ? <button type="button" onClick={() => onSearch('')} aria-label="Clear search" className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full text-slate-400 transition hover:text-slate-700"><X className="h-4 w-4" /></button> : null}</div>}
-    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 rounded-lg border border-slate-200/80 bg-slate-50/70 p-2 [&>input]:h-9 [&>input]:min-w-[150px] [&>input]:flex-1 [&>input]:rounded-md [&>input]:py-2 [&>select]:h-9 [&>select]:min-w-[180px] [&>select]:flex-1 [&>select]:rounded-md [&>select]:py-2 [&>button]:shrink-0">
+export function Toolbar({ search, onSearch, onExport, children }: { search?: string; onSearch?: (value: string) => void; onExport?: () => void; children?: ReactNode }) {
+  return <div className="product-toolbar surface-panel flex flex-col gap-2.5 lg:flex-row lg:items-center">
+    {onSearch && <div className="product-toolbar-search relative min-w-0 flex-1 lg:max-w-[440px]"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" /><input value={search} onChange={(e) => onSearch(e.target.value)} placeholder="Search records..." />{search ? <button type="button" onClick={() => onSearch('')} aria-label="Clear search" className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full transition"><X className="h-4 w-4" /></button> : null}</div>}
+    <div className="product-toolbar-controls flex min-w-0 flex-1 flex-wrap items-center gap-2">
       {children}
-      {(onRefresh || onExport) && <div className="ml-auto flex shrink-0 items-center gap-2">{onRefresh && <ActionButton onClick={onRefresh} icon={<RefreshCw className="h-4 w-4" />}>Refresh</ActionButton>}{onExport && <ActionButton onClick={onExport} icon={<Download className="h-4 w-4" />}>Export CSV</ActionButton>}</div>}
+      {onExport && <div className="ml-auto flex shrink-0 items-center gap-2">{onExport && <ActionButton onClick={onExport} icon={<Download className="h-4 w-4" />}>Export CSV</ActionButton>}</div>}
     </div>
   </div>
 }
@@ -81,5 +107,5 @@ export function StatusBadge({ value }: { value: string | boolean }) {
 }
 
 export function FeatureSection({ title, description, features }: { title: string; description?: string; features: string[] }) {
-  return <section className="surface-panel rounded-[24px] p-6"><div className="text-lg font-bold tracking-[-.03em] text-slate-900">{title}</div>{description && <p className="mt-2 text-sm leading-6 text-slate-500">{description}</p>}<div className="mt-5 flex flex-wrap gap-2">{features.map((feature, index) => <span key={`${feature}-${index}`} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">{feature}</span>)}</div></section>
+  return <section className="product-feature-section surface-panel"><div className="product-feature-title">{title}</div>{description && <p className="product-feature-copy">{description}</p>}<div className="product-feature-list">{features.map((feature, index) => <span key={`${feature}-${index}`}>{feature}</span>)}</div></section>
 }
