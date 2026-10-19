@@ -13,12 +13,21 @@ export default function Sidebar() {
   const [isDesktop, setIsDesktop] = useState(false)
   const [permissions, setPermissions] = useState<string[]>([])
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({})
+  const [inboxCounts, setInboxCounts] = useState<Record<string, number>>({})
 
   useEffect(() => {
     const resize = () => { const desktop = window.innerWidth >= 1024; setIsDesktop(desktop); setIsOpen(desktop) }
     resize(); window.addEventListener('resize', resize); return () => window.removeEventListener('resize', resize)
   }, [])
   useEffect(() => { api<any>('/api/auth/me').then((result) => { setPermissions(result.data?.permissions || []) }).catch(() => {}) }, [])
+  useEffect(() => {
+    if (!permissions.includes('*') && !permissions.includes('handle_conversations')) return
+    const load = () => api<any>('/api/inbox/counts').then((result) => setInboxCounts(result.data || {})).catch((error) => console.warn('[inbox] sidebar counts failed', error))
+    load()
+    const timer = window.setInterval(load, 20000)
+    window.addEventListener('inbox:changed', load)  // fired by the inbox page after assign / post / read
+    return () => { window.clearInterval(timer); window.removeEventListener('inbox:changed', load) }
+  }, [permissions])
   const logout = () => { window.localStorage.removeItem('agentflow_token'); window.location.href = '/login' }
 
   return <>
@@ -33,10 +42,10 @@ export default function Sidebar() {
         {navigationGroups.map((group) => <section key={group.label || 'main'}>
           {group.label && <button type="button" onClick={() => setCollapsedGroups((current) => ({ ...current, [group.label]: !current[group.label] }))} aria-expanded={!collapsedGroups[group.label]} className="app-nav-group"><span>{group.label}</span><ChevronDown className={collapsedGroups[group.label] ? '-rotate-90' : ''} /></button>}
           {!collapsedGroups[group.label] && <div className="app-nav-items">{group.items.filter((item: any) => !item.permission || permissions.includes('*') || permissions.includes(item.permission)).map((item) => {
-            const overviewRoute = item.href === '/whatsapp' || item.href === '/voice'
+            const overviewRoute = item.href === '/whatsapp' || item.href === '/voice' || item.href === '/inbox'
             const active = item.href === '/' || overviewRoute ? pathname === item.href : pathname === item.href || pathname.startsWith(`${item.href}/`)
             const Icon = item.icon
-            return <Link key={item.href} href={item.href} onClick={() => !isDesktop && setIsOpen(false)} className={active ? 'is-active' : ''}><Icon /><span>{item.name}</span>{active && <i aria-hidden="true" />}</Link>
+            return <Link key={item.href} href={item.href} onClick={() => !isDesktop && setIsOpen(false)} className={active ? 'is-active' : ''}><Icon /><span>{item.name}</span>{(item as any).countKey && Boolean(inboxCounts[(item as any).countKey]) && <b className={`app-nav-count${(item as any).alert ? ' is-alert' : ''}`}>{inboxCounts[(item as any).countKey]}</b>}{active && <i aria-hidden="true" />}</Link>
           })}</div>}
         </section>)}
       </nav>

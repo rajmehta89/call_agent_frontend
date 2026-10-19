@@ -1,6 +1,15 @@
-import { BrainCircuit, CircleDollarSign, Headphones, Mic2, PhoneCall, Settings2, ShoppingBag, UserPlus } from 'lucide-react'
+import { AlertTriangle, AtSign, BrainCircuit, CircleDollarSign, Hash, Headphones, Inbox, Mic2, PhoneCall, Settings2, ShoppingBag, UserCheck, UserPlus, UserX } from 'lucide-react'
 
+// countKey: the item shows the matching number from GET /api/inbox/counts as a badge.
 export const navigationGroups = [
+  { label: 'Inbox', items: [
+    { name: 'All Conversations', href: '/inbox', icon: Inbox, tone: 'blue', permission: 'handle_conversations', countKey: 'all' },
+    { name: 'Unassigned', href: '/inbox/unassigned', icon: UserX, tone: 'orange', permission: 'handle_conversations', countKey: 'unassigned' },
+    { name: 'Assigned to You', href: '/inbox/mine', icon: UserCheck, tone: 'green', permission: 'handle_conversations', countKey: 'mine' },
+    { name: 'Mentioned', href: '/inbox/mentioned', icon: AtSign, tone: 'orange', permission: 'handle_conversations', countKey: 'mentioned', alert: true },
+    { name: 'Failed', href: '/inbox/failed', icon: AlertTriangle, tone: 'red', permission: 'handle_conversations', countKey: 'failed', alert: true },
+    { name: 'Team channel', href: '/inbox/channel', icon: Hash, tone: 'blue', permission: 'handle_conversations' },
+  ]},
   { label: 'Inbound voice', items: [
     { name: 'Overview', href: '/voice', icon: PhoneCall, tone: 'blue', permission: 'handle_calls' },
     { name: 'Browser test call', href: '/voice/browser-test', icon: Headphones, tone: 'orange', permission: 'handle_calls' },

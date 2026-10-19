@@ -15,7 +15,7 @@ export default function LoginPage() {
   const submit = async (event: FormEvent) => {
     event.preventDefault(); setLoading(true); setError('')
     try {
-      const result = await apiWithRetry<any>('/api/auth/login', { method: 'POST', body: JSON.stringify(form) }, 1, 8000)
+      const result = await apiWithRetry<any>('/api/auth/login', { method: 'POST', body: JSON.stringify(form) }, 1, 25000)
       if (!result?.data?.token) throw new Error('The sign-in service returned an incomplete response. Please try again.')
       window.localStorage.setItem('agentflow_token', result.data.token)
       toast.success('Welcome back')

@@ -10,6 +10,7 @@ import { pageInfo } from './omni-data'
 const publicRoutes = ['/login', '/signup', '/invite/accept']
 function requiredPermission(pathname: string) {
   if (pathname === '/') return 'view_dashboard'
+  if (pathname.startsWith('/inbox')) return 'handle_conversations'
   if (pathname.startsWith('/whatsapp') || pathname.startsWith('/conversation') || pathname.startsWith('/handoffs')) return 'handle_conversations'
   if (pathname.startsWith('/voice') || pathname === '/calls') return 'handle_calls'
   if (pathname.startsWith('/brain/knowledge') || pathname.startsWith('/knowledge')) return 'manage_data'
@@ -45,9 +46,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     if (isPublic) { setChecking(false); return }
     if (!window.localStorage.getItem('agentflow_token')) { window.location.href = '/login'; return }
     let active = true
-    const timeout = window.setTimeout(() => { if (active) { setAuthError('The workspace sign-in check took too long. Please sign in again.'); setChecking(false) } }, 12000)
+    const timeout = window.setTimeout(() => { if (active) { setAuthError('The workspace sign-in check took too long. Please sign in again.'); setChecking(false) } }, 30000)
     setAuthError('')
-    apiWithRetry<any>('/api/auth/me', undefined, 1, 8000).then((result) => { if (active) setUser(result.data) }).catch(() => { if (active) setAuthError('The workspace service is unavailable or your session has expired.') }).finally(() => { window.clearTimeout(timeout); if (active) setChecking(false) })
+    apiWithRetry<any>('/api/auth/me', undefined, 2, 12000).then((result) => { if (active) setUser(result.data) }).catch(() => { if (active) setAuthError('The workspace service is unavailable or your session has expired.') }).finally(() => { window.clearTimeout(timeout); if (active) setChecking(false) })
     return () => { active = false; window.clearTimeout(timeout) }
   }, [isPublic, pathname, authAttempt])
 
