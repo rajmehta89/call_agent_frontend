@@ -26,7 +26,7 @@ const allScopes = ['read_products', 'read_inventory', 'read_orders', 'read_custo
 
 function Switch({ checked, disabled, onChange, label }: { checked: boolean; disabled?: boolean; onChange: () => void; label: string }) {
   return <button type="button" role="switch" aria-checked={checked} aria-label={label} title={label} disabled={disabled} onClick={onChange}
-    className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full p-0 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40 ${checked ? 'bg-emerald-600' : 'bg-slate-300'}`}>
+    className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full p-0 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40 ${checked ? 'bg-purple-600' : 'bg-slate-300'}`}>
     <span className={`pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${checked ? 'translate-x-5' : 'translate-x-0'}`} />
   </button>
 }
@@ -35,7 +35,7 @@ const setupSteps: Record<AuthMode, { title: string; steps: ReactNode[] }> = {
   client_credentials: {
     title: 'Dev Dashboard app (for apps created from 2026)',
     steps: [
-      <>Open the <a className="font-semibold text-indigo-700 underline" href="https://dev.shopify.com/dashboard/" target="_blank" rel="noreferrer">Shopify Dev Dashboard</a> with the account that owns the store and create an app.</>,
+      <>Open the <a className="font-semibold text-purple-700 underline" href="https://dev.shopify.com/dashboard/" target="_blank" rel="noreferrer">Shopify Dev Dashboard</a> with the account that owns the store and create an app.</>,
       <>In the app version, select the Admin API scopes: <code className="text-[11px]">{allScopes.join(', ')}</code>. For order and customer data, also complete the protected customer data request.</>,
       <>Release the version, then install the app on your store.</>,
       <>Open the app’s <strong>Settings</strong> and copy the <strong>Client ID</strong> and <strong>Client secret</strong> into the form here.</>,
@@ -123,9 +123,9 @@ export default function ShopifyIntegrationPage() {
   return <div className="space-y-4">
     <PageHeader title="Shopify data access" description="Connect your store so the AI can answer product, stock, order and policy questions with live Shopify data." />
     <DataState loading={loading} error={error} onRetry={load}>
-      <section className={`surface-panel flex flex-wrap items-center justify-between gap-3 rounded-2xl p-4 sm:p-5 ${live ? '' : 'border-amber-200'}`}>
+      <section className={`surface-panel flex flex-wrap items-center justify-between gap-3 rounded-2xl p-4 sm:p-5 ${live ? '' : 'border-purple-200'}`}>
         <div className="flex min-w-0 items-center gap-3">
-          <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${live ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}><ShoppingBag className="h-5 w-5" /></span>
+          <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${live ? 'bg-purple-50 text-purple-700' : 'bg-purple-50 text-purple-700'}`}><ShoppingBag className="h-5 w-5" /></span>
           <div className="min-w-0">
             <h2 className="truncate text-[15px] font-bold text-slate-950">{live ? shopify.shop_name || shopify.store_domain : shopify.connected ? 'Connection failed' : 'No store connected'}</h2>
             <p className="mt-0.5 break-words text-sm text-slate-600">{live
@@ -141,18 +141,18 @@ export default function ShopifyIntegrationPage() {
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_400px]">
         <div className="min-w-0 space-y-4">
           <section className="surface-panel rounded-2xl p-4 sm:p-5">
-            <div className="flex items-start gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700"><ShieldCheck className="h-[18px] w-[18px]" /></span><div><h2 className="text-[15px] font-bold text-slate-950">What the AI can answer</h2><p className="mt-0.5 text-sm text-slate-600">Each feature needs a Shopify permission (scope) on your app, plus its switch here.</p></div></div>
+            <div className="flex items-start gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-purple-50 text-purple-700"><ShieldCheck className="h-[18px] w-[18px]" /></span><div><h2 className="text-[15px] font-bold text-slate-950">What the AI can answer</h2><p className="mt-0.5 text-sm text-slate-600">Each feature needs a Shopify permission (scope) on your app, plus its switch here.</p></div></div>
             <ul className="mt-4 divide-y divide-slate-200">
               {capabilities.map((item) => {
                 const scopesOk = item.scopes.every(hasScope)
                 const toolOn = item.tool ? Boolean(tools[item.tool]) : true
                 const ready = live && scopesOk && toolOn
                 return <li key={item.id} className="flex items-start gap-3 py-3.5 first:pt-0 last:pb-0">
-                  <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${ready ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'}`}>{ready ? <Check className="h-3 w-3" /> : <span className="h-1.5 w-1.5 rounded-full bg-current" />}</span>
+                  <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${ready ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-400'}`}>{ready ? <Check className="h-3 w-3" /> : <span className="h-1.5 w-1.5 rounded-full bg-current" />}</span>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1"><span className="text-sm font-semibold text-slate-900">{item.title}</span><span className="text-xs italic text-slate-500">{item.example}</span></div>
                     <p className="mt-0.5 text-xs leading-5 text-slate-500">{item.detail}</p>
-                    <div className="mt-1.5 flex flex-wrap gap-1.5">{item.scopes.map((scope) => <code key={scope} className={`rounded px-1.5 py-0.5 text-[11px] ${live && hasScope(scope) ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{live && hasScope(scope) ? '✓ ' : ''}{scope}</code>)}</div>
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">{item.scopes.map((scope) => <code key={scope} className={`rounded px-1.5 py-0.5 text-[11px] ${live && hasScope(scope) ? 'bg-purple-50 text-purple-700' : 'bg-slate-100 text-slate-500'}`}>{live && hasScope(scope) ? '✓ ' : ''}{scope}</code>)}</div>
                   </div>
                   {item.tool && <Switch checked={toolOn} onChange={() => toggleTool(item.tool)} label={`${toolOn ? 'Turn off' : 'Turn on'} ${item.title}`} />}
                 </li>
@@ -165,7 +165,7 @@ export default function ShopifyIntegrationPage() {
 
         <aside className={`min-w-0 space-y-4 ${live ? '' : 'order-first xl:order-none'}`}>
           <form onSubmit={saveConnection} className="surface-panel rounded-2xl p-4 sm:p-5">
-            <div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-700"><KeyRound className="h-[18px] w-[18px]" /></span><div><h2 className="text-[15px] font-bold text-slate-950">Connect your store</h2><p className="text-xs text-slate-500">Owner or Admin only · secrets are never shown again</p></div></div>
+            <div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-50 text-purple-700"><KeyRound className="h-[18px] w-[18px]" /></span><div><h2 className="text-[15px] font-bold text-slate-950">Connect your store</h2><p className="text-xs text-slate-500">Owner or Admin only · secrets are never shown again</p></div></div>
             <div role="tablist" className="mt-4 grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1 text-xs font-semibold">
               {(['client_credentials', 'admin_token'] as AuthMode[]).map((option) => <button key={option} type="button" role="tab" aria-selected={mode === option} onClick={() => setMode(option)} className={`rounded-md px-2 py-1.5 transition ${mode === option ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>{option === 'client_credentials' ? 'Client ID & secret' : 'Admin API token'}</button>)}
             </div>
@@ -177,16 +177,16 @@ export default function ShopifyIntegrationPage() {
             <div className="mt-4"><ActionButton primary disabled={saving} icon={saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Store className="h-4 w-4" />}>{saving ? 'Connecting…' : 'Save & test connection'}</ActionButton></div>
           </form>
 
-          <section className="rounded-2xl border border-indigo-100 bg-indigo-50/50 p-4 sm:p-5">
+          <section className="rounded-2xl border border-purple-100 bg-purple-50/50 p-4 sm:p-5">
             <h2 className="text-sm font-bold text-slate-900">{setupSteps[mode].title}</h2>
             <ol className="mt-2 list-decimal space-y-1.5 pl-4 text-sm leading-6 text-slate-600">{setupSteps[mode].steps.map((step, index) => <li key={index}>{step}</li>)}</ol>
             {mode === 'client_credentials'
               ? <p className="mt-3 flex gap-2 text-xs leading-5 text-slate-500"><AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />The app and the store must belong to the same Shopify organization. The 24-hour access token is requested and renewed automatically.</p>
               : <p className="mt-3 flex gap-2 text-xs leading-5 text-slate-500"><AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />Shopify stopped allowing new apps of this type on 1 January 2026. Existing ones keep working.</p>}
-            <a href="https://shopify.dev/docs/apps/build/dev-dashboard/get-api-access-tokens" target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-indigo-700 hover:underline">Shopify’s guide <ExternalLink className="h-3 w-3" /></a>
+            <a href="https://shopify.dev/docs/apps/build/dev-dashboard/get-api-access-tokens" target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-purple-700 hover:underline">Shopify’s guide <ExternalLink className="h-3 w-3" /></a>
           </section>
 
-          {live && <section className="flex items-start gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" /><span className="min-w-0 break-words">Granted permissions: <span className="font-mono text-xs">{granted.join(', ') || 'none'}</span></span></section>}
+          {live && <section className="flex items-start gap-2 rounded-2xl border border-purple-200 bg-purple-50 p-4 text-sm text-purple-900"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" /><span className="min-w-0 break-words">Granted permissions: <span className="font-mono text-xs">{granted.join(', ') || 'none'}</span></span></section>}
         </aside>
       </div>
     </DataState>

@@ -23,9 +23,9 @@ export default function RootLayout({
           toastOptions={{
             style: {
               background: '#ffffff',
-              color: '#0f172a',
-              border: '1px solid #e2e8f0',
-              boxShadow: '0 16px 40px rgba(15, 23, 42, 0.12)',
+              color: '#1c0f2a',
+              border: '1px solid #e9e2f0',
+              boxShadow: '0 16px 40px rgba(28,15,42, 0.12)',
               borderRadius: '12px',
             },
           }}

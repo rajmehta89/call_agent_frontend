@@ -23,10 +23,10 @@ const providerOrder: VoiceProvider['id'][] = ['custom', 'retell']
 
 function Pill({ tone, children }: { tone: 'on' | 'off' | 'warn' | 'info'; children: ReactNode }) {
   const styles = {
-    on: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+    on: 'bg-purple-50 text-purple-700 ring-purple-200',
     off: 'bg-slate-100 text-slate-600 ring-slate-200',
-    warn: 'bg-amber-50 text-amber-800 ring-amber-200',
-    info: 'bg-indigo-50 text-indigo-700 ring-indigo-200',
+    warn: 'bg-purple-50 text-purple-800 ring-purple-200',
+    info: 'bg-purple-50 text-purple-700 ring-purple-200',
   }[tone]
   return <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${styles}`}>{children}</span>
 }
@@ -40,7 +40,7 @@ function Switch({ checked, disabled, busy, label, onChange }: { checked: boolean
     title={label}
     disabled={disabled || busy}
     onClick={onChange}
-    className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full p-0 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${checked ? 'bg-emerald-600' : 'bg-slate-300'}`}
+    className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full p-0 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${checked ? 'bg-purple-600' : 'bg-slate-300'}`}
   >
     <span className={`pointer-events-none absolute left-0.5 top-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-white shadow transition-transform ${checked ? 'translate-x-5' : 'translate-x-0'}`}>
       {busy && <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-500" />}
@@ -54,7 +54,7 @@ function ProviderCard({ provider, saving, onToggle }: { provider: VoiceProvider;
 
   return <article className="surface-panel rounded-2xl p-4 sm:p-5">
     <div className="flex items-start gap-3 sm:gap-4">
-      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${isRetell ? 'bg-emerald-50 text-emerald-700' : 'bg-sky-50 text-sky-700'}`}>
+      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${isRetell ? 'bg-purple-50 text-purple-700' : 'bg-purple-50 text-purple-700'}`}>
         {isRetell ? <Zap className="h-5 w-5" /> : <AudioLines className="h-5 w-5" />}
       </span>
       <div className="min-w-0 flex-1">
@@ -80,7 +80,7 @@ function ProviderCard({ provider, saving, onToggle }: { provider: VoiceProvider;
           {provider.provider && <><dt className="font-medium">Stack</dt><dd className="font-semibold capitalize text-slate-700">{provider.provider}</dd></>}
         </dl>
         <p className="mt-3 text-xs leading-5 text-slate-500">{provider.activation_note}</p>
-        {!provider.ready && <div className="mt-4 flex gap-2 rounded-xl bg-amber-50 px-3.5 py-3 text-sm text-amber-900">
+        {!provider.ready && <div className="mt-4 flex gap-2 rounded-xl bg-purple-50 px-3.5 py-3 text-sm text-purple-900">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           <div className="min-w-0">
             <span className="font-semibold">Finish setup to turn this on.</span> Missing server settings:
@@ -94,8 +94,8 @@ function ProviderCard({ provider, saving, onToggle }: { provider: VoiceProvider;
 
 function RoutingStep({ step, title, detail, state }: { step: number; title: string; detail: string; state: 'active' | 'standby' | 'fallback' }) {
   const pill = state === 'active' ? <Pill tone="on">Answering calls</Pill> : state === 'fallback' ? <Pill tone="info">Default · always on</Pill> : <Pill tone="off">Not set</Pill>
-  return <li className={`flex items-start gap-3 rounded-xl border p-3.5 ${state === 'active' ? 'border-emerald-200 bg-emerald-50/60' : 'border-slate-200 bg-white'}`}>
-    <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${state === 'active' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600'}`}>{step}</span>
+  return <li className={`flex items-start gap-3 rounded-xl border p-3.5 ${state === 'active' ? 'border-purple-200 bg-purple-50/60' : 'border-slate-200 bg-white'}`}>
+    <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${state === 'active' ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-600'}`}>{step}</span>
     <div className="min-w-0 flex-1">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1"><span className="text-sm font-semibold text-slate-900">{title}</span>{pill}</div>
       <p className="mt-0.5 text-xs leading-5 text-slate-500">{detail}</p>
@@ -147,7 +147,7 @@ export default function VoiceProvidersPage() {
       <section className="surface-panel rounded-2xl p-4 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700"><PhoneIncoming className="h-[18px] w-[18px]" /></span>
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-purple-50 text-purple-700"><PhoneIncoming className="h-[18px] w-[18px]" /></span>
             <div className="min-w-0">
               <h2 className="text-[15px] font-bold text-slate-950">Phone number call routing</h2>
               <p className="mt-0.5 text-sm leading-6 text-slate-600">Only one provider can be on at a time. Turning one on turns the other off; with both off, the default agent answers.</p>

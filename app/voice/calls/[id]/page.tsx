@@ -73,11 +73,11 @@ export default function CallDetail() {
                 <div className="flex flex-wrap items-center gap-2">
                   <h2 className="text-xl font-semibold text-white">{call.phone_number || 'Web caller'}</h2>
                   <StatusBadge value={call.status || 'unknown'} />
-                  {humanRequested && <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/10 px-2.5 py-1 text-xs font-medium text-amber-200"><UserRoundCheck className="h-3.5 w-3.5" />Human follow-up</span>}
+                  {humanRequested && <span className="inline-flex items-center gap-1 rounded-full bg-purple-400/10 px-2.5 py-1 text-xs font-medium text-purple-200"><UserRoundCheck className="h-3.5 w-3.5" />Human follow-up</span>}
                 </div>
                 <p className="mt-2 text-sm text-slate-400">{call.channel_type === 'web_call' ? 'Retell web call' : `${call.direction || 'inbound'} call`} · {dateLabel(call.provider_started_at || call.started_at)}</p>
               </div>
-              {call.public_log_url && <a className="text-sm font-medium text-[#8ce5dc] underline-offset-4 hover:underline" href={call.public_log_url} target="_blank" rel="noreferrer">Open Retell log</a>}
+              {call.public_log_url && <a className="text-sm font-medium text-[#b68ce5] underline-offset-4 hover:underline" href={call.public_log_url} target="_blank" rel="noreferrer">Open Retell log</a>}
             </div>
             <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
               <Fact label="Duration" value={durationLabel(call.duration)} />
@@ -104,7 +104,7 @@ export default function CallDetail() {
             <div className="mt-5 space-y-3">
               {transcript.length ? transcript.map((item, index) => {
                 const caller = item.type === 'user'
-                return <article key={`${item.timestamp}-${index}`} className={`rounded-2xl p-4 ${caller ? 'bg-white/[.045]' : 'bg-[#68d2c8]/[.08]'}`}>
+                return <article key={`${item.timestamp}-${index}`} className={`rounded-2xl p-4 ${caller ? 'bg-white/[.045]' : 'bg-[#9968d2]/[.08]'}`}>
                   <div className="flex items-center justify-between gap-3 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500"><span>{caller ? 'Caller' : 'AI agent'}</span><span>{item.timestamp ? new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</span></div>
                   <p className="mt-2 text-sm leading-6 text-slate-100">{item.content}</p>
                 </article>
@@ -126,11 +126,11 @@ export default function CallDetail() {
             <div className="mt-5 border-t border-white/10 pt-4"><div className="text-xs font-medium uppercase tracking-[0.12em] text-slate-500">Summary</div><p className="mt-2 text-sm leading-6 text-slate-200">{call.summary || call.call_summary || 'Retell has not completed post-call analysis yet.'}</p></div>
           </section>
 
-          {customFields.length > 0 && <section className="surface-panel rounded-2xl p-5"><div className="flex items-center gap-2 font-semibold text-white"><FileText className="h-4 w-4 text-[#8ce5dc]" />Extracted details</div><dl className="mt-4 space-y-3 text-sm">{customFields.map(([key, value]) => <Metric key={key} label={key.replace(/_/g, ' ')} value={printable(value)} />)}</dl></section>}
+          {customFields.length > 0 && <section className="surface-panel rounded-2xl p-5"><div className="flex items-center gap-2 font-semibold text-white"><FileText className="h-4 w-4 text-[#b68ce5]" />Extracted details</div><dl className="mt-4 space-y-3 text-sm">{customFields.map(([key, value]) => <Metric key={key} label={key.replace(/_/g, ' ')} value={printable(value)} />)}</dl></section>}
 
           <section className="surface-panel rounded-2xl p-5">
-            <div className="flex items-center gap-2 font-semibold text-white"><Headphones className="h-4 w-4 text-[#8ce5dc]" />Recording</div>
-            {audioUrl ? <><audio className="mt-4 w-full" controls src={audioUrl}>Your browser does not support call recordings.</audio><a href={audioUrl} className="mt-3 inline-flex text-sm font-medium text-[#8ce5dc] hover:underline" target="_blank" rel="noreferrer">Download recording</a></> : <p className="mt-3 text-sm leading-6 text-slate-400">No recording URL was supplied for this call.</p>}
+            <div className="flex items-center gap-2 font-semibold text-white"><Headphones className="h-4 w-4 text-[#b68ce5]" />Recording</div>
+            {audioUrl ? <><audio className="mt-4 w-full" controls src={audioUrl}>Your browser does not support call recordings.</audio><a href={audioUrl} className="mt-3 inline-flex text-sm font-medium text-[#b68ce5] hover:underline" target="_blank" rel="noreferrer">Download recording</a></> : <p className="mt-3 text-sm leading-6 text-slate-400">No recording URL was supplied for this call.</p>}
           </section>
           <ActionButton primary icon={<PhoneCall className="h-4 w-4" />}>Start follow-up call</ActionButton>
         </aside>

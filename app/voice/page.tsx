@@ -57,7 +57,7 @@ export default function VoiceOverview() {
       <Link href="/voice/agent" className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"><Settings2 className="h-4 w-4" />Agent settings</Link>
       <Link href="/voice/browser-test" className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"><Headphones className="h-4 w-4" />Browser test</Link>
     </Toolbar>
-    {notice && <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-5 text-amber-900">{notice}</div>}
+    {notice && <div role="status" className="rounded-xl border border-purple-200 bg-purple-50 px-4 py-3 text-sm leading-5 text-purple-900">{notice}</div>}
     <DataState loading={loading} error={error} onRetry={load}>
       <MetricGrid items={[
         { label: 'Inbound calls', value: stats.inbound_calls || 0 },
@@ -72,7 +72,7 @@ export default function VoiceOverview() {
         </div>
         <div className="divide-y divide-slate-100">
           {calls.map((call) => <Link key={call._id} href={`/voice/calls/${call._id}`} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 transition hover:bg-slate-50">
-            <div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#fff7ed] text-[#b45309]"><PhoneIncoming className="h-4 w-4" /></span><div><div className="text-sm font-semibold text-slate-800">{call.lead?.name || call.phone_number || 'Unknown caller'}</div><div className="mt-1 flex items-center gap-1 text-xs text-slate-500"><Clock3 className="h-3 w-3" />{call.call_date ? new Date(call.call_date).toLocaleString() : 'Date unavailable'} · {Math.floor((call.duration || 0) / 60)}:{String(Math.floor((call.duration || 0) % 60)).padStart(2, '0')}</div></div></div>
+            <div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#f5edff] text-[#5909b4]"><PhoneIncoming className="h-4 w-4" /></span><div><div className="text-sm font-semibold text-slate-800">{call.lead?.name || call.phone_number || 'Unknown caller'}</div><div className="mt-1 flex items-center gap-1 text-xs text-slate-500"><Clock3 className="h-3 w-3" />{call.call_date ? new Date(call.call_date).toLocaleString() : 'Date unavailable'} · {Math.floor((call.duration || 0) / 60)}:{String(Math.floor((call.duration || 0) % 60)).padStart(2, '0')}</div></div></div>
             <span className="flex items-center gap-2"><StatusBadge value={call.status || 'unknown'} /><ArrowUpRight className="h-4 w-4 text-slate-400" /></span>
           </Link>)}
           {!calls.length && <p className="px-5 py-12 text-center text-sm text-slate-500">Inbound calls will appear here after the first conversation.</p>}

@@ -87,14 +87,14 @@ export default function VoicePricingPage() {
       {rows.map((row) => {
         const Icon = row.icon
         const best = row.id === cheapest.id && minutes > 0
-        return <article key={row.id} className={`surface-panel flex flex-col rounded-2xl p-4 sm:p-5 ${best ? 'ring-2 ring-emerald-500' : ''}`}>
+        return <article key={row.id} className={`surface-panel flex flex-col rounded-2xl p-4 sm:p-5 ${best ? 'ring-2 ring-purple-500' : ''}`}>
           <div className="flex min-w-0 items-center gap-2.5">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700"><Icon className="h-[18px] w-[18px]" /></span>
             <h2 className="text-[15px] font-bold leading-5 text-slate-950">{row.name}</h2>
           </div>
           <div className="mt-2 flex min-h-[22px] flex-wrap gap-1.5">
-            {best && <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200">Lowest cost</span>}
-            {inUse === row.id && <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-200">In use now</span>}
+            {best && <span className="rounded-full bg-purple-50 px-2 py-0.5 text-[11px] font-semibold text-purple-700 ring-1 ring-inset ring-purple-200">Lowest cost</span>}
+            {inUse === row.id && <span className="rounded-full bg-purple-50 px-2 py-0.5 text-[11px] font-semibold text-purple-700 ring-1 ring-inset ring-purple-200">In use now</span>}
           </div>
           <div className="mt-2 text-3xl font-extrabold tabular-nums tracking-tight text-slate-950">{usd(row.monthly)}<span className="ml-1 text-sm font-semibold text-slate-500">/month</span></div>
           <div className="mt-1 text-sm text-slate-600">{rate(row.perMinute)} per call minute in total</div>

@@ -54,9 +54,9 @@ export function ChannelCard({
   const active = ['connected', 'live', 'enabled', 'active', 'ready'].includes(status.toLowerCase())
 
   return (
-    <div className="surface-panel rounded-[28px] p-6 transition hover:-translate-y-0.5 hover:border-[#cfcaff]">
+    <div className="surface-panel rounded-[28px] p-6 transition hover:-translate-y-0.5 hover:border-[#e3caff]">
       <div className="flex items-center justify-between">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#fed7aa] bg-[#fff7ed] text-[#d97706]">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#d1aafe] bg-[#f5edff] text-[#6806d9]">
           <Icon className="h-5 w-5" />
         </div>
         <span className={`premium-badge ${active ? 'live' : 'pending'}`}>{status}</span>

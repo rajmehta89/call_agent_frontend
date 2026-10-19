@@ -271,10 +271,10 @@ export default function LeadsPage() {
 
   const getStatusBadge = (status: string) => {
     const styles = {
-      new: 'bg-blue-600/20 text-blue-400 border border-blue-500/30',
-      called: 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30',
+      new: 'bg-purple-600/20 text-purple-400 border border-purple-500/30',
+      called: 'bg-purple-600/20 text-purple-400 border border-purple-500/30',
       contacted: 'bg-purple-600/20 text-purple-400 border border-purple-500/30',
-      converted: 'bg-orange-600/20 text-orange-400 border border-orange-500/30'
+      converted: 'bg-purple-600/20 text-purple-400 border border-purple-500/30'
     }
 
     return (
@@ -325,7 +325,7 @@ export default function LeadsPage() {
             <button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploading}
-                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-xl transition-all text-sm md:text-base"
+                className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white rounded-xl transition-all text-sm md:text-base"
             >
               {uploading ? (
                   <RefreshCw className="w-4 h-4 animate-spin" />
@@ -336,7 +336,7 @@ export default function LeadsPage() {
             </button>
             <button
                 onClick={() => setShowAddForm(true)}
-                className="flex items-center space-x-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-all text-sm md:text-base"
+                className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl transition-all text-sm md:text-base"
             >
               <Plus className="w-4 h-4" />
               <span>Add Lead</span>
@@ -361,10 +361,10 @@ export default function LeadsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs md:text-sm font-medium text-slate-400">New</p>
-                <p className="text-xl md:text-2xl font-bold text-blue-400">{stats.new}</p>
+                <p className="text-xl md:text-2xl font-bold text-purple-400">{stats.new}</p>
               </div>
-              <div className="w-8 h-8 md:w-10 md:h-10 bg-blue-600/20 rounded-lg md:rounded-xl flex items-center justify-center">
-                <User className="w-4 h-4 md:w-5 md:h-5 text-blue-400" />
+              <div className="w-8 h-8 md:w-10 md:h-10 bg-purple-600/20 rounded-lg md:rounded-xl flex items-center justify-center">
+                <User className="w-4 h-4 md:w-5 md:h-5 text-purple-400" />
               </div>
             </div>
           </div>
@@ -372,10 +372,10 @@ export default function LeadsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs md:text-sm font-medium text-slate-400">Called</p>
-                <p className="text-xl md:text-2xl font-bold text-emerald-400">{stats.called}</p>
+                <p className="text-xl md:text-2xl font-bold text-purple-400">{stats.called}</p>
               </div>
-              <div className="w-8 h-8 md:w-10 md:h-10 bg-emerald-600/20 rounded-lg md:rounded-xl flex items-center justify-center">
-                <Phone className="w-4 h-4 md:w-5 md:h-5 text-emerald-400" />
+              <div className="w-8 h-8 md:w-10 md:h-10 bg-purple-600/20 rounded-lg md:rounded-xl flex items-center justify-center">
+                <Phone className="w-4 h-4 md:w-5 md:h-5 text-purple-400" />
               </div>
             </div>
           </div>
@@ -394,10 +394,10 @@ export default function LeadsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs md:text-sm font-medium text-slate-400">Converted</p>
-                <p className="text-xl md:text-2xl font-bold text-orange-400">{stats.converted}</p>
+                <p className="text-xl md:text-2xl font-bold text-purple-400">{stats.converted}</p>
               </div>
-              <div className="w-8 h-8 md:w-10 md:h-10 bg-orange-600/20 rounded-lg md:rounded-xl flex items-center justify-center">
-                <CheckCircle className="w-4 h-4 md:w-5 md:h-5 text-orange-400" />
+              <div className="w-8 h-8 md:w-10 md:h-10 bg-purple-600/20 rounded-lg md:rounded-xl flex items-center justify-center">
+                <CheckCircle className="w-4 h-4 md:w-5 md:h-5 text-purple-400" />
               </div>
             </div>
           </div>
@@ -425,7 +425,7 @@ export default function LeadsPage() {
                     placeholder="Search leads..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 md:py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm md:text-base"
+                    className="w-full pl-10 pr-4 py-2 md:py-3 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all text-sm md:text-base"
                 />
               </div>
             </div>
@@ -433,7 +433,7 @@ export default function LeadsPage() {
               <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-full md:w-auto px-4 py-2 md:py-3 bg-slate-800 border border-slate-700 rounded-xl text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm md:text-base"
+                  className="w-full md:w-auto px-4 py-2 md:py-3 bg-slate-800 border border-slate-700 rounded-xl text-white focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all text-sm md:text-base"
               >
                 <option value="all">All Status</option>
                 <option value="new">New</option>
@@ -468,7 +468,7 @@ export default function LeadsPage() {
                   <tr key={lead._id || lead.id} className="hover:bg-slate-800/50 transition-colors bg-slate-900">
                     <td className="px-4 py-3">
                       <div>
-                        <Link href={`/leads/${lead.id}`} className="font-medium text-white hover:text-emerald-300 text-sm md:text-base">{lead.name}</Link>
+                        <Link href={`/leads/${lead.id}`} className="font-medium text-white hover:text-purple-300 text-sm md:text-base">{lead.name}</Link>
                         {lead.company && (
                             <div className="text-xs md:text-sm text-slate-400 flex items-center mt-1">
                               <Building className="w-3 h-3 mr-1" />
@@ -504,14 +504,14 @@ export default function LeadsPage() {
                       <div className="flex items-center space-x-2">
                         <button
                             onClick={() => setEditingLead(lead)}
-                            className="bg-blue-600 hover:bg-blue-700 text-white p-1 md:p-2 rounded-lg transition-all"
+                            className="bg-purple-600 hover:bg-purple-700 text-white p-1 md:p-2 rounded-lg transition-all"
                             title="Edit Lead"
                         >
                           <Edit className="w-3 h-3 md:w-4 md:h-4" />
                         </button>
                         <button
                             onClick={() => handleDeleteLead(lead._id || lead.id || '')}
-                            className="bg-red-600 hover:bg-red-700 text-white p-1 md:p-2 rounded-lg transition-all"
+                            className="bg-purple-600 hover:bg-purple-700 text-white p-1 md:p-2 rounded-lg transition-all"
                             title="Delete Lead"
                         >
                           <Trash className="w-3 h-3 md:w-4 md:h-4" />
@@ -541,17 +541,17 @@ export default function LeadsPage() {
           </h4>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
             <div className="text-center">
-              <div className="w-6 h-6 md:w-8 md:h-8 bg-blue-600/20 rounded-full flex items-center justify-center mx-auto mb-1 md:mb-2">
-                <User className="w-3 h-3 md:w-4 md:h-4 text-blue-400" />
+              <div className="w-6 h-6 md:w-8 md:h-8 bg-purple-600/20 rounded-full flex items-center justify-center mx-auto mb-1 md:mb-2">
+                <User className="w-3 h-3 md:w-4 md:h-4 text-purple-400" />
               </div>
-              <div className="text-xs md:text-sm font-medium text-blue-400">New</div>
+              <div className="text-xs md:text-sm font-medium text-purple-400">New</div>
               <div className="text-xs text-slate-400 mt-1">Fresh leads</div>
             </div>
             <div className="text-center">
-              <div className="w-6 h-6 md:w-8 md:h-8 bg-emerald-600/20 rounded-full flex items-center justify-center mx-auto mb-1 md:mb-2">
-                <Phone className="w-3 h-3 md:w-4 md:h-4 text-emerald-400" />
+              <div className="w-6 h-6 md:w-8 md:h-8 bg-purple-600/20 rounded-full flex items-center justify-center mx-auto mb-1 md:mb-2">
+                <Phone className="w-3 h-3 md:w-4 md:h-4 text-purple-400" />
               </div>
-              <div className="text-xs md:text-sm font-medium text-emerald-400">Called</div>
+              <div className="text-xs md:text-sm font-medium text-purple-400">Called</div>
               <div className="text-xs text-slate-400 mt-1">Call initiated</div>
             </div>
             <div className="text-center">
@@ -562,10 +562,10 @@ export default function LeadsPage() {
               <div className="text-xs text-slate-400 mt-1">User answered</div>
             </div>
             <div className="text-center">
-              <div className="w-6 h-6 md:w-8 md:h-8 bg-orange-600/20 rounded-full flex items-center justify-center mx-auto mb-1 md:mb-2">
-                <CheckCircle className="w-3 h-3 md:w-4 md:h-4 text-orange-400" />
+              <div className="w-6 h-6 md:w-8 md:h-8 bg-purple-600/20 rounded-full flex items-center justify-center mx-auto mb-1 md:mb-2">
+                <CheckCircle className="w-3 h-3 md:w-4 md:h-4 text-purple-400" />
               </div>
-              <div className="text-xs md:text-sm font-medium text-orange-400">Converted</div>
+              <div className="text-xs md:text-sm font-medium text-purple-400">Converted</div>
               <div className="text-xs text-slate-400 mt-1">Showed interest</div>
             </div>
           </div>
@@ -609,7 +609,7 @@ export default function LeadsPage() {
                         required
                         value={formData.name}
                         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm md:text-base"
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all text-sm md:text-base"
                     />
                   </div>
                   <div>
@@ -619,7 +619,7 @@ export default function LeadsPage() {
                           aria-label="Country code"
                           value={formData.countryCode}
                           onChange={(e) => setFormData({ ...formData, countryCode: e.target.value })}
-                          className="w-full px-2 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm md:text-base"
+                          className="w-full px-2 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all text-sm md:text-base"
                       >
                         {COUNTRY_CODE_OPTIONS.map(({ region, code, name }) => (
                           <option key={`${region}-${code}`} value={code}>
@@ -635,7 +635,7 @@ export default function LeadsPage() {
                           placeholder="Phone number"
                           value={formData.phone}
                           onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                          className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm md:text-base"
+                          className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all text-sm md:text-base"
                       />
                     </div>
                     <p className="text-xs text-slate-500 mt-1">Choose the country, then enter the local number. It will be saved for international calling.</p>
@@ -646,7 +646,7 @@ export default function LeadsPage() {
                         type="email"
                         value={formData.email}
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm md:text-base"
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all text-sm md:text-base"
                     />
                   </div>
                   <div>
@@ -655,7 +655,7 @@ export default function LeadsPage() {
                         type="text"
                         value={formData.company}
                         onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm md:text-base"
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all text-sm md:text-base"
                     />
                   </div>
                   <div>
@@ -664,13 +664,13 @@ export default function LeadsPage() {
                         value={formData.notes}
                         onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                         rows={3}
-                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm md:text-base"
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all text-sm md:text-base"
                     />
                   </div>
                   <div className="flex space-x-3 pt-2 md:pt-4">
                     <button
                         type="submit"
-                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2 px-4 rounded-xl transition-all text-sm md:text-base"
+                        className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-xl transition-all text-sm md:text-base"
                     >
                       Add Lead
                     </button>
@@ -708,7 +708,7 @@ export default function LeadsPage() {
                         required
                         value={editingLead.name}
                         onChange={(e) => setEditingLead({ ...editingLead, name: e.target.value })}
-                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm md:text-base"
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all text-sm md:text-base"
                     />
                   </div>
                   <div>
@@ -718,7 +718,7 @@ export default function LeadsPage() {
                         required
                         value={editingLead.phone}
                         onChange={(e) => setEditingLead({ ...editingLead, phone: e.target.value })}
-                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm md:text-base"
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all text-sm md:text-base"
                     />
                   </div>
                   <div>
@@ -727,7 +727,7 @@ export default function LeadsPage() {
                         type="email"
                         value={editingLead.email}
                         onChange={(e) => setEditingLead({ ...editingLead, email: e.target.value })}
-                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm md:text-base"
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all text-sm md:text-base"
                     />
                   </div>
                   <div>
@@ -736,7 +736,7 @@ export default function LeadsPage() {
                         type="text"
                         value={editingLead.company}
                         onChange={(e) => setEditingLead({ ...editingLead, company: e.target.value })}
-                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm md:text-base"
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all text-sm md:text-base"
                     />
                   </div>
                   <div>
@@ -744,7 +744,7 @@ export default function LeadsPage() {
                     <select
                         value={editingLead.status}
                         onChange={(e) => setEditingLead({ ...editingLead, status: e.target.value as Lead['status'] })}
-                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm md:text-base"
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all text-sm md:text-base"
                     >
                       <option value="new">New</option>
                       <option value="qualified">Qualified</option>
@@ -762,13 +762,13 @@ export default function LeadsPage() {
                         value={editingLead.notes}
                         onChange={(e) => setEditingLead({ ...editingLead, notes: e.target.value })}
                         rows={3}
-                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm md:text-base"
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all text-sm md:text-base"
                     />
                   </div>
                   <div className="flex space-x-3 pt-2 md:pt-4">
                     <button
                         type="submit"
-                        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-xl transition-all text-sm md:text-base"
+                        className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-xl transition-all text-sm md:text-base"
                     >
                       Update Lead
                     </button>

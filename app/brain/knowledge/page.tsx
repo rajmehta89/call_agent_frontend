@@ -37,7 +37,7 @@ export default function KnowledgePage() {
     <DataState loading={loading} error={error} onRetry={load}>
       <form onSubmit={saveBrain} className="surface-panel rounded-2xl p-4 sm:p-5">
         <div className="flex items-center gap-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700"><BrainCircuit className="h-[18px] w-[18px]" /></span>
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-purple-50 text-purple-700"><BrainCircuit className="h-[18px] w-[18px]" /></span>
           <div><h2 className="text-[15px] font-bold text-slate-950">Shared business knowledge</h2><p className="mt-0.5 text-sm text-slate-600">Used by every channel before the AI answers. Only facts written here are quoted to callers.</p></div>
         </div>
         <div className="mt-4 grid gap-4 lg:grid-cols-2">
