@@ -1,9 +1,17 @@
 'use client'
 
-import { AlertTriangle, Check, Download, Loader2, Search, SlidersHorizontal, X } from 'lucide-react'
+import { AlertTriangle, CalendarDays, Check, CheckCircle2, Download, Loader2, LucideIcon, PhoneIncoming, PhoneMissed, Search, SlidersHorizontal, Timer, Users, X } from 'lucide-react'
 import { ReactNode } from 'react'
+import { Stat } from './premium'
 
 export const API_BASE = process.env.NEXT_PUBLIC_CALL_API_URL || 'http://127.0.0.1:8000'
+
+/** What people see for a role. "agent" is the Team member role's internal name (auth_service.DEFAULT_ROLES). */
+const ROLE_LABELS: Record<string, string> = { owner: 'Owner', admin: 'Admin', agent: 'Team member' }
+/** People's names as entered may be lowercase ("raj mehta"); show them in title case everywhere. */
+export const titleCase = (value: string) => value.replace(/\b\w/g, (letter) => letter.toUpperCase())
+
+export const roleLabel = (role?: string) => ROLE_LABELS[String(role || 'agent').toLowerCase()] || 'Team member'
 
 type ApiError = Error & { status?: number }
 
@@ -91,8 +99,19 @@ export async function downloadCsv(resource: string) {
   URL.revokeObjectURL(url)
 }
 
-export function MetricGrid({ items }: { items: { label: string; value: string | number; detail?: string; tone?: string }[] }) {
-  return <div className="product-metric-grid grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{items.map((item) => <div key={item.label} className="product-metric surface-panel"><div className="product-metric-label">{item.label}</div><div className="product-metric-value">{item.value}</div>{item.detail && <div className="product-metric-detail">{item.detail}</div>}</div>)}</div>
+/** Icon for a stat from its label, so every page's numbers look the same without passing icons around. */
+const metricIcon = (label: string): LucideIcon => {
+  const text = label.toLowerCase()
+  if (/today|date/.test(text)) return CalendarDays
+  if (/duration|avg|time/.test(text)) return Timer
+  if (/complete|answered|converted|success/.test(text)) return CheckCircle2
+  if (/fail|miss|lost/.test(text)) return PhoneMissed
+  if (/lead|people|member|contact/.test(text)) return Users
+  return PhoneIncoming
+}
+
+export function MetricGrid({ items }: { items: { label: string; value: string | number; detail?: string; tone?: string; href?: string }[] }) {
+  return <div className="keep-cols grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">{items.map((item) => <Stat key={item.label} icon={metricIcon(item.label)} label={item.label} value={item.value} hint={item.detail} href={item.href} />)}</div>
 }
 
 export function Toolbar({ search, onSearch, onExport, children }: { search?: string; onSearch?: (value: string) => void; onExport?: () => void; children?: ReactNode }) {
@@ -113,7 +132,7 @@ export function ActionButton({ children, onClick, icon, primary = false, disable
 
 export function DataState({ loading, error, empty, onRetry, children }: { loading: boolean; error?: string; empty?: boolean; onRetry?: () => void; children: ReactNode }) {
   if (loading) return <div className="surface-panel flex min-h-48 items-center justify-center rounded-[24px] text-sm text-slate-500"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading live data...</div>
-  if (error) return <div className="surface-panel flex min-h-48 flex-col items-center justify-center rounded-[24px] p-6 text-center"><AlertTriangle className="h-6 w-6 text-purple-400" /><div className="mt-3 text-sm text-slate-900">Unable to load this view</div><div className="mt-1 max-w-xl text-xs text-slate-500">{error}</div>{onRetry && <div className="mt-4"><ActionButton onClick={onRetry}>Retry</ActionButton></div>}</div>
+  if (error) return <div className="surface-panel flex min-h-48 flex-col items-center justify-center rounded-[24px] p-6 text-center"><AlertTriangle className="h-6 w-6 text-purple-600" /><div className="mt-3 text-sm text-slate-900">Unable to load this view</div><div className="mt-1 max-w-xl text-xs text-slate-500">{error}</div>{onRetry && <div className="mt-4"><ActionButton onClick={onRetry}>Retry</ActionButton></div>}</div>
   if (empty) return <div className="surface-panel flex min-h-48 flex-col items-center justify-center rounded-[24px] p-6 text-center"><SlidersHorizontal className="h-6 w-6 text-slate-400" /><div className="mt-3 text-sm text-slate-900">No matching records</div><div className="mt-1 text-xs text-slate-500">Try another filter or create the first record.</div></div>
   return <>{children}</>
 }

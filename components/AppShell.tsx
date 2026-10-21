@@ -9,9 +9,12 @@ import { pageInfo } from './omni-data'
 
 const publicRoutes = ['/login', '/signup', '/invite/accept']
 function requiredPermission(pathname: string) {
-  if (pathname === '/') return 'view_dashboard'
-  if (pathname.startsWith('/inbox')) return 'handle_conversations'
+  if (pathname === '/' || pathname.startsWith('/dashboard')) return 'view_dashboard'
+  if (pathname.startsWith('/inbox') || pathname.startsWith('/tasks')) return 'handle_conversations'
   if (pathname.startsWith('/whatsapp') || pathname.startsWith('/conversation') || pathname.startsWith('/handoffs')) return 'handle_conversations'
+  // Keep in step with the backend: these pages call APIs that need more than handle_calls.
+  if (pathname.startsWith('/voice/agent')) return 'manage_agents'
+  if (pathname.startsWith('/voice/providers') || pathname.startsWith('/voice/pricing')) return 'manage_integrations'
   if (pathname.startsWith('/voice') || pathname === '/calls') return 'handle_calls'
   if (pathname.startsWith('/brain/knowledge') || pathname.startsWith('/knowledge')) return 'manage_data'
   if (pathname.startsWith('/brain/tools') || pathname.startsWith('/brain/activity') || pathname.startsWith('/brain/shopify') || pathname.startsWith('/agents')) return 'manage_agents'
@@ -21,6 +24,8 @@ function requiredPermission(pathname: string) {
   if (pathname.startsWith('/integrations')) return 'manage_integrations'
   if (pathname.startsWith('/analytics')) return 'view_analytics'
   if (pathname.startsWith('/team')) return 'manage_team'
+  if (pathname.startsWith('/settings/team')) return 'manage_team'
+  if (pathname.startsWith('/settings/account')) return null  // everyone manages their own account
   if (pathname.startsWith('/settings') || pathname.startsWith('/config')) return 'manage_workspace'
   return null
 }
@@ -59,5 +64,5 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const allowed = !permission || user.permissions?.includes('*') || user.permissions?.includes(permission)
   if (!allowed) return <AccessState title="Access restricted" copy="Your role does not have permission to open this page." action="Back to overview" href="/" />
 
-  return <div className="app-shell"><Sidebar /><main className="app-main"><GlobalHeader user={user} /><div className="app-content">{children}</div><footer className="app-footer"><span>RelayDesk workspace</span><span>Voice AI · CRM · AI Brain</span><span>Session secured</span></footer></main></div>
+  return <div className="app-shell"><Sidebar /><main className="app-main"><GlobalHeader user={user} /><div className="app-content">{children}</div></main></div>
 }

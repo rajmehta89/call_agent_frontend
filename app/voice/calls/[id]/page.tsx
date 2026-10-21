@@ -1,5 +1,6 @@
 'use client'
 
+import { orderedTranscript } from '../../../../components/transcript'
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { Copy, Download, FileText, Headphones, PhoneCall, UserRoundCheck } from 'lucide-react'
@@ -11,7 +12,7 @@ type Call = {
   _id?: string; phone_number?: string; direction?: string; status?: string; duration?: number
   provider?: string; channel_type?: string; agent_name?: string; agent_version?: string
   recording_url?: string; recording_multi_channel_url?: string; public_log_url?: string
-  transcription?: Message[]; ai_responses?: Message[]; summary?: string; call_summary?: string
+  transcription?: Message[]; ai_responses?: Message[]; messages?: { role?: string; text?: string; at?: string }[]; summary?: string; call_summary?: string
   sentiment?: string; call_successful?: boolean; human_callback_requested?: boolean
   transfer_requested?: boolean; transfer_status?: string; disconnection_reason?: string
   call_cost?: { combined_cost?: number }; latency?: Record<string, unknown>; end_to_end_latency_ms?: number
@@ -51,8 +52,8 @@ export default function CallDetail() {
 
   useEffect(load, [id])
 
-  const transcript = useMemo(() => [...(call.transcription || []), ...(call.ai_responses || [])]
-    .sort((left, right) => new Date(left.timestamp || 0).getTime() - new Date(right.timestamp || 0).getTime()), [call])
+  // Speaking order (components/transcript.ts).
+  const transcript = useMemo(() => orderedTranscript(call), [call])
   const humanRequested = Boolean(call.human_callback_requested || call.transfer_requested)
   const cost = Number(call.call_cost?.combined_cost)
   const responseLatency = Number(call.end_to_end_latency_ms)
@@ -65,19 +66,19 @@ export default function CallDetail() {
       description="Transcript, recording, post-call analysis, and follow-up signals from Retell."
     />
     <DataState loading={loading} error={error} onRetry={load}>
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <main className="space-y-6">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <main className="min-w-0 space-y-6">
           <section className="surface-panel rounded-2xl p-5 sm:p-6">
             <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-xl font-semibold text-white">{call.phone_number || 'Web caller'}</h2>
+                  <h2 className="break-all text-xl font-semibold text-slate-900">{call.phone_number || 'Web caller'}</h2>
                   <StatusBadge value={call.status || 'unknown'} />
-                  {humanRequested && <span className="inline-flex items-center gap-1 rounded-full bg-purple-400/10 px-2.5 py-1 text-xs font-medium text-purple-200"><UserRoundCheck className="h-3.5 w-3.5" />Human follow-up</span>}
+                  {humanRequested && <span className="inline-flex items-center gap-1 rounded-full bg-purple-400/10 px-2.5 py-1 text-xs font-medium text-purple-600"><UserRoundCheck className="h-3.5 w-3.5" />Human follow-up</span>}
                 </div>
                 <p className="mt-2 text-sm text-slate-400">{call.channel_type === 'web_call' ? 'Retell web call' : `${call.direction || 'inbound'} call`} · {dateLabel(call.provider_started_at || call.started_at)}</p>
               </div>
-              {call.public_log_url && <a className="text-sm font-medium text-[#b68ce5] underline-offset-4 hover:underline" href={call.public_log_url} target="_blank" rel="noreferrer">Open Retell log</a>}
+              {call.public_log_url && <a className="text-sm font-medium text-[#6C3BFF] underline-offset-4 hover:underline" href={call.public_log_url} target="_blank" rel="noreferrer">Open Retell log</a>}
             </div>
             <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
               <Fact label="Duration" value={durationLabel(call.duration)} />
@@ -90,7 +91,7 @@ export default function CallDetail() {
           <section className="surface-panel rounded-2xl p-5 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="font-semibold text-white">Full transcript</h2>
+                <h2 className="font-semibold text-slate-900">Full transcript</h2>
                 <p className="mt-1 text-sm text-slate-400">Captured from Retell after the call ends.</p>
               </div>
               <div className="flex gap-2">
@@ -104,7 +105,7 @@ export default function CallDetail() {
             <div className="mt-5 space-y-3">
               {transcript.length ? transcript.map((item, index) => {
                 const caller = item.type === 'user'
-                return <article key={`${item.timestamp}-${index}`} className={`rounded-2xl p-4 ${caller ? 'bg-white/[.045]' : 'bg-[#9968d2]/[.08]'}`}>
+                return <article key={`${item.timestamp}-${index}`} className={`rounded-2xl p-4 ${caller ? 'bg-white/[.045]' : 'bg-[#6C3BFF]/[.08]'}`}>
                   <div className="flex items-center justify-between gap-3 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500"><span>{caller ? 'Caller' : 'AI agent'}</span><span>{item.timestamp ? new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</span></div>
                   <p className="mt-2 text-sm leading-6 text-slate-100">{item.content}</p>
                 </article>
@@ -113,9 +114,9 @@ export default function CallDetail() {
           </section>
         </main>
 
-        <aside className="space-y-5">
+        <aside className="min-w-0 space-y-5">
           <section className="surface-panel rounded-2xl p-5">
-            <h2 className="font-semibold text-white">Call intelligence</h2>
+            <h2 className="font-semibold text-slate-900">Call intelligence</h2>
             <dl className="mt-4 space-y-3 text-sm">
               <Metric label="Outcome" value={call.call_successful === true ? 'Successful' : call.call_successful === false ? 'Unsuccessful' : call.status || 'Pending'} />
               <Metric label="Sentiment" value={call.sentiment || 'Not analysed'} />
@@ -126,11 +127,11 @@ export default function CallDetail() {
             <div className="mt-5 border-t border-white/10 pt-4"><div className="text-xs font-medium uppercase tracking-[0.12em] text-slate-500">Summary</div><p className="mt-2 text-sm leading-6 text-slate-200">{call.summary || call.call_summary || 'Retell has not completed post-call analysis yet.'}</p></div>
           </section>
 
-          {customFields.length > 0 && <section className="surface-panel rounded-2xl p-5"><div className="flex items-center gap-2 font-semibold text-white"><FileText className="h-4 w-4 text-[#b68ce5]" />Extracted details</div><dl className="mt-4 space-y-3 text-sm">{customFields.map(([key, value]) => <Metric key={key} label={key.replace(/_/g, ' ')} value={printable(value)} />)}</dl></section>}
+          {customFields.length > 0 && <section className="surface-panel rounded-2xl p-5"><div className="flex items-center gap-2 font-semibold text-slate-900"><FileText className="h-4 w-4 text-[#6C3BFF]" />Extracted details</div><dl className="mt-4 space-y-3 text-sm">{customFields.map(([key, value]) => <Metric key={key} label={key.replace(/_/g, ' ')} value={printable(value)} />)}</dl></section>}
 
           <section className="surface-panel rounded-2xl p-5">
-            <div className="flex items-center gap-2 font-semibold text-white"><Headphones className="h-4 w-4 text-[#b68ce5]" />Recording</div>
-            {audioUrl ? <><audio className="mt-4 w-full" controls src={audioUrl}>Your browser does not support call recordings.</audio><a href={audioUrl} className="mt-3 inline-flex text-sm font-medium text-[#b68ce5] hover:underline" target="_blank" rel="noreferrer">Download recording</a></> : <p className="mt-3 text-sm leading-6 text-slate-400">No recording URL was supplied for this call.</p>}
+            <div className="flex items-center gap-2 font-semibold text-slate-900"><Headphones className="h-4 w-4 text-[#6C3BFF]" />Recording</div>
+            {audioUrl ? <><audio className="mt-4 w-full" controls src={audioUrl}>Your browser does not support call recordings.</audio><a href={audioUrl} className="mt-3 inline-flex text-sm font-medium text-[#6C3BFF] hover:underline" target="_blank" rel="noreferrer">Download recording</a></> : <p className="mt-3 text-sm leading-6 text-slate-400">No recording URL was supplied for this call.</p>}
           </section>
           <ActionButton primary icon={<PhoneCall className="h-4 w-4" />}>Start follow-up call</ActionButton>
         </aside>

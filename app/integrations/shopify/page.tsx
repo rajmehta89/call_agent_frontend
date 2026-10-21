@@ -138,7 +138,7 @@ export default function ShopifyIntegrationPage() {
         </div>
       </section>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_400px]">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 xl:grid-cols-[minmax(0,1fr)_400px]">
         <div className="min-w-0 space-y-4">
           <section className="surface-panel rounded-2xl p-4 sm:p-5">
             <div className="flex items-start gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-purple-50 text-purple-700"><ShieldCheck className="h-[18px] w-[18px]" /></span><div><h2 className="text-[15px] font-bold text-slate-950">What the AI can answer</h2><p className="mt-0.5 text-sm text-slate-600">Each feature needs a Shopify permission (scope) on your app, plus its switch here.</p></div></div>

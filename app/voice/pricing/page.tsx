@@ -8,24 +8,44 @@ import { api } from '@/components/PlatformUI'
 // US list prices, checked October 2026.
 const TWILIO_NUMBER_MONTHLY = { local: 1.15, tollfree: 2.15 }
 const TWILIO_INBOUND = { local: 0.0085, tollfree: 0.022 }
-const AI_MODEL = 0.002 // gpt-oss-20b on OpenRouter: ~3 replies a minute at ~7.5K tokens each
+// gpt-4.1-mini answers questions, Llama 3.1 8B the short turns: ~3 replies a minute at ~3.5K prompt tokens each,
+// plus replies started early and dropped when the caller keeps talking (estimate).
+const AI_MODEL = 0.0035
+// After each call one gpt-4.1-mini request writes the summary and files the conversation status (~2K tokens).
+const AI_SUMMARY_PER_CALL = 0.001
+// Deepgram Flux (speech to text with turn detection), streaming pay-as-you-go. Promotional rate; normally $0.0077.
+const FLUX_PER_MIN = 0.0065
 const ELEVENLABS_PER_MIN = 0.0165 // Flash $0.05 / 1K chars; the agent speaks ~330 characters per call minute
+const AURA_PER_MIN = 0.0099 // Aura-2 $0.030 / 1K chars at the same ~330 characters per call minute
 
 type NumberType = keyof typeof TWILIO_INBOUND
 type Line = { vendor: string; label: string; perMinute: number }
-type Option = { id: 'custom' | 'retell'; name: string; summary: string; icon: typeof Zap; lines: Line[] }
+type ProviderId = 'custom' | 'custom_deepgram' | 'retell'
+type Option = { id: ProviderId; name: string; summary: string; icon: typeof Zap; lines: Line[] }
 
-const options = (number: NumberType): Option[] => [
+// The per-call summary, spread over the call's minutes so every line is a per-minute rate.
+const summaryLine = (minutesPerCall: number): Line => (
+  { vendor: 'OpenRouter', label: `AI call summary and status (${rate(AI_SUMMARY_PER_CALL)} per call)`, perMinute: AI_SUMMARY_PER_CALL / Math.max(minutesPerCall, 0.5) })
+
+// Shared by both custom stacks: the phone line, the audio stream to this server, speech to text and the AI models.
+const customLines = (number: NumberType, minutesPerCall: number): Line[] => [
+  { vendor: 'Twilio', label: 'Incoming call', perMinute: TWILIO_INBOUND[number] },
+  { vendor: 'Twilio', label: 'Media Streams (audio to your server)', perMinute: 0.0044 },
+  { vendor: 'Deepgram', label: 'Flux speech to text with turn detection (promotional rate)', perMinute: FLUX_PER_MIN },
+  { vendor: 'OpenRouter', label: 'AI models (gpt-4.1-mini + Llama 3.1 8B, incl. early starts)', perMinute: AI_MODEL },
+  summaryLine(minutesPerCall),
+]
+
+const options = (number: NumberType, minutesPerCall: number): Option[] => [
   {
-    id: 'custom', name: 'Custom voice stack', icon: AudioLines,
-    summary: 'Deepgram listens, your AI Brain replies, ElevenLabs speaks.',
-    lines: [
-      { vendor: 'Twilio', label: 'Incoming call', perMinute: TWILIO_INBOUND[number] },
-      { vendor: 'Twilio', label: 'Media Streams (audio to your server)', perMinute: 0.0044 },
-      { vendor: 'Deepgram', label: 'Nova-3 speech to text', perMinute: 0.0077 },
-      { vendor: 'ElevenLabs', label: 'Flash text to speech (~330 characters/min)', perMinute: ELEVENLABS_PER_MIN },
-      { vendor: 'OpenRouter', label: 'AI model', perMinute: AI_MODEL },
-    ],
+    id: 'custom', name: 'Custom voice stack (ElevenLabs voice)', icon: AudioLines,
+    summary: 'Deepgram Flux listens, your AI Brain replies, ElevenLabs speaks.',
+    lines: [...customLines(number, minutesPerCall), { vendor: 'ElevenLabs', label: 'Flash text to speech (~330 characters/min)', perMinute: ELEVENLABS_PER_MIN }],
+  },
+  {
+    id: 'custom_deepgram', name: 'Custom voice stack (Deepgram voice)', icon: AudioLines,
+    summary: 'Deepgram Flux listens, your AI Brain replies, Deepgram Aura-2 speaks.',
+    lines: [...customLines(number, minutesPerCall), { vendor: 'Deepgram', label: 'Aura-2 text to speech (~330 characters/min)', perMinute: AURA_PER_MIN }],
   },
   {
     id: 'retell', name: 'Retell AI', icon: Zap,
@@ -35,7 +55,8 @@ const options = (number: NumberType): Option[] => [
       { vendor: 'Retell', label: 'Retell voice (ElevenLabs voices cost $0.040)', perMinute: 0.015 },
       { vendor: 'Twilio', label: 'Incoming call', perMinute: TWILIO_INBOUND[number] },
       { vendor: 'Twilio', label: 'SIP connection to Retell', perMinute: 0.004 },
-      { vendor: 'OpenRouter', label: 'AI model (Retell charges no LLM fee for your own model)', perMinute: AI_MODEL },
+      { vendor: 'OpenRouter', label: 'AI models (Retell charges no LLM fee for your own model)', perMinute: AI_MODEL },
+      summaryLine(minutesPerCall),
     ],
   },
 ]
@@ -57,13 +78,13 @@ export default function VoicePricingPage() {
   const [inUse, setInUse] = useState<Option['id'] | null>(null)
 
   useEffect(() => {
-    api<{ data: { providers: { id: 'retell' | 'custom'; enabled: boolean; ready: boolean }[] } }>('/api/voice-providers')
+    api<{ data: { providers: { id: ProviderId; enabled: boolean; ready: boolean }[] } }>('/api/voice-providers')
       .then((result) => setInUse(result.data.providers.find((item) => item.enabled && item.ready)?.id || null))
       .catch(() => setInUse(null))
   }, [])
 
   const minutes = Math.max(0, callsPerDay) * Math.max(0, minutesPerCall) * 30
-  const rows = options(number).map((option) => {
+  const rows = options(number, minutesPerCall).map((option) => {
     const perMinute = option.lines.reduce((sum, line) => sum + line.perMinute, 0)
     return { ...option, perMinute, vendors: byVendor(option.lines), monthly: minutes * perMinute + TWILIO_NUMBER_MONTHLY[number] }
   })
@@ -83,7 +104,7 @@ export default function VoicePricingPage() {
       <p className="text-xs text-slate-500 sm:col-span-3">{minutes.toLocaleString()} call minutes a month (30 days).</p>
     </section>
 
-    <div className="grid gap-4 lg:grid-cols-2">
+    <div className="grid gap-4 lg:grid-cols-3">
       {rows.map((row) => {
         const Icon = row.icon
         const best = row.id === cheapest.id && minutes > 0
@@ -119,7 +140,7 @@ export default function VoicePricingPage() {
       <a className="underline hover:text-slate-800" href="https://deepgram.com/pricing" target="_blank" rel="noreferrer">Deepgram</a>,{' '}
       <a className="underline hover:text-slate-800" href="https://elevenlabs.io/pricing/api" target="_blank" rel="noreferrer">ElevenLabs</a>,{' '}
       <a className="underline hover:text-slate-800" href="https://www.retellai.com/pricing" target="_blank" rel="noreferrer">Retell</a>,{' '}
-      <a className="underline hover:text-slate-800" href="https://openrouter.ai/openai/gpt-oss-20b" target="_blank" rel="noreferrer">OpenRouter</a>.
+      <a className="underline hover:text-slate-800" href="https://openrouter.ai/openai/gpt-4.1-mini" target="_blank" rel="noreferrer">OpenRouter</a>.
       Not included: tax, call recording ($0.0025/min), and Retell’s extra concurrency beyond 20 calls.
     </p>
   </div>

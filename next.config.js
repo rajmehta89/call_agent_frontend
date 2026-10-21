@@ -6,6 +6,6 @@ module.exports = (phase) => ({
 	// while `next dev` is up cannot wipe the dev CSS/JS and break styling.
 	distDir: phase === PHASE_DEVELOPMENT_SERVER ? '.next-dev' : '.next',
 	async redirects() {
-		return [{ source: '/', destination: '/voice', permanent: false }]
+		return [{ source: '/', destination: '/dashboard', permanent: false }]
 	},
 })

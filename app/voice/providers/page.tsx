@@ -8,7 +8,7 @@ import { PageHeader } from '@/components/OmniPage'
 import { api, DataState } from '@/components/PlatformUI'
 
 type VoiceProvider = {
-  id: 'retell' | 'custom'
+  id: 'retell' | 'custom' | 'custom_deepgram'
   name: string
   description: string
   enabled: boolean
@@ -19,7 +19,7 @@ type VoiceProvider = {
   activation_note: string
 }
 
-const providerOrder: VoiceProvider['id'][] = ['custom', 'retell']
+const providerOrder: VoiceProvider['id'][] = ['custom', 'custom_deepgram', 'retell']
 
 function Pill({ tone, children }: { tone: 'on' | 'off' | 'warn' | 'info'; children: ReactNode }) {
   const styles = {
@@ -139,7 +139,7 @@ export default function VoiceProvidersPage() {
   }
 
     const selected = providers.find((provider) => provider.enabled && provider.ready)
-  const selectedDetail = selected?.id === 'retell' ? 'Passed to your Retell agent over SIP. Retell handles speech; your backend supplies the replies.' : selected ? 'Deepgram transcription + your AI Brain + ElevenLabs voice.' : 'Turn on a provider below to send calls to it.'
+  const selectedDetail = selected?.id === 'retell' ? 'Passed to your Retell agent over SIP. Retell handles speech; your backend supplies the replies.' : selected?.id === 'custom_deepgram' ? 'Deepgram transcription + your AI Brain + Deepgram Aura-2 voice.' : selected ? 'Deepgram transcription + your AI Brain + ElevenLabs voice.' : 'Turn on a provider below to send calls to it.'
 
   return <div className="space-y-4">
     <PageHeader title="Voice providers" description="Choose which voice system answers new inbound calls. Changes apply to new calls only; active calls are never interrupted." />
@@ -150,7 +150,7 @@ export default function VoiceProvidersPage() {
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-purple-50 text-purple-700"><PhoneIncoming className="h-[18px] w-[18px]" /></span>
             <div className="min-w-0">
               <h2 className="text-[15px] font-bold text-slate-950">Phone number call routing</h2>
-              <p className="mt-0.5 text-sm leading-6 text-slate-600">Only one provider can be on at a time. Turning one on turns the other off; with both off, the default agent answers.</p>
+              <p className="mt-0.5 text-sm leading-6 text-slate-600">Only one provider can be on at a time. Turning one on turns the others off; with all off, the default agent answers.</p>
             </div>
           </div>
         </div>

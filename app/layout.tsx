@@ -1,5 +1,9 @@
 import type { Metadata } from 'next'
+import { Plus_Jakarta_Sans } from 'next/font/google'
 import './globals.css'
+
+// Design system typography (design-system/relaydesk/MASTER.md): self-hosted by next/font, no layout shift.
+const jakarta = Plus_Jakarta_Sans({ subsets: ['latin'], weight: ['400', '500', '600', '700', '800'], variable: '--font-jakarta', display: 'swap' })
 import AppShell from '../components/AppShell'
 import { Toaster } from 'react-hot-toast'
 
@@ -15,7 +19,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className={jakarta.variable}>
       <body>
         <AppShell>{children}</AppShell>
         <Toaster 
@@ -23,10 +27,10 @@ export default function RootLayout({
           toastOptions={{
             style: {
               background: '#ffffff',
-              color: '#1c0f2a',
-              border: '1px solid #e9e2f0',
-              boxShadow: '0 16px 40px rgba(28,15,42, 0.12)',
-              borderRadius: '12px',
+              color: '#32136B', fontWeight: 600,
+              border: '1px solid #E9DFFF',
+              boxShadow: '0 24px 48px -24px rgba(108,59,255,.45)',
+              borderRadius: '14px',
             },
           }}
         />
