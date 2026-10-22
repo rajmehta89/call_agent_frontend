@@ -13,6 +13,7 @@ import { COUNTRY_CODE_OPTIONS } from './country-codes'
 import { authFetch, titleCase } from '@/components/PlatformUI'
 import { PageHeader } from '@/components/OmniPage'
 import { Stat } from '@/components/premium'
+import { ANY_TIME, DayRangeMenu, inRange, type DayRange } from '@/components/day-range'
 
 interface Lead {
   id: string
@@ -119,6 +120,7 @@ export default function LeadsPage() {
   const [editingLead, setEditingLead] = useState<Lead | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [range, setRange] = useState<DayRange>(ANY_TIME)  // leads that called or were added in these days
   const [uploading, setUploading] = useState(false)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -338,8 +340,9 @@ export default function LeadsPage() {
         lead.company.toLowerCase().includes(searchTerm.toLowerCase())
 
     const matchesStatus = statusFilter === 'all' || lead.status === statusFilter
+    const matchesDay = inRange(range, lead.last_call) || inRange(range, lead.created_at)
 
-    return matchesSearch && matchesStatus
+    return matchesSearch && matchesStatus && matchesDay
   })
 
   if (loading) {
@@ -358,7 +361,7 @@ export default function LeadsPage() {
         <input type="file" ref={fileInputRef} onChange={handleCSVUpload} accept=".csv" className="hidden" />
         <PageHeader title="Leads" description="Every caller becomes a lead automatically. Track where each one is, who owns it, and jump to their conversation."
           actions={<>
-            <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading} className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#E9DFFF] bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-[#6C3BFF] disabled:opacity-60">{uploading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}{uploading ? 'Uploading…' : 'Import CSV'}</button>
+            <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading} title="CSV columns: name,phone,email,company,notes (name and phone required)" className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#E9DFFF] bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-[#6C3BFF] disabled:opacity-60">{uploading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}{uploading ? 'Uploading…' : 'Import CSV'}</button>
             <button type="button" onClick={() => setShowAddForm(true)} className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#6C3BFF] px-4 text-sm font-semibold text-white shadow-[0_12px_24px_-14px_rgba(150,77,234,.9)] transition hover:bg-[#5A2BE6]"><Plus className="h-4 w-4" />Add lead</button>
           </>} />
 
@@ -366,7 +369,7 @@ export default function LeadsPage() {
         <div className="keep-cols mb-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-6">
           <Stat icon={Users} label="Total leads" value={stats.total} hint={isAdmin ? 'in the workspace' : 'assigned to you'} />
           <Stat icon={Sparkle} label="New" value={stats.new} hint="not contacted yet" tone={stats.new ? 'alert' : 'default'} />
-          <Stat icon={Phone} label="Called" value={stats.called} hint="reached by phone" />
+          <Stat icon={Phone} label="Calls" value={stats.total_calls} hint="from these leads" />
           <Stat icon={CheckCircle} label="Contacted" value={stats.contacted} hint="had a conversation" />
           <Stat icon={Trophy} label="Converted" value={stats.converted} hint={stats.total ? `${Math.round((stats.converted / stats.total) * 100)}% conversion` : 'no leads yet'} />
           <Stat icon={UserCheck} label="With an owner" value={leads.filter((lead) => lead.assigned_to).length} hint={`${leads.filter((lead) => !lead.assigned_to).length} unassigned`} />
@@ -374,6 +377,7 @@ export default function LeadsPage() {
 
         {/* Filters */}
         <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-[#E9DFFF] bg-white p-3 shadow-[0_18px_40px_-34px_rgba(73,35,117,.55)] lg:flex-row lg:items-center">
+          <DayRangeMenu value={range} onChange={setRange} className="shrink-0 lg:w-44" />
           <div className="relative min-w-0 lg:w-80"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input type="text" placeholder="Search name, number, email, company" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="h-10 w-full rounded-xl border border-slate-200 bg-[#F8F5FF] pl-9 text-sm" /></div>
           <div className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto pb-0.5">{['all', ...LEAD_STATUSES.map((item) => item.id)].map((id) => { const count = id === 'all' ? leads.length : leads.filter((lead) => lead.status === id).length; if (id !== 'all' && !count && statusFilter !== id) return null; const active = statusFilter === id; return <button key={id} type="button" onClick={() => setStatusFilter(id)} className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition ${active ? 'bg-[#6C3BFF] text-white' : 'bg-[#F1EBFF] text-slate-600 hover:bg-[#E9DFFF]'}`}>{id === 'all' ? 'All' : statusLabel(id)}<span className={active ? 'text-white/70' : 'text-slate-400'}>{count}</span></button> })}</div>
           <div className="flex shrink-0 rounded-xl bg-[#F1EBFF] p-1">{(['table', 'board'] as const).map((mode) => <button key={mode} type="button" onClick={() => setView(mode)} className={`inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold capitalize transition ${view === mode ? 'bg-white text-[#5A2BE6] shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>{mode === 'table' ? <List className="h-3.5 w-3.5" /> : <KanbanSquare className="h-3.5 w-3.5" />}{mode}</button>)}</div>
@@ -387,21 +391,21 @@ export default function LeadsPage() {
             <table className="w-full">
               <thead className="bg-rd-surface border-b border-rd-border">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Lead</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Contact</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Owner</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Status</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Calls</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Last Call</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Actions</th>
+                <th className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-[.1em] text-slate-500">Lead</th>
+                <th className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-[.1em] text-slate-500">Contact</th>
+                <th className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-[.1em] text-slate-500">Owner</th>
+                <th className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-[.1em] text-slate-500">Status</th>
+                <th className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-[.1em] text-slate-500">Calls</th>
+                <th className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-[.1em] text-slate-500">Last Call</th>
+                <th className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-[.1em] text-slate-500">Actions</th>
               </tr>
               </thead>
               <tbody className="divide-y divide-slate-800">
               {filteredLeads.map((lead) => (
                   <tr key={lead._id || lead.id} className="hover:bg-rd-surface transition-colors bg-white">
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-2">
                       <div>
-                        <Link href={`/leads/${lead.id}`} className="font-medium text-slate-900 hover:text-purple-700 text-sm md:text-base">{lead.name}</Link>
+                        <Link href={`/leads/${lead.id}`} className="text-[13.5px] font-semibold text-slate-900 hover:text-purple-700">{lead.name}</Link>
                         {lead.company && (
                             <div className="text-xs md:text-sm text-slate-400 flex items-center mt-1">
                               <Building className="w-3 h-3 mr-1" />
@@ -410,7 +414,7 @@ export default function LeadsPage() {
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-2">
                       <div className="text-xs md:text-sm">
                         <div className="flex items-center text-slate-900">
                           <Phone className="w-3 h-3 mr-1" />
@@ -424,20 +428,20 @@ export default function LeadsPage() {
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-xs md:text-sm">
+                    <td className="px-4 py-2 text-[13px]">
                       {isAdmin ? <select value={lead.assigned_to || ''} onChange={(event) => setOwner(lead, event.target.value)} aria-label={`Owner of ${lead.name}`} className="h-8 min-h-0 w-auto rounded-md py-0 pl-2 pr-8 text-xs"><option value="">Unassigned</option>{owners.map((owner) => <option key={owner.id} value={owner.id}>{owner.name}</option>)}</select>
                         : <span className="text-slate-500">{ownerName(lead.assigned_to)}</span>}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-2">
                       {getStatusBadge(lead.status)}
                     </td>
-                    <td className="px-4 py-3 text-xs md:text-sm text-slate-900">
+                    <td className="px-4 py-2 text-[13px] text-slate-900">
                       {lead.call_attempts}
                     </td>
-                    <td className="px-4 py-3 text-xs md:text-sm text-slate-400">
+                    <td className="px-4 py-2 text-[13px] text-slate-400">
                       {lead.last_call ? new Date(lead.last_call).toLocaleDateString() : 'Never'}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-2">
                       <div className="flex items-center space-x-2">
                         <button
                             onClick={() => setEditingLead(lead)}
@@ -469,64 +473,6 @@ export default function LeadsPage() {
             )}
           </div>
         </div>}
-
-        {/* Automated Status Flow Info */}
-        <div className="bg-white rounded-xl border border-rd-border p-4 md:p-6 mb-6">
-          <h4 className="font-semibold text-slate-900 mb-3 flex items-center text-sm md:text-base">
-            <Users className="w-4 h-4 mr-2" />
-            Automated Lead Status Flow
-          </h4>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-            <div className="text-center">
-              <div className="w-6 h-6 md:w-8 md:h-8 bg-purple-600/20 rounded-full flex items-center justify-center mx-auto mb-1 md:mb-2">
-                <User className="w-3 h-3 md:w-4 md:h-4 text-purple-600" />
-              </div>
-              <div className="text-xs md:text-sm font-medium text-purple-600">New</div>
-              <div className="text-xs text-slate-400 mt-1">Fresh leads</div>
-            </div>
-            <div className="text-center">
-              <div className="w-6 h-6 md:w-8 md:h-8 bg-purple-600/20 rounded-full flex items-center justify-center mx-auto mb-1 md:mb-2">
-                <Phone className="w-3 h-3 md:w-4 md:h-4 text-purple-600" />
-              </div>
-              <div className="text-xs md:text-sm font-medium text-purple-600">Called</div>
-              <div className="text-xs text-slate-400 mt-1">Call initiated</div>
-            </div>
-            <div className="text-center">
-              <div className="w-6 h-6 md:w-8 md:h-8 bg-purple-600/20 rounded-full flex items-center justify-center mx-auto mb-1 md:mb-2">
-                <CheckCircle className="w-3 h-3 md:w-4 md:h-4 text-purple-600" />
-              </div>
-              <div className="text-xs md:text-sm font-medium text-purple-600">Contacted</div>
-              <div className="text-xs text-slate-400 mt-1">User answered</div>
-            </div>
-            <div className="text-center">
-              <div className="w-6 h-6 md:w-8 md:h-8 bg-purple-600/20 rounded-full flex items-center justify-center mx-auto mb-1 md:mb-2">
-                <CheckCircle className="w-3 h-3 md:w-4 md:h-4 text-purple-600" />
-              </div>
-              <div className="text-xs md:text-sm font-medium text-purple-600">Converted</div>
-              <div className="text-xs text-slate-400 mt-1">Showed interest</div>
-            </div>
-          </div>
-          <p className="text-xs text-slate-500 mt-3 md:mt-4 text-center">
-            Lead status automatically updates based on call activity and AI-powered interest analysis
-          </p>
-        </div>
-
-        {/* CSV Upload Instructions */}
-        <div className="bg-white rounded-xl border border-rd-border p-4 md:p-6">
-          <h4 className="font-semibold text-slate-900 mb-2 flex items-center text-sm md:text-base">
-            <FileText className="w-4 h-4 mr-2" />
-            CSV Upload Format
-          </h4>
-          <p className="text-xs md:text-sm text-slate-400 mb-2">
-            Your CSV file should have the following columns (name and phone are required):
-          </p>
-          <div className="text-xs md:text-sm text-slate-300 font-mono bg-white p-2 md:p-3 rounded-lg md:rounded-xl border border-rd-border">
-            name,phone,email,company,notes
-          </div>
-          <p className="text-xs text-slate-500 mt-2">
-            Example: John Doe,+1234567890,john@company.com,Acme Corp,Interested in premium package
-          </p>
-        </div>
 
         {/* Add Lead Modal */}
         {showAddForm && (

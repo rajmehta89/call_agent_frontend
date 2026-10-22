@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { BookOpen, BrainCircuit, ChevronDown, ChevronsLeft, ChevronsRight, CircleDollarSign, Grid2x2, Hash, Headphones, Home, KanbanSquare, LifeBuoy, ListChecks, LogOut, Menu, Mic2, PenSquare, Phone, PhoneCall, Plus, Radio, Settings2, ShoppingBag, UserCog, UserPlus, UserRound, Users, X } from 'lucide-react'
+import { BookOpen, BrainCircuit, ChevronDown, ChevronsLeft, ChevronsRight, CircleDollarSign, Grid2x2, Hash, Headphones, Home, KanbanSquare, LifeBuoy, ListChecks, LogOut, Menu, Mic2, PenSquare, Phone, PhoneCall, Plus, Radio, Settings2, ShoppingBag, UserCog, UserPlus, UserRound, Users, X , Store } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import toast from 'react-hot-toast'
@@ -45,6 +45,7 @@ const MORE_ITEMS: MenuItem[] = [
   { label: 'Call history', href: '/calls', icon: Mic2, permission: 'handle_calls' },
   { label: 'Knowledge', href: '/brain/knowledge', icon: BrainCircuit, permission: 'manage_data' },
   { label: 'Shopify data access', href: '/integrations/shopify', icon: ShoppingBag, permission: 'manage_integrations' },
+  { label: 'Store data', href: '/integrations/shopify/store', icon: Store, permission: 'manage_integrations' },
   { label: 'Team', href: '/settings/team', icon: UserCog, permission: 'manage_team' },
   { label: 'My account', href: '/settings/account', icon: UserRound },
 ]
@@ -169,14 +170,16 @@ export default function Sidebar() {
             const extra = item as { countKey?: string; alert?: boolean }
             const count = extra.countKey ? inboxCounts[extra.countKey] : undefined
             // Every inbox and status item shows its count, 0 included; alert items turn red when they have something.
-            return <Link key={item.href} href={item.href} onClick={close} title={item.name} className={active ? 'is-active' : ''}><Icon /><span>{item.name}</span>{count !== undefined && <b className={`app-nav-count${extra.alert && count > 0 ? ' is-alert' : ''}`}>{count}</b>}{active && <i aria-hidden="true" />}</Link>
+            return <Link key={item.href} href={item.href} onClick={close} title={item.name} className={active ? 'is-active' : ''}><Icon /><span>{item.name}</span>{count !== undefined && <b className={`app-nav-count${extra.alert && count > 0 ? ' is-alert' : ''}${count === 0 ? ' is-zero' : ''}`}>{count}</b>}{active && <i aria-hidden="true" />}</Link>
           })}</div>}
         </section>)}
       </nav>
 
       <div className="app-sidebar-bottom">
-        {allowed('handle_calls') && <Link href="/voice/browser-test" onClick={close} className={`app-bottom-link ${pathname === '/voice/browser-test' ? 'is-active' : ''}`} title="Phone"><Phone /><span>Phone</span></Link>}
-        <button type="button" className="app-bottom-link" title="Help and support" aria-haspopup="menu" aria-expanded={popover === 'help'} onClick={(event) => openPopover('help', event, true)}><LifeBuoy /><span>Help and support</span></button>
+        <div className="app-bottom-links">
+          {allowed('handle_calls') && <Link href="/voice/browser-test" onClick={close} className={`app-bottom-link ${pathname === '/voice/browser-test' ? 'is-active' : ''}`} title="Start a test call"><Phone /><span>Test call</span></Link>}
+          <button type="button" className="app-bottom-link" title="Help and support" aria-haspopup="menu" aria-expanded={popover === 'help'} onClick={(event) => openPopover('help', event, true)}><LifeBuoy /><span>Help</span></button>
+        </div>
         <div className="app-user-row">
           <button type="button" className="app-user-card" aria-haspopup="menu" aria-expanded={popover === 'user'} title={me.name || me.email || 'Account'} onClick={(event) => openPopover('user', event, true)}>
             <span className="app-user-avatar">{initials(me.name || me.email)}</span>

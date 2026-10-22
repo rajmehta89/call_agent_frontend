@@ -38,12 +38,12 @@ export function PageHeader({
   const entry = navEntry(usePathname() || '')
   const Icon = icon || entry?.icon
   return (
-    <div className="premium-page-header relative mb-1 flex flex-col gap-4 pb-5 pt-1 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex min-w-0 items-center gap-4">
-        {Icon && <span className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#8B5CF6] to-[#5A2BE6] text-white shadow-[0_14px_28px_-16px_rgba(95,52,126,.95)] sm:flex"><Icon className="h-[22px] w-[22px]" /></span>}
+    <div className="premium-page-header relative mb-1 flex flex-col gap-3 pb-4 pt-0.5 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex min-w-0 items-center gap-3">
+        {Icon && <span className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#8B5CF6] to-[#5A2BE6] text-white shadow-[0_12px_24px_-16px_rgba(95,52,126,.95)] sm:flex"><Icon className="h-[19px] w-[19px]" /></span>}
         <div className="min-w-0">
-          <h1 className="text-[26px] font-extrabold leading-tight tracking-[-0.03em] text-[#32136B] sm:text-[28px]">{title}</h1>
-          <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-500">{description}</p>
+          <h1 className="text-[21px] font-extrabold leading-tight tracking-[-0.02em] text-[#32136B] sm:text-[23px]">{title}</h1>
+          <p className="mt-0.5 max-w-3xl text-[13px] leading-5 text-slate-500">{description}</p>
         </div>
       </div>
       {(actions || (actionLabel && actionHref)) && <div className="flex shrink-0 flex-wrap gap-2">

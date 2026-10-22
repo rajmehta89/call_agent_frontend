@@ -40,11 +40,11 @@ export function Stat({ icon: Icon, label, value, delta, deltaInvert, hint, spark
     <div className="flex items-start justify-between gap-3">
       <div className="min-w-0">
         <div className="text-[11px] font-bold uppercase tracking-[.12em] text-slate-500">{label}</div>
-        <div className="mt-1.5 flex items-baseline gap-2 text-[28px] font-extrabold leading-none tracking-tight text-[#32136B]">{value}{tone === 'live' && <span className="relative flex h-2.5 w-2.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#8B5CF6] opacity-70" /><span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#6C3BFF]" /></span>}</div>
+        <div className="mt-1.5 flex items-baseline gap-2 text-[24px] font-extrabold leading-none tracking-tight text-[#32136B]">{value}{tone === 'live' && <span className="relative flex h-2.5 w-2.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#8B5CF6] opacity-70" /><span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#6C3BFF]" /></span>}</div>
       </div>
-      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${tone === 'alert' ? 'bg-[#6C3BFF] text-white' : 'bg-[#F1EBFF] text-[#6C3BFF]'}`}><Icon className="h-5 w-5" /></span>
+      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${tone === 'alert' ? 'bg-[#6C3BFF] text-white' : 'bg-[#F1EBFF] text-[#6C3BFF]'}`}><Icon className="h-[18px] w-[18px]" /></span>
     </div>
-    <div className="mt-3 min-h-[20px]">{delta !== undefined ? <Delta value={delta} invert={deltaInvert} /> : <span className="text-[11px] text-slate-500">{hint}</span>}</div>
+    <div className="mt-2.5 min-h-[18px]">{delta !== undefined ? <Delta value={delta} invert={deltaInvert} /> : <span className="text-[11px] text-slate-500">{hint}</span>}</div>
     {spark && <Sparkline values={spark} className="mt-2" />}
   </>
   const style = 'premium-stat group relative block overflow-hidden rounded-2xl border border-[#E9DFFF] bg-white p-4 shadow-[0_18px_40px_-34px_rgba(73,35,117,.55)] transition'
@@ -54,10 +54,10 @@ export function Stat({ icon: Icon, label, value, delta, deltaInvert, hint, spark
 /** Card section with a title row (icon, title, subtitle, action). */
 export function Panel({ icon: Icon, title, subtitle, action, children, className = '', bodyClassName = 'p-5' }: { icon?: LucideIcon; title: string; subtitle?: ReactNode; action?: ReactNode; children: ReactNode; className?: string; bodyClassName?: string }) {
   return <section className={`overflow-hidden rounded-2xl border border-[#E9DFFF] bg-white shadow-[0_18px_40px_-34px_rgba(73,35,117,.55)] ${className}`}>
-    <header className="flex items-center justify-between gap-3 border-b border-[#E9DFFF] px-5 py-4">
-      <div className="flex min-w-0 items-center gap-3">
-        {Icon && <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#F1EBFF] text-[#6C3BFF]"><Icon className="h-[18px] w-[18px]" /></span>}
-        <div className="min-w-0"><h2 className="truncate text-[15px] font-bold text-slate-900">{title}</h2>{subtitle && <p className="truncate text-xs text-slate-500">{subtitle}</p>}</div>
+    <header className="flex items-center justify-between gap-3 border-b border-[#E9DFFF] px-4 py-3 sm:px-5">
+      <div className="flex min-w-0 items-center gap-2.5">
+        {Icon && <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#F1EBFF] text-[#6C3BFF]"><Icon className="h-4 w-4" /></span>}
+        <div className="min-w-0"><h2 className="truncate text-[14.5px] font-bold text-slate-900">{title}</h2>{subtitle && <p className="truncate text-xs text-slate-500">{subtitle}</p>}</div>
       </div>
       {action && <div className="shrink-0">{action}</div>}
     </header>
@@ -165,4 +165,5 @@ export const timeAgo = (value?: string) => {
   if (minutes < 24 * 60) return `${Math.floor(minutes / 60)}h ago`
   return date.toLocaleDateString([], { month: 'short', day: 'numeric' })
 }
-export const duration = (seconds = 0) => `${Math.floor(seconds / 60)}:${String(Math.round(seconds % 60)).padStart(2, '0')}`
+// Round to whole seconds first so 119.6s reads 2:00, never 1:60.
+export const duration = (seconds = 0) => { const total = Math.round(seconds); return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}` }

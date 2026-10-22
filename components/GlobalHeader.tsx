@@ -1,13 +1,13 @@
 'use client'
 
-import { Bell, ChevronRight, Volume2, VolumeX } from 'lucide-react'
+import { AtSign, Bell, BellRing, CheckCheck, ChevronRight, Hash, PhoneCall, UserPlus, Volume2, VolumeX } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { api, roleLabel } from './PlatformUI'
 import { isSoundMuted, playChime, setSoundMuted } from './notifySound'
 import { pageInfo } from './omni-data'
 
-type Notification = { _id: string; title?: string; message?: string; channel?: string; type?: string; conversation_id?: string; link?: string }
+type Notification = { _id: string; title?: string; message?: string; channel?: string; type?: string; conversation_id?: string; link?: string; created_at?: string }
 type User = { name?: string; email?: string; role?: string } | null
 
 function initials(user: User) {
@@ -17,6 +17,24 @@ function initials(user: User) {
 }
 
 const titleCase = (value: string) => value.replace(/\b\w/g, (letter) => letter.toUpperCase())
+
+/** An icon for what the notification is about: an assignment, a mention, the team channel or a call. */
+function notificationIcon(notification: Notification) {
+  const kind = `${notification.type || ''} ${notification.title || ''}`.toLowerCase()
+  if (kind.includes('assign')) return UserPlus
+  if (kind.includes('mention')) return AtSign
+  if (notification.channel === 'inbox' && !notification.conversation_id) return Hash
+  if (notification.channel === 'voice' || kind.includes('call')) return PhoneCall
+  return BellRing
+}
+
+/** "now", "5m", "3h", "2d" since the notification arrived. */
+function since(value?: string) {
+  const time = value ? new Date(value.endsWith('Z') || value.includes('+') ? value : `${value}Z`).getTime() : NaN
+  if (Number.isNaN(time)) return ''
+  const minutes = Math.max(0, Math.round((Date.now() - time) / 60000))
+  return minutes < 1 ? 'now' : minutes < 60 ? `${minutes}m` : minutes < 1440 ? `${Math.round(minutes / 60)}h` : `${Math.round(minutes / 1440)}d`
+}
 
 export default function GlobalHeader({ user }: { user?: User }) {
   const pathname = usePathname()
@@ -47,6 +65,12 @@ export default function GlobalHeader({ user }: { user?: User }) {
     return () => { document.removeEventListener('mousedown', onClick); document.removeEventListener('keydown', onKey) }
   }, [showNotifications])
   useEffect(() => { setShowNotifications(false) }, [pathname])
+
+  const markAllRead = () => {
+    const shown = notifications
+    setNotifications([])
+    shown.forEach((notification) => api(`/api/platform/notifications/${notification._id}/read`, { method: 'POST' }).catch(() => {}))
+  }
 
   const markRead = async (notification: Notification) => {
     setNotifications((current) => current.filter((item) => item._id !== notification._id))
@@ -84,9 +108,13 @@ export default function GlobalHeader({ user }: { user?: User }) {
           <Bell />
           {notifications.length > 0 && <b>{notifications.length > 9 ? '9+' : notifications.length}</b>}
         </button>
-        {showNotifications && <div className="app-notifications">
-          <header><strong>Notifications</strong><span>{notifications.length} unread</span></header>
-          {notifications.length ? notifications.slice(0, 6).map((notification) => <button type="button" key={notification._id} onClick={() => openNotification(notification)}><strong>{notification.title || 'Workspace update'}</strong><span>{notification.message || 'New activity needs your attention.'}</span><small>{notification.channel || 'workspace'}</small></button>) : <p>You’re all caught up.</p>}
+        {showNotifications && <div className="app-notifications" role="dialog" aria-label="Notifications">
+          <header><span><strong>Notifications</strong>{notifications.length > 0 && <em>{notifications.length}</em>}</span>{notifications.length > 0 && <button type="button" className="app-notifications-clear" onClick={markAllRead}><CheckCheck aria-hidden />Mark all read</button>}</header>
+          {notifications.length ? <div className="app-notifications-list">{notifications.slice(0, 12).map((notification) => { const Icon = notificationIcon(notification); return <button type="button" key={notification._id} onClick={() => openNotification(notification)} className="app-notification-item">
+            <span className="app-notification-icon"><Icon aria-hidden /></span>
+            <span className="app-notification-text"><span className="app-notification-top"><strong>{notification.title || 'Workspace update'}</strong><time>{since(notification.created_at)}</time></span><span>{notification.message || 'New activity needs your attention.'}</span></span>
+          </button> })}</div>
+            : <p className="app-notifications-empty"><CheckCheck aria-hidden /><b>You’re all caught up</b><small>New assignments, mentions and team messages show up here.</small></p>}
         </div>}
       </div>
       {user && <div className="app-header-account" title={user.email || ''}>

@@ -8,6 +8,7 @@ import { api, DataState } from '@/components/PlatformUI'
 import { Avatar, EmptyHint, timeAgo } from '@/components/premium'
 import { TASK_STAGES } from '@/components/omni-data'
 import { stageInfo } from '@/components/stages'
+import { ANY_TIME, DayRangeMenu, rangeLabel, rangeQuery, type DayRange } from '@/components/day-range'
 
 type Thread = { key: string; name: string; phone?: string; preview?: string; summary?: string; last_at?: string; stage?: string; stage_reason?: string; stage_by_name?: string; stage_at?: string; assigned_to?: string; assigned_to_name?: string }
 
@@ -17,6 +18,7 @@ export default function TasksPage() {
   const [groups, setGroups] = useState<Record<string, Thread[]>>({})
   const [me, setMe] = useState('')
   const [onlyMine, setOnlyMine] = useState(false)
+  const [range, setRange] = useState<DayRange>(ANY_TIME)  // when the conversation moved into its status
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -25,13 +27,13 @@ export default function TasksPage() {
     try {
       const [members, ...lists] = await Promise.all([
         api<{ me: string }>('/api/inbox/members'),
-        ...TASK_STAGES.map((stage) => api<{ data: Thread[] }>(`/api/inbox/conversations?folder=all&state=open&stage=${stage}`)),
+        ...TASK_STAGES.map((stage) => api<{ data: Thread[] }>(`/api/inbox/conversations?folder=all&state=open&stage=${stage}${rangeQuery(range)}`)),
       ])
       setMe(members.me)
       setGroups(Object.fromEntries(TASK_STAGES.map((stage, index) => [stage, lists[index].data || []])))
     } catch (exception) { setError(exception instanceof Error ? exception.message : 'Unable to load tasks') }
     finally { setLoading(false) }
-  }, [])
+  }, [range])
   useEffect(() => { load() }, [load])
   // Live: refresh when anything in the inbox changes (new call, status change, assignment).
   useEffect(() => { window.addEventListener('inbox:refresh', load); return () => window.removeEventListener('inbox:refresh', load) }, [load])
@@ -41,9 +43,9 @@ export default function TasksPage() {
 
   return <div className="space-y-4">
     <PageHeader title="Tasks" description="Conversations where the team has something to do, sorted by status. The AI files each call here from what the caller asked for." icon={ListChecks}
-      actions={<div className="flex rounded-xl bg-[#F1EBFF] p-1 text-xs font-semibold">{[false, true].map((mine) => <button key={String(mine)} type="button" onClick={() => setOnlyMine(mine)} className={`h-8 rounded-lg px-3 transition ${onlyMine === mine ? 'bg-white text-[#5A2BE6] shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>{mine ? 'Assigned to me' : 'All tasks'}</button>)}</div>} />
+      actions={<div className="flex flex-wrap items-center gap-2"><DayRangeMenu value={range} onChange={setRange} className="w-44" /><div className="flex rounded-xl bg-[#F1EBFF] p-1 text-xs font-semibold">{[false, true].map((mine) => <button key={String(mine)} type="button" onClick={() => setOnlyMine(mine)} className={`h-8 rounded-lg px-3 transition ${onlyMine === mine ? 'bg-white text-[#5A2BE6] shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>{mine ? 'Assigned to me' : 'All tasks'}</button>)}</div></div>} />
     <DataState loading={loading} error={error} onRetry={load}>
-      {total === 0 ? <div className="surface-panel rounded-2xl p-6"><EmptyHint text={onlyMine ? 'Nothing assigned to you needs action right now.' : 'No open tasks. Calls asking for a callback, a time, a follow-up, a service or a payment appear here.'} /></div>
+      {total === 0 ? <div className="surface-panel rounded-2xl p-6"><EmptyHint text={range.id !== 'any' ? `No tasks filed ${range.id === 'date' ? `on ${rangeLabel(range)}` : rangeLabel(range).toLowerCase()}${onlyMine ? ' for you' : ''}. Pick another day or clear the filter.` : onlyMine ? 'Nothing assigned to you needs action right now.' : 'No open tasks. Calls asking for a callback, a time, a follow-up, a service or a payment appear here.'} /></div>
         : <div className="grid gap-4 xl:grid-cols-2">{TASK_STAGES.map((stage) => {
           const rows = visible(groups[stage] || [])
           if (!rows.length) return null

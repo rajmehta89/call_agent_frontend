@@ -124,10 +124,10 @@ export function Toolbar({ search, onSearch, onExport, children }: { search?: str
   </div>
 }
 
-export function ActionButton({ children, onClick, icon, primary = false, disabled = false, title, tone = 'default' }: { children: ReactNode; onClick?: () => void; icon?: ReactNode; primary?: boolean; disabled?: boolean; title?: string; tone?: 'default' | 'warning' | 'danger' | 'success' }) {
+export function ActionButton({ children, onClick, icon, primary = false, disabled = false, title, tone = 'default', type = 'button' }: { children: ReactNode; onClick?: () => void; icon?: ReactNode; primary?: boolean; disabled?: boolean; title?: string; tone?: 'default' | 'warning' | 'danger' | 'success'; type?: 'button' | 'submit' }) {
   const accessibleTitle = title || (typeof children === 'string' ? children : undefined)
   const toneClass = primary ? 'action-button-primary' : tone === 'warning' ? 'action-button-warning' : tone === 'danger' ? 'action-button-danger' : tone === 'success' ? 'action-button-success' : 'action-button-neutral'
-  return <button type="button" title={accessibleTitle} aria-label={accessibleTitle} onClick={onClick} disabled={disabled} className={`action-button ${toneClass} inline-flex h-9 items-center justify-center gap-2 rounded-md px-3.5 text-sm font-semibold transition active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-40`}>{icon}{children}</button>
+  return <button type={type} title={accessibleTitle} aria-label={accessibleTitle} onClick={onClick} disabled={disabled} className={`action-button ${toneClass} inline-flex h-9 items-center justify-center gap-2 rounded-md px-3.5 text-sm font-semibold transition active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-40`}>{icon}{children}</button>
 }
 
 export function DataState({ loading, error, empty, onRetry, children }: { loading: boolean; error?: string; empty?: boolean; onRetry?: () => void; children: ReactNode }) {

@@ -8,7 +8,7 @@ import { Avatar, EmptyHint, Panel, PanelLink, Stat, duration, timeAgo } from '@/
 import { PageHeader } from '@/components/OmniPage'
 
 type VoiceCall = { _id: string; phone_number?: string; lead?: { name?: string }; call_date?: string; status?: string; duration?: number; call_summary?: string; provider?: string }
-type Overview = { kpis: { calls_today: number; calls_yesterday: number; calls_7d: number; calls_7d_change: number | null; avg_duration_7d: number; avg_duration_change: number | null; answered_rate_7d: number | null; failed_7d: number; live_now: number }; daily: { calls: number }[]; voice: { active_provider: string; ready: boolean } }
+type Overview = { kpis: { calls_today: number; calls_yesterday: number; calls_7d: number; calls_7d_change: number | null; calls_prev_7d?: number; avg_duration_prev_7d?: number; avg_duration_7d: number; avg_duration_change: number | null; answered_rate_7d: number | null; failed_7d: number; live_now: number }; daily: { calls: number }[]; voice: { active_provider: string; ready: boolean } }
 
 /** Browser-console trace; filter by "[voice]". */
 const log = (message: string, ...details: unknown[]) => console.info(`[voice] ${message}`, ...details)
@@ -63,8 +63,8 @@ export default function VoiceOverview() {
     <DataState loading={loading} error={error} onRetry={() => load()}><div className="space-y-6">
       {k && <div className="keep-cols grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <Stat icon={k.live_now ? Radio : PhoneIncoming} label={k.live_now ? 'Live now' : 'Calls today'} value={k.live_now || k.calls_today} hint={k.live_now ? 'open the inbox to follow along' : `${k.calls_yesterday} yesterday`} tone={k.live_now ? 'live' : 'default'} href={k.live_now ? '/inbox' : '/calls'} spark={overview?.daily.map((day) => day.calls)} />
-        <Stat icon={PhoneCall} label="Last 7 days" value={k.calls_7d} delta={k.calls_7d_change} href="/calls" />
-        <Stat icon={Timer} label="Avg call" value={duration(k.avg_duration_7d)} delta={k.avg_duration_change} />
+        <Stat icon={PhoneCall} label="Last 7 days" value={k.calls_7d} hint={k.calls_prev_7d === undefined ? undefined : `${k.calls_prev_7d} the 7 days before`} href="/calls" />
+        <Stat icon={Timer} label="Avg call" value={duration(k.avg_duration_7d)} hint={k.avg_duration_prev_7d ? `${duration(k.avg_duration_prev_7d)} the 7 days before` : 'Last 7 days'} />
         <Stat icon={k.failed_7d ? PhoneMissed : CheckCircle2} label="Answered" value={k.answered_rate_7d === null ? '—' : `${k.answered_rate_7d}%`} hint={k.failed_7d ? `${k.failed_7d} missed or failed this week` : 'Nothing missed this week'} href={k.failed_7d ? '/inbox/failed' : undefined} tone={k.failed_7d ? 'alert' : 'default'} />
       </div>}
 

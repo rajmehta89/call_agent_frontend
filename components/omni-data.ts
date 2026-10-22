@@ -1,4 +1,4 @@
-import { AlertTriangle, AtSign, LayoutDashboard, BrainCircuit, CircleDollarSign, Hash, Headphones, Inbox, Mic2, PhoneCall, Settings2, ShoppingBag, UserCheck, UserCog, UserPlus, UserRound, Users, UserX } from 'lucide-react'
+import { AlertTriangle, AtSign, LayoutDashboard, BrainCircuit, CircleDollarSign, Hash, Headphones, Inbox, Mic2, PhoneCall, Settings2, ShoppingBag, UserCheck, UserCog, UserPlus, UserRound, Users, UserX , Store } from 'lucide-react'
 import { STAGES } from './stages'
 
 /** Statuses that mean the team has something to do: their open conversations make up the Tasks page and tile count. */
@@ -31,6 +31,7 @@ export const navigationGroups = [
     { name: 'Knowledge', href: '/brain/knowledge', icon: BrainCircuit, tone: 'blue', permission: 'manage_data' },
   ]},
   { label: 'Integrations', items: [
+    { name: 'Store data', href: '/integrations/shopify/store', icon: Store, tone: 'green', permission: 'manage_integrations' },
     { name: 'Shopify data access', href: '/integrations/shopify', icon: ShoppingBag, tone: 'green', permission: 'manage_integrations' },
   ]},
   { label: 'CRM', items: [

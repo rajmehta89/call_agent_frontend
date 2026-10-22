@@ -64,11 +64,11 @@ export default function BrowserVoiceTestPage() {
 
   const active = state === 'connecting' || state === 'connected'
   return <div className="space-y-6">
-    <PageHeader title="Browser voice test" description="Talk to the inbound AI agent using this browser, without calling the US number from your mobile." />
+    <PageHeader title="Browser voice test" description="Talk to the inbound AI agent using this browser, without calling your business number from a phone." />
     <div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-[minmax(0,1fr)_380px] xl:items-start">
     <section className="surface-panel rounded-[24px] p-6 sm:p-8">
       <div className="flex flex-wrap items-start justify-between gap-5">
-        <div className="flex gap-4"><span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#F1EBFF] text-[#5A2BE6]"><Headphones className="h-6 w-6" /></span><div><h2 className="text-lg font-bold text-slate-900">Microphone test call</h2><p className="mt-1 max-w-xl text-sm leading-6 text-slate-500">Chrome will ask for microphone permission. Your voice is sent through Twilio ConversationRelay to the same AI and call-history flow used for inbound calls.</p></div></div>
+        <div className="flex gap-4"><span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#F1EBFF] text-[#5A2BE6]"><Headphones className="h-6 w-6" /></span><div><h2 className="text-lg font-bold text-slate-900">Microphone test call</h2><p className="mt-1 max-w-xl text-sm leading-6 text-slate-500">Chrome will ask for microphone permission. It is answered by whichever voice provider is on (Voice providers), with the same AI, knowledge and call history as phone calls.</p></div></div>
         <StatusBadge value={state === 'connected' ? 'Connected' : state === 'connecting' ? 'Connecting' : state === 'error' ? 'Failed' : 'Ready'} />
       </div>
 

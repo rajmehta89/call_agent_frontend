@@ -7,6 +7,7 @@ import { ArrowUpRight, Bot, Clock3, Download, FileText, Headphones, MessageSquar
 import toast from 'react-hot-toast'
 import { PageHeader } from '../../components/OmniPage'
 import { API_BASE, DataState, MetricGrid, StatusBadge, Toolbar, authFetch } from '../../components/PlatformUI'
+import { ANY_TIME, DayRangeMenu, rangeBounds, rangeLabel, type DayRange } from '../../components/day-range'
 
 type Message = { type?: string; content?: string; timestamp?: string }
 type Lead = { _id?: string; id?: string; name: string; phone?: string | number; email?: string; company?: string; callOnly?: boolean; callId?: string }
@@ -24,6 +25,17 @@ const contactLabel = (phone: string) => phone.startsWith('client:browser_') ? 'B
 const getSpeaker = (message: Message) => { const type = String(message.type || '').toLowerCase(); return message.type === 'user' ? 'Customer' : ['human', 'agent', 'human_agent'].includes(type) ? 'Human agent' : 'AI agent' }
 const isHumanHandled = (call: Call) => Boolean(call.accepted_by || call.handled_by || call.human_callback_requested || call.transfer_requested || ['requested', 'dialing', 'ringing', 'connected', 'accepted', 'completed'].includes(String(call.transfer_status || '').toLowerCase()))
 
+/** date_from/date_to for the calls API: naive UTC, how call times are stored. */
+const rangeParams = (range: DayRange) => { const { since, until } = rangeBounds(range); const utc = (date: Date) => date.toISOString().slice(0, 19); return `${since ? `&date_from=${utc(since)}` : ''}${until ? `&date_to=${utc(until)}` : ''}` }
+const FAILED = ['failed', 'missed', 'no-answer', 'busy', 'canceled']
+/** The four cards for the calls of the picked day(s). */
+const rangeMetrics = (calls: Call[], label: string) => {
+  const answered = calls.filter((call) => ['completed', 'ended'].includes(String(call.status || '').toLowerCase()))
+  const lengths = answered.map((call) => call.duration || 0).filter(Boolean)
+  return [{ label: 'Total calls', value: calls.length, detail: label }, { label: 'Completed', value: answered.length, detail: calls.length ? `${Math.round(answered.length / calls.length * 100)}% of calls` : undefined },
+    { label: 'Missed', value: calls.filter((call) => FAILED.includes(String(call.status || '').toLowerCase())).length, detail: label }, { label: 'Average duration', value: formatDuration(lengths.length ? lengths.reduce((sum, value) => sum + value, 0) / lengths.length : 0), detail: label }]
+}
+
 export default function CallsPage() {
   const [calls, setCalls] = useState<Call[]>([])
   const [leads, setLeads] = useState<Lead[]>([])
@@ -39,12 +51,13 @@ export default function CallsPage() {
   const [interestFilter, setInterestFilter] = useState('all')
   const [directionFilter, setDirectionFilter] = useState('inbound')
   const [handlingFilter, setHandlingFilter] = useState('all')
+  const [range, setRange] = useState<DayRange>(ANY_TIME)
 
   const load = async () => {
     setLoading(true); setError('')
     try {
       const read = async (url: string) => { const response = await authFetch(url); const payload = await response.json(); if (!response.ok || !payload.success) throw new Error(payload.error || 'Unable to load call data'); return payload }
-      const [callsResult, statsResult, leadsResult] = await Promise.allSettled([read(`${API_BASE}/api/calls?direction=inbound&limit=200`), read(`${API_BASE}/api/calls/stats`), read(`${API_BASE}/api/leads/?limit=200`)]);
+      const [callsResult, statsResult, leadsResult] = await Promise.allSettled([read(`${API_BASE}/api/calls?direction=inbound&limit=200${rangeParams(range)}`), read(`${API_BASE}/api/calls/stats`), read(`${API_BASE}/api/leads/?limit=200`)]);
       if (callsResult.status === 'rejected') throw callsResult.reason
       const nextCalls: Call[] = callsResult.value.data || []
       setCalls(nextCalls)
@@ -68,11 +81,12 @@ export default function CallsPage() {
     } catch (err) { const message = err instanceof Error ? err.message : 'Unable to load calls'; setError(message); toast.error(message) } finally { setLoading(false) }
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [range])
   const leadId = (lead: Lead) => String(lead._id || lead.id || '')
   const selectedLead = leads.find((lead) => leadId(lead) === selectedLeadId)
   const initials = (name = '') => name.split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'L'
-  const filteredLeads = leads.filter((lead) => `${lead.name} ${lead.phone || ''} ${lead.company || ''}`.toLowerCase().includes(searchTerm.toLowerCase()))
+  const callerIds = new Set(calls.flatMap((call) => [String(call.lead_id || ''), `call:${call._id}`, `phone:${call.phone_number}`]))
+  const filteredLeads = leads.filter((lead) => range.id === 'any' || callerIds.has(leadId(lead)) || callerIds.has(`phone:${lead.phone}`)).filter((lead) => `${lead.name} ${lead.phone || ''} ${lead.company || ''}`.toLowerCase().includes(searchTerm.toLowerCase()))
   const filteredCalls = useMemo(() => calls.filter((call) => {
     const haystack = `${call.phone_number || ''} ${call.lead?.name || ''} ${call.lead?.company || ''} ${call.call_summary || ''}`.toLowerCase()
     const matchesSearch = !searchTerm.trim() || haystack.includes(searchTerm.toLowerCase())
@@ -101,9 +115,11 @@ export default function CallsPage() {
 
   return <div className="space-y-6">
     <PageHeader title="Call history" description="Every call by caller: listen to the recording, read the conversation and the AI summary." />
-    <Toolbar search={searchTerm} onSearch={setSearchTerm}><span className="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700">Inbound calls</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Call status"><option value="all">All outcomes</option><option value="completed">Completed</option><option value="transferred">Transferred</option><option value="transfer_requested">Transfer requested</option><option value="failed">Failed</option><option value="missed">Missed</option></select><select value={handlingFilter} onChange={(event) => setHandlingFilter(event.target.value)} aria-label="Call handler"><option value="all">AI + human</option><option value="ai">AI agent</option><option value="human">Human agent</option></select><select value={interestFilter} onChange={(event) => setInterestFilter(event.target.value)} aria-label="Call interest"><option value="all">All interest</option><option value="interested">Interested</option><option value="not_interested">Not interested</option><option value="neutral">Neutral</option><option value="no_analysis">No analysis</option></select></Toolbar>
+    <Toolbar search={searchTerm} onSearch={setSearchTerm}><DayRangeMenu value={range} onChange={setRange} className="w-44" /><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Call status"><option value="all">All outcomes</option><option value="completed">Completed</option><option value="transferred">Transferred</option><option value="transfer_requested">Transfer requested</option><option value="failed">Failed</option><option value="missed">Missed</option></select><select value={handlingFilter} onChange={(event) => setHandlingFilter(event.target.value)} aria-label="Call handler"><option value="all">AI + human</option><option value="ai">AI agent</option><option value="human">Human agent</option></select><select value={interestFilter} onChange={(event) => setInterestFilter(event.target.value)} aria-label="Call interest"><option value="all">All interest</option><option value="interested">Interested</option><option value="not_interested">Not interested</option><option value="neutral">Neutral</option><option value="no_analysis">No analysis</option></select></Toolbar>
     <DataState loading={loading} error={error} onRetry={load}>
-      <MetricGrid items={[{ label: 'Total calls', value: stats.total_calls || calls.length }, { label: 'Today', value: stats.calls_today || 0 }, { label: 'Completed', value: stats.status_counts?.completed || 0 }, { label: 'Average duration', value: formatDuration(stats.average_duration || 0) }]} />
+      <MetricGrid items={range.id === 'any'
+        ? [{ label: 'Total calls', value: stats.total_calls || calls.length }, { label: 'Today', value: stats.calls_today || 0 }, { label: 'Completed', value: stats.status_counts?.completed || 0 }, { label: 'Average duration', value: formatDuration(stats.average_duration || 0) }]
+        : rangeMetrics(calls, rangeLabel(range))} />
       <div className="mt-5 grid min-h-[720px] gap-4 lg:grid-cols-[290px_minmax(0,1fr)] xl:grid-cols-[290px_minmax(0,1fr)_310px]">
         <aside className="surface-panel flex min-h-[720px] flex-col overflow-hidden rounded-[22px]"><div className="border-b border-slate-200 px-4 py-4"><div className="flex items-center justify-between"><div><div className="text-sm font-bold text-slate-900">Leads</div><div className="mt-1 text-xs text-slate-500">{filteredLeads.length} people in your workspace</div></div><Users className="h-4 w-4 text-[#6C3BFF]" /></div><div className="relative mt-4"><Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" /><input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Find a lead..." className="h-9 w-full rounded-lg border-slate-200 bg-slate-50 pl-9 text-xs" /></div></div><div className="min-h-0 flex-1 overflow-y-auto p-2">{filteredLeads.map((lead) => { const id = leadId(lead); const leadCalls = calls.filter((call) => String(call.lead_id || '') === id || (!call.lead_id && String(call.phone_number) === String(lead.phone || ''))); return <button key={id} type="button" onClick={() => setSelectedLeadId(id)} className={`mb-1 w-full rounded-xl border p-3 text-left transition ${selectedLeadId === id ? 'border-[#D8C8FF] bg-[#F1EBFF] shadow-sm' : 'border-transparent hover:border-slate-200 hover:bg-slate-50'}`}><div className="flex items-center gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#6C3BFF] text-xs font-bold text-white">{initials(lead.name)}</span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold text-slate-900">{lead.name || 'Unnamed lead'}</span><span className="mt-0.5 block truncate text-xs text-slate-500">{lead.company || contactLabel(String(lead.phone || '')) || 'No contact details'}</span></span>{leadCalls.length > 0 && <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-[#5A2BE6] shadow-sm" title={`${leadCalls.length} ${leadCalls.length === 1 ? 'call' : 'calls'}`}>{leadCalls.length}</span>}</div><div className="mt-2 pl-12 text-[11px] text-slate-500">{leadCalls.length ? `Last call ${formatDate(leadCalls.map((call) => call.call_date || call.created_at || '').sort().slice(-1)[0])}` : 'No calls yet'}</div></button> })}{!filteredLeads.length && <div className="px-3 py-12 text-center"><Users className="mx-auto h-7 w-7 text-slate-300" /><p className="mt-3 text-sm font-medium text-slate-700">No leads found</p><p className="mt-1 text-xs text-slate-500">Try a different name or phone number.</p></div>}</div></aside>
         <main className="surface-panel flex min-h-[720px] min-w-0 flex-col overflow-hidden rounded-[22px]">{selectedLead ? <><div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-5 py-4"><div className="flex min-w-0 items-center gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#F1EBFF] text-sm font-bold text-[#5A2BE6]">{initials(selectedLead.name)}</span><div className="min-w-0"><div className="truncate text-base font-bold text-slate-900">{selectedLead.name}</div><div className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-slate-500"><span>{selectedLead.phone ? contactLabel(String(selectedLead.phone)) : 'No phone'}</span>{selectedLead.company && <><span>·</span><span>{selectedLead.company}</span></>}</div></div></div><Link href={`/leads/${leadId(selectedLead)}`} className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50">Open lead <ArrowUpRight className="h-3.5 w-3.5" /></Link></div><div className="flex items-center justify-between border-b border-slate-200 bg-slate-50/70 px-5 py-3"><div><div className="text-xs font-semibold uppercase tracking-[.14em] text-slate-500">Call conversation</div><div className="mt-1 text-xs text-slate-500">{activeLeadCalls.length} call{activeLeadCalls.length === 1 ? '' : 's'} · click a call to open its chat</div></div><span className="text-xs text-slate-400">Customer left · agent right</span></div><div className="min-h-0 flex-1 overflow-y-auto p-5"><RecordingTimeline groups={historyGroups} selectedCallId={currentCall?._id} selectedLeadName={selectedLead.name} onSelect={setSelectedCall} onOpen={openConversation} /></div></> : <div className="flex flex-1 flex-col items-center justify-center p-8 text-center"><Users className="h-8 w-8 text-slate-300" /><p className="mt-3 text-sm font-semibold text-slate-700">Select a lead</p><p className="mt-1 max-w-xs text-sm text-slate-500">Choose a lead to see their call conversation.</p></div>}</main>
