@@ -10,12 +10,17 @@ import { API_BASE } from './PlatformUI'
  *  free ngrok otherwise answers with a warning page). It reconnects after a drop; the "hello" on reconnect refreshes everything once. */
 
 let controller: AbortController | null = null
+let connectedBefore = false
 
 function dispatch(data: string) {
   let event: { kind?: string; key?: string } = {}
   try { event = JSON.parse(data) } catch { return }
-  if (event.kind === 'hello') console.info('[realtime] connected')
-  else console.info('[realtime]', event.kind, event.key || '')
+  if (event.kind === 'hello') {
+    console.info('[realtime] connected')
+    // The first "hello" arrives just after the page loaded its data: refreshing then only loads everything twice.
+    // After a reconnect it does refresh, since updates may have been missed while disconnected.
+    if (!connectedBefore) { connectedBefore = true; return }
+  } else console.info('[realtime]', event.kind, event.key || '')
   window.dispatchEvent(new Event('inbox:changed'))
   window.dispatchEvent(new CustomEvent('inbox:refresh', { detail: event }))
 }
