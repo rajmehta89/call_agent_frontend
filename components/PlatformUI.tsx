@@ -52,7 +52,8 @@ function signOutIfUnauthorized(status: number) {
 export async function authFetch(input: string, options: RequestInit = {}): Promise<Response> {
   const token = typeof window !== 'undefined' ? window.localStorage.getItem('agentflow_token') : null
   const url = input.startsWith('http') ? input : `${API_BASE}${input}`
-  const response = await fetch(url, { ...options, headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(options.headers || {}) } })
+  // ngrok's free plan answers browser requests with a warning page unless this header is sent (harmless elsewhere).
+  const response = await fetch(url, { ...options, headers: { 'ngrok-skip-browser-warning': 'true', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(options.headers || {}) } })
   signOutIfUnauthorized(response.status)
   return response
 }
