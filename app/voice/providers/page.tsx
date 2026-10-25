@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
+import Link from 'next/link'
 import { AlertCircle, ArrowDown, AudioLines, CheckCircle2, Loader2, PhoneIncoming, ShieldCheck, Zap } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { PageHeader } from '@/components/OmniPage'
@@ -139,10 +140,11 @@ export default function VoiceProvidersPage() {
   }
 
     const selected = providers.find((provider) => provider.enabled && provider.ready)
-  const selectedDetail = selected?.id === 'retell' ? 'Passed to your Retell agent over SIP. Retell handles speech; your backend supplies the replies.' : selected?.id === 'custom_deepgram' ? 'Deepgram transcription + your AI Brain + Deepgram Aura-2 voice.' : selected ? 'Deepgram transcription + your AI Brain + ElevenLabs voice.' : 'Turn on a provider below to send calls to it.'
+  const selectedDetail = selected?.id === 'retell' ? 'Passed to your Retell agent over SIP. Retell handles speech; your backend supplies the replies.' : selected?.id === 'custom_deepgram' ? 'Deepgram transcription + AI Brain + Deepgram English/Urdu voices, with ElevenLabs Arabic fallback.' : selected ? 'Deepgram transcription + your AI Brain + ElevenLabs multilingual voice.' : 'Turn on a provider below to send calls to it.'
 
   return <div className="space-y-4">
     <PageHeader title="Voice providers" description="Choose which voice system answers new inbound calls. Changes apply to new calls only; active calls are never interrupted." />
+    <div className="flex justify-end"><Link href="/voice/languages" className="inline-flex h-9 items-center rounded-lg border border-[#E9DFFF] bg-white px-3 text-xs font-semibold text-[#5A2BE6] transition hover:border-[#CFC0FF] hover:bg-[#F8F5FF]">Configure call languages</Link></div>
     <DataState loading={loading} error={error} onRetry={load}>
       <section className="surface-panel rounded-2xl p-4 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">

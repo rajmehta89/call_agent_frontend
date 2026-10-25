@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, BarChart3, CheckCircle2, Clock3, ListChecks, PhoneCall, RefreshCw, Users, UserRound } from 'lucide-react'
+import { ArrowLeft, BarChart3, CheckCircle2, Clock3, ListChecks, PhoneCall, RefreshCw, SlidersHorizontal, Users, UserRound } from 'lucide-react'
 import { PageHeader } from '../../../../components/OmniPage'
 import { api, DataState, roleLabel, userFacingError } from '../../../../components/PlatformUI'
 import { titleCase } from '../../../../components/PlatformUI'
@@ -18,6 +18,7 @@ const formatDate = (value?: string) => value ? new Date(value).toLocaleDateStrin
 
 export default function TeamPerformancePage() {
   const [days, setDays] = useState(30)
+  const [memberId, setMemberId] = useState('all')
   const [data, setData] = useState<Performance | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -31,15 +32,28 @@ export default function TeamPerformancePage() {
   useEffect(() => { load() }, [load])
 
   const totals = data?.totals || {}
-  const ranked = useMemo(() => [...(data?.members || [])].sort((a, b) => b.handled_calls - a.handled_calls || b.assigned_calls - a.assigned_calls), [data?.members])
+  const ranked = useMemo(() => [...(data?.members || [])].filter((member) => memberId === 'all' || member.id === memberId).sort((a, b) => b.handled_calls - a.handled_calls || b.assigned_calls - a.assigned_calls), [data?.members, memberId])
   const rangeLabel = days === 0 ? 'All time' : `Last ${days} days`
+  const rangeOptions = [{ value: 7, label: '7 days' }, { value: 30, label: '30 days' }, { value: 90, label: '90 days' }, { value: 0, label: 'All time' }]
 
   return <div className="space-y-6">
     <PageHeader title="Team performance" description={`See workload, completed calls, and follow-up coverage for ${rangeLabel.toLowerCase()}.`} icon={BarChart3}
-      actions={<div className="flex flex-wrap items-center gap-2"><Link href="/settings/team" className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#E9DFFF] bg-white px-4 text-sm font-semibold text-slate-700 hover:border-[#6C3BFF]"><ArrowLeft className="h-4 w-4" />Team</Link><select value={days} onChange={(event) => setDays(Number(event.target.value))} aria-label="Performance date range" className="h-10 rounded-xl border border-[#E9DFFF] bg-white px-3 text-sm font-semibold text-slate-700"><option value={7}>Last 7 days</option><option value={30}>Last 30 days</option><option value={90}>Last 90 days</option><option value={0}>All time</option></select><button type="button" onClick={load} className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#E9DFFF] bg-white px-3 text-sm font-semibold text-slate-700 hover:border-[#6C3BFF]"><RefreshCw className="h-4 w-4" />Refresh</button></div>} />
+      actions={<div className="flex flex-wrap items-center gap-2"><Link href="/settings/team" className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#E9DFFF] bg-white px-4 text-sm font-semibold text-slate-700 hover:border-[#6C3BFF]"><ArrowLeft className="h-4 w-4" />Team</Link><button type="button" onClick={load} className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#E9DFFF] bg-white px-3 text-sm font-semibold text-slate-700 hover:border-[#6C3BFF]"><RefreshCw className="h-4 w-4" />Refresh</button></div>} />
 
     <DataState loading={loading} error={error} onRetry={load}>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-7">
+      <section className="surface-panel rounded-2xl p-4 sm:p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-center gap-2"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#F1EBFF] text-[#5A2BE6]"><SlidersHorizontal className="h-4 w-4" /></span><div><h2 className="text-sm font-bold text-slate-900">Performance filters</h2><p className="text-xs text-slate-500">Choose the reporting period and teammate to review.</p></div></div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="flex flex-wrap gap-1 rounded-xl bg-[#F8F6FF] p-1" role="group" aria-label="Performance date range">
+              {rangeOptions.map((option) => <button key={option.value} type="button" onClick={() => setDays(option.value)} aria-pressed={days === option.value} className={`rounded-lg px-3 py-2 text-xs font-bold transition ${days === option.value ? 'bg-white text-[#5A2BE6] shadow-sm ring-1 ring-[#E9DFFF]' : 'text-slate-500 hover:bg-white/70 hover:text-slate-700'}`}>{option.label}</button>)}
+            </div>
+            <select value={memberId} onChange={(event) => setMemberId(event.target.value)} aria-label="Filter by teammate" className="h-10 min-w-[170px] rounded-xl border border-[#E9DFFF] bg-white px-3 text-sm font-semibold text-slate-700"><option value="all">All teammates</option>{(data?.members || []).map((member) => <option key={member.id} value={member.id}>{titleCase(member.name)}</option>)}</select>
+          </div>
+        </div>
+      </section>
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7">
         <Metric label="Active members" value={totals.active_members} hint="in this workspace" icon={Users} />
         <Metric label="Assigned calls" value={totals.assigned_calls} hint={rangeLabel} icon={PhoneCall} />
         <Metric label="Handled calls" value={totals.handled_calls} hint="completed or transferred" icon={CheckCircle2} />

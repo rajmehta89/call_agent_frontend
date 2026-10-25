@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { BarChart3, BookOpen, BrainCircuit, ChevronDown, ChevronsLeft, ChevronsRight, CircleDollarSign, Download, Grid2x2, Hash, Headphones, Home, KanbanSquare, LifeBuoy, ListChecks, LogOut, Menu, Mic2, PenSquare, Phone, PhoneCall, Plus, Radio, Settings2, ShoppingBag, UserCog, UserPlus, UserRound, Users, X , Store, PhoneForwarded } from 'lucide-react'
+import { BookOpen, BrainCircuit, ChevronDown, ChevronsLeft, ChevronsRight, CircleDollarSign, Download, Grid2x2, Hash, Headphones, Home, KanbanSquare, LifeBuoy, ListChecks, LogOut, Menu, Mic2, PenSquare, Phone, PhoneCall, Plus, Radio, Settings2, ShoppingBag, UserCog, UserPlus, UserRound, Users, X , Store, PhoneForwarded } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import toast from 'react-hot-toast'
@@ -42,13 +42,13 @@ const NEW_ACTIONS: MenuItem[] = [
 const MORE_ITEMS: MenuItem[] = [
   { label: 'Voice overview', href: '/voice', icon: Radio, permission: 'handle_calls' },
   { label: 'Voice providers', href: '/voice/providers', icon: Settings2, permission: 'manage_integrations' },
+  { label: 'Call languages', href: '/voice/languages', icon: Mic2, permission: 'manage_integrations' },
   { label: 'Voice cost planner', href: '/voice/pricing', icon: CircleDollarSign, permission: 'manage_integrations' },
   { label: 'Call history', href: '/calls', icon: Mic2, permission: 'handle_calls' },
   { label: 'Knowledge', href: '/brain/knowledge', icon: BrainCircuit, permission: 'manage_data' },
   { label: 'Shopify data access', href: '/integrations/shopify', icon: ShoppingBag, permission: 'manage_integrations' },
   { label: 'Store data', href: '/integrations/shopify/store', icon: Store, permission: 'manage_integrations' },
   { label: 'Team', href: '/settings/team', icon: UserCog, permission: 'manage_team' },
-  { label: 'Team performance', href: '/settings/team/performance', icon: BarChart3, permission: 'manage_team' },
   { label: 'Call forwarding', href: '/settings/call-forwarding', icon: PhoneForwarded, permission: 'handle_calls' },
   { label: 'My account', href: '/settings/account', icon: UserRound },
 ]

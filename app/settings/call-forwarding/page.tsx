@@ -7,14 +7,20 @@ import { PageHeader } from '../../../components/OmniPage'
 import { DataState, api, userFacingError } from '../../../components/PlatformUI'
 import { Panel } from '../../../components/premium'
 
-type Agent = { name: string; phone: string; enabled: boolean }
+type Agent = { name: string; phone: string; enabled: boolean; preferred_languages?: string[] }
 type Settings = { enabled: boolean; agents: Agent[]; ring_seconds: number; updated_by_name?: string; updated_at?: string }
+type LanguageOption = { code: string; label: string; native_label?: string; enabled: boolean }
 
 /** Browser-console trace; filter the console by "[forwarding]". */
 const log = (message: string, ...details: unknown[]) => console.info(`[forwarding] ${message}`, ...details)
 const RING_CHOICES = [10, 15, 20, 25, 30, 45, 60]
 const MAX_AGENTS = 10
 const blankAgent = (): Agent => ({ name: '', phone: '', enabled: true })
+const DEFAULT_LANGUAGES: LanguageOption[] = [
+  { code: 'en', label: 'English', native_label: 'English', enabled: true },
+  { code: 'ar', label: 'Arabic', native_label: 'العربية', enabled: true },
+  { code: 'ur', label: 'Urdu', native_label: 'اردو', enabled: true },
+]
 
 /** Settings > Call forwarding: when a caller asks for a person, ring the human team live (on), or keep it with the AI
  *  as a callback request (off). Admins change it; the team can see who is on the list. */
@@ -22,6 +28,7 @@ export default function CallForwardingPage() {
   const [saved, setSaved] = useState<Settings | null>(null)
   const [form, setForm] = useState<Settings | null>(null)
   const [canEdit, setCanEdit] = useState(false)
+  const [languages, setLanguages] = useState<LanguageOption[]>(DEFAULT_LANGUAGES)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
 
@@ -30,6 +37,9 @@ export default function CallForwardingPage() {
     Promise.all([api<any>('/api/call-forwarding'), api<any>('/api/auth/me')]).then(([result, me]) => {
       const data: Settings = result.data
       setSaved(data); setForm({ ...data, agents: data.agents.length ? data.agents : [blankAgent()] })
+      api<any>('/api/voice-providers/languages').then((languageResult) => {
+        setLanguages((languageResult.data?.languages || DEFAULT_LANGUAGES).filter((language: LanguageOption) => language.enabled))
+      }).catch(() => { /* Language-management permission is separate; keep the safe built-in list for team managers. */ })
       const permissions = ['owner', 'admin'].includes(String(me.data?.role || '').toLowerCase()) ? ['*'] : (me.data?.permissions || [])
       setCanEdit(permissions.includes('*') || permissions.includes('manage_team'))
     }).catch((err) => setError(userFacingError(err)))
@@ -41,6 +51,12 @@ export default function CallForwardingPage() {
   const active = form ? filled(form.agents).filter((agent) => agent.enabled && agent.phone.trim()).length : 0
 
   const setAgent = (index: number, patch: Partial<Agent>) => form && setForm({ ...form, agents: form.agents.map((agent, i) => i === index ? { ...agent, ...patch } : agent) })
+  const toggleLanguage = (index: number, code: string) => {
+    const agent = form?.agents[index]
+    if (!agent) return
+    const current = agent.preferred_languages || []
+    setAgent(index, { preferred_languages: current.includes(code) ? current.filter((item) => item !== code) : [...current, code] })
+  }
   const removeAgent = (index: number) => form && setForm({ ...form, agents: form.agents.length > 1 ? form.agents.filter((_, i) => i !== index) : [blankAgent()] })
 
   const save = async (next?: Settings) => {
@@ -85,20 +101,34 @@ export default function CallForwardingPage() {
           </section>
 
           {/* Agents */}
-          <Panel icon={Users} title="Human agents" subtitle={`${active} active · named requests route directly; general requests ring together`} bodyClassName="p-0"
+          <Panel icon={Users} title="Human agents" subtitle={`${active} active · named requests route directly; general requests prefer the caller's language`} bodyClassName="p-0"
             action={canEdit && form.agents.length < MAX_AGENTS ? <button type="button" onClick={() => setForm({ ...form, agents: [...form.agents, blankAgent()] })} className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#F1EBFF] px-2.5 text-[12.5px] font-semibold text-[#5A2BE6] transition hover:bg-[#E9DFFF]"><Plus className="h-3.5 w-3.5" />Add agent</button> : undefined}>
             <ul className="divide-y divide-[#F4F0FF]">
-              {form.agents.map((agent, index) => <li key={index} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-3 sm:px-5">
-                <span className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#F4F0FF] text-[#6C3BFF] sm:flex"><UserRound className="h-4 w-4" /></span>
-                <label className="min-w-0 flex-1"><span className="sr-only">Name</span>
-                  <input value={agent.name} disabled={!canEdit} maxLength={80} placeholder="Name, e.g. Sales desk" onChange={(event) => setAgent(index, { name: event.target.value })} className="h-9 w-full rounded-lg px-3 text-[13.5px]" /></label>
-                <label className="min-w-0 flex-1"><span className="sr-only">Phone number</span>
-                  <input value={agent.phone} disabled={!canEdit} maxLength={32} inputMode="tel" placeholder="Phone, e.g. 0412 345 678" onChange={(event) => setAgent(index, { phone: event.target.value })} className="h-9 w-full rounded-lg px-3 text-[13.5px] tabular-nums" /></label>
-                <div className="flex items-center gap-2">
-                  <button type="button" disabled={!canEdit} onClick={() => setAgent(index, { enabled: !agent.enabled })} aria-pressed={agent.enabled}
-                    className={`inline-flex h-8 items-center gap-1 rounded-lg px-2.5 text-[12px] font-semibold transition disabled:opacity-60 ${agent.enabled ? 'bg-[#6C3BFF] text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>{agent.enabled ? <><Check className="h-3.5 w-3.5" />Active</> : 'Paused'}</button>
-                  {canEdit && <button type="button" onClick={() => removeAgent(index)} aria-label={`Remove ${agent.name || 'agent'}`} title="Remove" className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-[#F4F0FF] hover:text-[#5A2BE6]"><Trash2 className="h-4 w-4" /></button>}
+              {form.agents.map((agent, index) => <li key={index} className="flex flex-col gap-2 px-4 py-3 sm:px-5">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                  <span className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#F4F0FF] text-[#6C3BFF] sm:flex"><UserRound className="h-4 w-4" /></span>
+                  <label className="min-w-0 flex-1"><span className="sr-only">Name</span>
+                    <input value={agent.name} disabled={!canEdit} maxLength={80} placeholder="Name, e.g. Sales desk" onChange={(event) => setAgent(index, { name: event.target.value })} className="h-9 w-full rounded-lg px-3 text-[13.5px]" /></label>
+                  <label className="min-w-0 flex-1"><span className="sr-only">Phone number</span>
+                    <input value={agent.phone} disabled={!canEdit} maxLength={32} inputMode="tel" placeholder="Phone, e.g. 0412 345 678" onChange={(event) => setAgent(index, { phone: event.target.value })} className="h-9 w-full rounded-lg px-3 text-[13.5px] tabular-nums" /></label>
+                  <div className="flex items-center gap-2">
+                    <button type="button" disabled={!canEdit} onClick={() => setAgent(index, { enabled: !agent.enabled })} aria-pressed={agent.enabled}
+                      className={`inline-flex h-8 items-center gap-1 rounded-lg px-2.5 text-[12px] font-semibold transition disabled:opacity-60 ${agent.enabled ? 'bg-[#6C3BFF] text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>{agent.enabled ? <><Check className="h-3.5 w-3.5" />Active</> : 'Paused'}</button>
+                    {canEdit && <button type="button" onClick={() => removeAgent(index)} aria-label={`Remove ${agent.name || 'agent'}`} title="Remove" className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-[#F4F0FF] hover:text-[#5A2BE6]"><Trash2 className="h-4 w-4" /></button>}
+                  </div>
                 </div>
+                {languages.length > 0 && <div className="flex flex-wrap items-center gap-1.5 pl-0 sm:pl-11">
+                  <span className="mr-1 text-[11.5px] font-semibold text-slate-500">Best languages</span>
+                  {languages.map((language) => {
+                    const selected = (agent.preferred_languages || []).includes(language.code)
+                    return <button key={language.code} type="button" disabled={!canEdit} onClick={() => toggleLanguage(index, language.code)} aria-pressed={selected}
+                      title={`${language.label}${language.native_label ? ` · ${language.native_label}` : ''}`}
+                      className={`rounded-full px-2.5 py-1 text-[11.5px] font-semibold transition disabled:opacity-60 ${selected ? 'bg-[#E9DFFF] text-[#5A2BE6] ring-1 ring-[#C9B5FF]' : 'bg-slate-50 text-slate-500 ring-1 ring-slate-200 hover:bg-[#F7F3FF]'}`}>
+                      {language.label}
+                    </button>
+                  })}
+                  {(agent.preferred_languages || []).length === 0 && <span className="text-[11.5px] text-slate-400">No preference · can answer as fallback</span>}
+                </div>}
               </li>)}
             </ul>
             <div className="flex flex-col gap-3 border-t border-[#F1EBFF] bg-[#FCFBFF] px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
@@ -118,7 +148,7 @@ export default function CallForwardingPage() {
           <ol className="space-y-3 text-[13px] leading-5 text-slate-600">
             {[
               ['Caller asks for a person', 'For example "can I talk to someone?". Questions the AI can answer stay with the AI.'],
-              ['The AI says it is connecting them', 'If the caller named a configured person, only that person is rung. Otherwise every active agent is called.'],
+              ['The AI says it is connecting them', 'If the caller named a configured person, only that person is rung. Otherwise the active agents who prefer that language are called.'],
               ['The request is tracked', 'The matched team member receives the outreach notification. For a general request, the first active agent to answer takes the call.'],
               ['Nobody free?', 'The caller hears that the team will call back. The request stays in Outreach and is notified to the named person or the general team.'],
             ].map(([title, text], index) => <li key={title} className="flex gap-3">

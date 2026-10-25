@@ -1,4 +1,4 @@
-import { AlertTriangle, AtSign, LayoutDashboard, BrainCircuit, CircleDollarSign, Hash, Headphones, Inbox, MailCheck, Mic2, PhoneCall, Settings2, ShoppingBag, UserCheck, UserCog, UserPlus, UserRound, Users, UserX , Store, PhoneForwarded } from 'lucide-react'
+import { AlertTriangle, AtSign, LayoutDashboard, BarChart3, BrainCircuit, CircleDollarSign, Hash, Headphones, Inbox, MailCheck, Mic2, PhoneCall, Settings2, ShoppingBag, UserCheck, UserCog, UserPlus, UserRound, Users, UserX , Store, PhoneForwarded } from 'lucide-react'
 import { STAGES } from './stages'
 
 /** Statuses that mean the team has something to do: their open conversations make up the Tasks page and tile count. */
@@ -26,6 +26,7 @@ export const navigationGroups = [
     { name: 'Call history', href: '/calls', icon: Mic2, tone: 'orange', permission: 'handle_calls' },
     { name: 'Voice cost planner', href: '/voice/pricing', icon: CircleDollarSign, tone: 'green', permission: 'manage_integrations' },
     { name: 'Voice providers', href: '/voice/providers', icon: Settings2, tone: 'blue', permission: 'manage_integrations' },
+    { name: 'Call languages', href: '/voice/languages', icon: Mic2, tone: 'blue', permission: 'manage_integrations' },
   ]},
   { label: 'AI Brain', items: [
     { name: 'Knowledge', href: '/brain/knowledge', icon: BrainCircuit, tone: 'blue', permission: 'manage_data' },
@@ -40,6 +41,7 @@ export const navigationGroups = [
   ]},
   { label: 'Settings', items: [
     { name: 'Team', href: '/settings/team', icon: UserCog, tone: 'blue', permission: 'manage_team' },
+    { name: 'Team performance', href: '/settings/team/performance', icon: BarChart3, tone: 'blue', permission: 'manage_team' },
     { name: 'Call forwarding', href: '/settings/call-forwarding', icon: PhoneForwarded, tone: 'blue', permission: 'handle_calls' },
     { name: 'My account', href: '/settings/account', icon: UserRound, tone: 'blue' },
   ]},
