@@ -218,6 +218,11 @@ h1, h2, h3, h4 { color:var(--rd-ink); }
 *::-webkit-scrollbar { width:10px; height:10px; }
 *::-webkit-scrollbar-thumb { border:3px solid transparent; border-radius:999px; background:#D8C8FF padding-box; }
 *::-webkit-scrollbar-thumb:hover { background:#A78BFA padding-box; }
+
+/* ---------- PWA connection state ---------- */
+.pwa-status { position:fixed; right:1rem; bottom:1rem; z-index:100; max-width:min(25rem,calc(100vw - 2rem)); padding:.7rem .9rem; border:1px solid var(--rd-border); border-radius:12px; color:var(--rd-ink); background:#fff; box-shadow:var(--rd-shadow-lg); font-size:.78rem; font-weight:700; line-height:1.4; }
+.pwa-status-offline { border-color:#D8C8FF; }
+@media (max-width:640px) { .pwa-status { right:.75rem; bottom:calc(.75rem + env(safe-area-inset-bottom)); } }
 *::-webkit-scrollbar-track { background:transparent; }
 .animate-pulse { animation-duration:1.6s; }
 

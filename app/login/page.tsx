@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { FormEvent, useState } from 'react'
+import { FormEvent, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { ArrowRight, LockKeyhole, Sparkles } from 'lucide-react'
@@ -12,6 +12,25 @@ export default function LoginPage() {
   const [form, setForm] = useState({ email: '', password: '' })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    let active = true
+    let token = ''
+    try { token = window.localStorage.getItem('agentflow_token') || '' } catch {}
+    if (!token) return () => { active = false }
+
+    // Reopening the installed PWA can land on /login after a browser restore. Confirm the
+    // saved session silently and go straight back to the workspace when it is still valid.
+    apiWithRetry<any>('/api/auth/me', undefined, 1, 10000).then((result) => {
+      if (!active) return
+      if (result.data?.token) window.localStorage.setItem('agentflow_token', result.data.token)
+      router.replace('/')
+    }).catch(() => {
+      try { window.localStorage.removeItem('agentflow_token') } catch {}
+    })
+    return () => { active = false }
+  }, [router])
+
   const submit = async (event: FormEvent) => {
     event.preventDefault(); setLoading(true); setError('')
     try {

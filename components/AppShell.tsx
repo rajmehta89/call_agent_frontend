@@ -53,7 +53,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     let active = true
     const timeout = window.setTimeout(() => { if (active) { setAuthError('The workspace sign-in check took too long. Please sign in again.'); setChecking(false) } }, 30000)
     setAuthError('')
-    apiWithRetry<any>('/api/auth/me', undefined, 2, 12000).then((result) => { if (active) setUser(result.data) }).catch(() => { if (active) setAuthError('The workspace service is unavailable or your session has expired.') }).finally(() => { window.clearTimeout(timeout); if (active) setChecking(false) })
+    apiWithRetry<any>('/api/auth/me', undefined, 2, 12000).then((result) => {
+      if (result.data?.token) window.localStorage.setItem('agentflow_token', result.data.token)
+      if (active) setUser(result.data)
+    }).catch(() => { if (active) setAuthError('The workspace service is unavailable or your session has expired.') }).finally(() => { window.clearTimeout(timeout); if (active) setChecking(false) })
     return () => { active = false; window.clearTimeout(timeout) }
   }, [isPublic, pathname, authAttempt])
 

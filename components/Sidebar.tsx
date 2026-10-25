@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { BookOpen, BrainCircuit, ChevronDown, ChevronsLeft, ChevronsRight, CircleDollarSign, Grid2x2, Hash, Headphones, Home, KanbanSquare, LifeBuoy, ListChecks, LogOut, Menu, Mic2, PenSquare, Phone, PhoneCall, Plus, Radio, Settings2, ShoppingBag, UserCog, UserPlus, UserRound, Users, X , Store, PhoneForwarded } from 'lucide-react'
+import { BookOpen, BrainCircuit, ChevronDown, ChevronsLeft, ChevronsRight, CircleDollarSign, Download, Grid2x2, Hash, Headphones, Home, KanbanSquare, LifeBuoy, ListChecks, LogOut, Menu, Mic2, PenSquare, Phone, PhoneCall, Plus, Radio, Settings2, ShoppingBag, UserCog, UserPlus, UserRound, Users, X , Store, PhoneForwarded } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import toast from 'react-hot-toast'
@@ -10,6 +10,7 @@ import { playChime, unlockSoundOnFirstInteraction } from './notifySound'
 import { startRealtime, stopRealtime } from './realtime'
 import { navigationGroups, TASK_STAGES } from './omni-data'
 import { api, roleLabel, titleCase } from './PlatformUI'
+import { usePWA } from './PWAProvider'
 
 // Counts that mean "something new for you" when they go up.
 const NEW_ACTIVITY = [
@@ -72,6 +73,7 @@ export default function Sidebar() {
   const [popover, setPopover] = useState<Popover>(null)
   const [anchor, setAnchor] = useState<{ left: number; top?: number; bottom?: number }>({ left: 0 })
   const previousCounts = useRef<Record<string, number> | null>(null)
+  const { installed, installAvailable, promptInstall } = usePWA()
   const permissions = me.permissions || []
   const allowed = (permission?: string) => !permission || permissions.includes('*') || permissions.includes(permission)
 
@@ -109,6 +111,15 @@ export default function Sidebar() {
   // Owners and admins hand out conversations; they never receive one (matches inbox_api._can_assign).
   const isAssigner = permissions.includes('*') || permissions.includes('assign_conversations')
   const logout = () => { stopRealtime(); window.localStorage.removeItem('agentflow_token'); window.location.href = '/login' }
+  const installApp = async () => {
+    setPopover(null)
+    if (installAvailable && await promptInstall()) return
+    const isAppleMobile = /iPad|iPhone|iPod/.test(navigator.userAgent)
+    toast(isAppleMobile
+      ? 'To add RelayDesk to your Home Screen, tap Share in Safari, then Add to Home Screen.'
+      : 'In Chrome or Edge, open the browser menu and choose Install RelayDesk or Install this site as an app.',
+      { duration: 9000, icon: '↗' })
+  }
   const narrow = collapsed && isDesktop
   const toggleCollapsed = () => { const next = !collapsed; setCollapsed(next); setPopover(null); try { window.localStorage.setItem('relaydesk_sidebar', next ? 'collapsed' : 'open') } catch {} }
   const close = () => { if (!isDesktop) setIsOpen(false) }
@@ -204,6 +215,9 @@ export default function Sidebar() {
     {popover === 'user' && menu([
       { label: 'My account', href: '/settings/account', icon: UserRound },
       { label: 'Team', href: '/settings/team', icon: UserCog, permission: 'manage_team' },
-    ], me.email, <button type="button" role="menuitem" onClick={logout} className="app-popover-item is-danger"><LogOut aria-hidden="true" /><span><b>Sign out</b></span></button>)}
+    ], me.email, <>
+      {!installed && <button type="button" role="menuitem" onClick={installApp} className="app-popover-item"><Download aria-hidden="true" /><span><b>Install RelayDesk</b><small>Open it from your desktop or home screen</small></span></button>}
+      <button type="button" role="menuitem" onClick={logout} className="app-popover-item is-danger"><LogOut aria-hidden="true" /><span><b>Sign out</b></span></button>
+    </>)}
   </>
 }
