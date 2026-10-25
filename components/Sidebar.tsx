@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { BookOpen, BrainCircuit, ChevronDown, ChevronsLeft, ChevronsRight, CircleDollarSign, Download, Grid2x2, Hash, Headphones, Home, KanbanSquare, LifeBuoy, ListChecks, LogOut, Menu, Mic2, PenSquare, Phone, PhoneCall, Plus, Radio, Settings2, ShoppingBag, UserCog, UserPlus, UserRound, Users, X , Store, PhoneForwarded } from 'lucide-react'
+import { BarChart3, BookOpen, BrainCircuit, ChevronDown, ChevronsLeft, ChevronsRight, CircleDollarSign, Download, Grid2x2, Hash, Headphones, Home, KanbanSquare, LifeBuoy, ListChecks, LogOut, Menu, Mic2, PenSquare, Phone, PhoneCall, Plus, Radio, Settings2, ShoppingBag, UserCog, UserPlus, UserRound, Users, X , Store, PhoneForwarded } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import toast from 'react-hot-toast'
@@ -56,6 +56,7 @@ const MORE_ITEMS: MenuItem[] = [
 // The sidebar lists every section (Inbox, Status, Inbound voice, AI Brain, Integrations, CRM, Settings); the
 // unlabelled Dashboard group is the Home tile. The tiles and More menu are shortcuts to the same pages.
 const LIST_GROUPS = navigationGroups.filter((group) => group.label)
+const TOP_ITEMS: MenuItem[] = [{ label: 'Team performance', href: '/settings/team/performance', icon: BarChart3, permission: 'manage_team' }]
 
 /** "Raj Mehta" -> "RM"; a one-word name like "RJ" keeps its first two letters. */
 const initials = (name = '') => {
@@ -172,6 +173,7 @@ export default function Sidebar() {
       </div>
 
       <nav className="app-navigation" aria-label="Workspace navigation">
+        {TOP_ITEMS.filter((item) => allowed(item.permission)).map((item) => <div key={item.href} className="app-nav-items mb-2 border-b border-[#F1EBFF] pb-2"><Link href={item.href} onClick={close} title={item.label} className={pathname === item.href || pathname.startsWith(`${item.href}/`) ? 'is-active' : ''}><item.icon /><span>{item.label}</span>{(pathname === item.href || pathname.startsWith(`${item.href}/`)) && <i aria-hidden="true" />}</Link></div>)}
         {LIST_GROUPS.map((group) => <section key={group.label}>
           <div className="app-nav-group-row">
             <button type="button" onClick={() => setCollapsedGroups((current) => ({ ...current, [group.label]: !current[group.label] }))} aria-expanded={!collapsedGroups[group.label]} className="app-nav-group"><span>{group.label}</span><ChevronDown className={collapsedGroups[group.label] ? '-rotate-90' : ''} /></button>

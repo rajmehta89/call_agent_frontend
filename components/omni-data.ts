@@ -1,4 +1,4 @@
-import { AlertTriangle, AtSign, LayoutDashboard, BarChart3, BrainCircuit, CircleDollarSign, Hash, Headphones, Inbox, MailCheck, Mic2, PhoneCall, Settings2, ShoppingBag, UserCheck, UserCog, UserPlus, UserRound, Users, UserX , Store, PhoneForwarded } from 'lucide-react'
+import { AlertTriangle, AtSign, LayoutDashboard, BrainCircuit, CircleDollarSign, Hash, Headphones, Inbox, MailCheck, Mic2, PhoneCall, Settings2, ShoppingBag, UserCheck, UserCog, UserPlus, UserRound, Users, UserX , Store, PhoneForwarded } from 'lucide-react'
 import { STAGES } from './stages'
 
 /** Statuses that mean the team has something to do: their open conversations make up the Tasks page and tile count. */
@@ -41,7 +41,6 @@ export const navigationGroups = [
   ]},
   { label: 'Settings', items: [
     { name: 'Team', href: '/settings/team', icon: UserCog, tone: 'blue', permission: 'manage_team' },
-    { name: 'Team performance', href: '/settings/team/performance', icon: BarChart3, tone: 'blue', permission: 'manage_team' },
     { name: 'Call forwarding', href: '/settings/call-forwarding', icon: PhoneForwarded, tone: 'blue', permission: 'handle_calls' },
     { name: 'My account', href: '/settings/account', icon: UserRound, tone: 'blue' },
   ]},
@@ -55,6 +54,7 @@ const extraPages: Record<string, { section: string; title: string }> = {
   '/invite/accept': { section: '', title: 'Accept invite' },
   '/voice/calls/': { section: 'Inbound voice', title: 'Call details' },
   '/voice/agent': { section: 'Inbound voice', title: 'Agent settings' },
+  '/settings/team/performance': { section: 'Settings', title: 'Team performance' },
   '/leads/': { section: 'CRM', title: 'Lead details' },
   '/tasks': { section: 'Inbox', title: 'Tasks' },
 }
