@@ -3,9 +3,9 @@
 import Link from 'next/link'
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowDownUp, ArrowRightLeft, AtSign, Bot, Check, ChevronDown, ChevronRight, ChevronUp, CalendarDays, Clock, Copy, Globe, Hash, PhoneIncoming, Mail, MapPin, Building2, Tag, Phone, UserCheck, Headphones, Loader2, Lock, Maximize2, MessageSquare, Minimize2, MoreVertical, StickyNote, PanelRightOpen, Pencil, PhoneCall, PhoneMissed, Sparkles, Plus, Radio, RotateCcw, Search, Send, SlidersHorizontal, Trash2, UserMinus, UserPlus, X } from 'lucide-react'
+import { AlertCircle, ArrowDownUp, ArrowRightLeft, AtSign, Bot, Check, CheckCheck, ChevronDown, ChevronRight, ChevronUp, CalendarDays, Clock, Copy, Globe, Hash, PhoneIncoming, Mail, MapPin, Building2, Tag, Phone, UserCheck, Headphones, Loader2, Lock, Maximize2, MessageSquare, Minimize2, MoreVertical, Paperclip, StickyNote, PanelRightOpen, Pencil, PhoneCall, PhoneMissed, Sparkles, Plus, Radio, RotateCcw, Search, Send, SlidersHorizontal, Trash2, UserMinus, UserPlus, X } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { api, roleLabel, userFacingError } from '../../../components/PlatformUI'
+import { API_BASE, api, roleLabel, userFacingError } from '../../../components/PlatformUI'
 import { RecordingAudio } from '../../../components/RecordingAudio'
 import { STAGES, stageInfo } from '../../../components/stages'
 import { ANY_TIME, DayRangeMenu, rangeLabel, rangeQuery, type DayRange } from '../../../components/day-range'
@@ -16,9 +16,11 @@ type Member = { id: string; name: string; email: string; role: string; assignabl
 type Conversation = { key: string; name: string; phone?: string; status?: string; last_at?: string; preview?: string; summary?: string; call_count: number; provider?: string; failed?: boolean; live?: boolean; closed?: boolean; closed_by_name?: string; assigned_to?: string; assigned_to_name?: string; assigned_by_name?: string; stage?: string; stage_by_name?: string; stage_at?: string; stage_reason?: string }
 type Line = { role: 'customer' | 'agent' | 'human_agent'; text: string; at?: string; segment?: 'ai' | 'human' }
 type CallEntry = { id: string; at: string; phone?: string; status: string; live: boolean; failed: boolean; provider: string; channel_type?: string; duration: number; summary?: string; recording_url?: string; recording_sid?: string; full_recording_url?: string; full_recording_sid?: string; transfer_status?: string; human_callback_requested?: boolean; disconnection_reason?: string; messages: Line[] }
+type SmsAttachment = { url: string; name: string; content_type?: string }
+type SmsMessage = { _id?: string; body?: string; to?: string; from?: string; status?: string; created_at?: string; direction?: 'inbound' | 'outbound'; media_urls?: string[]; media_names?: string[]; media_attachments?: SmsAttachment[] }
 type TeamMessage = { _id: string; author_id: string; author_name: string; text: string; mentions: string[]; mention_names?: string[]; conversation_id?: string; created_at: string; edited_at?: string; read_by?: string[] }
 type ThreadEvent = { type: string; text: string; by_name?: string; at: string; to?: string; to_label?: string; reason?: string }
-type Profile = { name?: string; email?: string; company?: string; address?: string; tags?: string[]; source?: string; lead_status?: string; created_at?: string; notes?: string; lead_id?: string }
+type Profile = { name?: string; phone?: string; email?: string; company?: string; address?: string; tags?: string[]; source?: string; lead_status?: string; created_at?: string; notes?: string; lead_id?: string }
 type Detail = Conversation & { calls: CallEntry[]; discussion: TeamMessage[]; events?: ThreadEvent[]; profile?: Profile }
 type ListFilter = 'all' | 'live' | 'assigned' | 'unassigned' | 'missed' | 'new_today'
 
@@ -87,6 +89,8 @@ const rowPreview = (row: Conversation) => row.live ? 'On a call now…' : row.fa
 /** What to show for the caller's number: browser and web calls carry an internal id, not a number. */
 const callerLine = (phone?: string) => !phone ? '' : phone.startsWith('client:browser') ? 'Browser test call' : phone.startsWith('client:') || phone.startsWith('web:') ? 'Web call' : phone
 const isPhoneNumber = (phone?: string) => Boolean(phone && !phone.startsWith('client:') && !phone.startsWith('web:'))
+const isImageMedia = (url: string) => /\.(?:png|jpe?g|gif|webp|bmp|heic)(?:[?#]|$)/i.test(url)
+const localMediaUrl = (url: string) => { const marker = '/api/leads/sms-media/'; const index = url.indexOf(marker); return index >= 0 ? `${API_BASE}${url.slice(index)}` : url }
 const channelLabel = (call?: CallEntry, phone?: string) => !call ? '—' : phone?.startsWith('client:browser') ? 'Browser test' : call.channel_type === 'web_call' || phone?.startsWith('web:') ? 'Web call' : 'Phone call'
 /** "5m ago", "now". */
 const agoText = (value?: string) => { const text = ago(value); return !text || text === 'now' ? text : /^\d/.test(text) ? `${text} ago` : text }
@@ -504,16 +508,88 @@ function Empty({ text }: { text: string }) {
 }
 
 
-type TimelineItem = { at: Date; kind: 'call'; call: CallEntry; latest: boolean } | { at: Date; kind: 'note'; message: TeamMessage } | { at: Date; kind: 'event'; event: ThreadEvent }
+type TimelineItem = { at: Date; kind: 'call'; call: CallEntry; latest: boolean } | { at: Date; kind: 'sms'; message: SmsMessage } | { at: Date; kind: 'note'; message: TeamMessage } | { at: Date; kind: 'event'; event: ThreadEvent }
 
 /** Middle pane, Podium style: header with the caller and chips, one timeline (calls, team notes, events) with day separators, then the composer. */
 function ConversationDetail({ detail, canAssign, canWork, onAssign, onStage, onClose, contactHidden, onToggleContact, onChanged }: { detail: Detail; canAssign: boolean; canWork: boolean; onAssign: (userId: string | null) => void; onStage: (stage: string) => void; onClose: (closed: boolean) => void; contactHidden: boolean; onToggleContact: () => void; onChanged: () => void }) {
   const { members, me } = useContext(Team)
   const [menu, setMenu] = useState(false)
+  const [smsMessages, setSmsMessages] = useState<SmsMessage[]>([])
+  const [smsBody, setSmsBody] = useState('')
+  const [smsLoading, setSmsLoading] = useState(false)
+  const [smsSending, setSmsSending] = useState(false)
+  const [smsUploading, setSmsUploading] = useState(false)
+  const [smsAttachments, setSmsAttachments] = useState<SmsAttachment[]>([])
+  const [smsError, setSmsError] = useState('')
   const bottom = useRef<HTMLDivElement>(null)
   const latestCall = detail.calls[detail.calls.length - 1]?.id
+  const leadId = detail.profile?.lead_id
+  const contactPhone = detail.profile?.phone || detail.phone
+  const canText = Boolean(leadId && isPhoneNumber(contactPhone) && canWork)
+
+  const loadSms = useCallback(async () => {
+    if (!leadId) { setSmsMessages([]); return }
+    setSmsLoading(true); setSmsError('')
+    try {
+      const result = await api<{ success: boolean; data?: SmsMessage[] }>(`/api/leads/${leadId}/sms`)
+      setSmsMessages(result.data || [])
+    } catch (error) {
+      setSmsError(userFacingError(error))
+    } finally { setSmsLoading(false) }
+  }, [leadId])
+
+  useEffect(() => { loadSms() }, [loadSms])
+  useEffect(() => {
+    const refreshSms = () => loadSms()
+    window.addEventListener('inbox:refresh', refreshSms)
+    const timer = window.setInterval(refreshSms, 5000)
+    return () => { window.removeEventListener('inbox:refresh', refreshSms); window.clearInterval(timer) }
+  }, [loadSms])
+
+  const sendSms = async () => {
+    const body = smsBody.trim()
+    if (!leadId || (!body && !smsAttachments.length) || smsSending || !canText) return
+    setSmsSending(true)
+    try {
+      await api(`/api/leads/${leadId}/sms`, { method: 'POST', body: JSON.stringify({ body, media_urls: smsAttachments.map((item) => item.url), media_names: smsAttachments.map((item) => item.name) }) })
+      setSmsBody('')
+      setSmsAttachments([])
+      await loadSms()
+      onChanged()
+      toast.success(`SMS sent to ${detail.name}`)
+    } catch (error) {
+      toast.error(userFacingError(error))
+    } finally { setSmsSending(false) }
+  }
+
+  const uploadSmsMedia = async (file: File) => {
+    if (!leadId || !canText || smsUploading) return
+    if (file.size > 5 * 1024 * 1024) { toast.error('Attachments must be 5 MB or smaller'); return }
+    if (file.type === 'application/pdf' && file.size > 600 * 1024) toast('PDFs over 600 KB may be rejected by the recipient carrier', { icon: '⚠️' })
+    setSmsUploading(true)
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      const result = await api<{ success: boolean; data: { url: string; name: string; content_type?: string } }>(`/api/leads/${leadId}/sms-media`, { method: 'POST', body: form })
+      setSmsAttachments((current) => current.length >= 4 ? current : [...current, { url: result.data.url, name: result.data.name, content_type: result.data.content_type }])
+    } catch (error) {
+      toast.error(userFacingError(error))
+    } finally { setSmsUploading(false) }
+  }
+
+  const saveSmsPhone = async (phone: string) => {
+    if (!leadId || !phone.trim() || !canWork) return
+    try {
+      await api(`/api/inbox/conversations/${encodeKey(detail.key)}/profile`, { method: 'PUT', body: JSON.stringify({ phone: phone.trim() }) })
+      onChanged()
+      toast.success('Mobile number saved')
+    } catch (error) {
+      toast.error(userFacingError(error))
+    }
+  }
   const items: TimelineItem[] = [
     ...detail.calls.map((call) => ({ at: asDate(call.at) || new Date(0), kind: 'call' as const, call, latest: call.id === latestCall })),
+    ...smsMessages.map((message) => ({ at: asDate(message.created_at) || new Date(0), kind: 'sms' as const, message })),
     ...detail.discussion.map((message) => ({ at: asDate(message.created_at) || new Date(0), kind: 'note' as const, message })),
     ...(detail.events || []).map((event) => ({ at: asDate(event.at) || new Date(0), kind: 'event' as const, event })),
   ].sort((a, b) => a.at.getTime() - b.at.getTime())
@@ -589,6 +665,7 @@ function ConversationDetail({ detail, canAssign, canWork, onAssign, onStage, onC
           const separator = day !== lastDay && item.at.getTime() > 0 ? <DaySummary key={`day-${index}`} label={dayLabel(item.at)} calls={detail.calls.filter((call) => asDate(call.at)?.toDateString() === day)} startOpen={day === latestDay} /> : null
           lastDay = day
           const body = item.kind === 'call' ? <CallCard key={item.call.id} call={item.call} name={detail.name} defaultOpen={item.call.live} />
+            : item.kind === 'sms' ? <SmsCard key={item.message._id || `${item.message.created_at}-${item.message.body}`} message={item.message} />
             : item.kind === 'note' ? <NoteItem key={item.message._id} message={item.message} onChanged={onChanged} />
             : <EventRun key={`events-${index}`} events={item.events} />
           return <div key={`item-${index}`}>{separator}{body}</div>
@@ -598,6 +675,7 @@ function ConversationDetail({ detail, canAssign, canWork, onAssign, onStage, onC
     </div>
 
     <div className="border-t border-[#F1EBFF] bg-white px-3 pb-3 pt-2.5 sm:px-5">
+      {leadId && <SmsComposer phone={contactPhone} body={smsBody} attachments={smsAttachments} onBodyChange={setSmsBody} onSend={sendSms} onPhoneSave={saveSmsPhone} onPickMedia={uploadSmsMedia} onRemoveMedia={(url) => setSmsAttachments((current) => current.filter((item) => item.url !== url))} loading={smsLoading} sending={smsSending} uploading={smsUploading} error={smsError} canText={canText} canWork={canWork} />}
       <Composer id="inbox-note" conversationId={detail.key} placeholder="Note for the team…" onDone={onChanged}
         onSendAndClose={canWork && !detail.closed ? () => onClose(true) : undefined} boxed />
     </div>
@@ -613,6 +691,58 @@ function SummaryBanner({ detail }: { detail: Detail }) {
   return <div className="mb-5 flex items-center gap-3 rounded-2xl border border-[#E9DFFF] bg-gradient-to-br from-[#F1EBFF] via-[#F8F5FF] to-white p-4">
     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[#8B5CF6] to-[#6C3BFF] text-white"><Radio className="h-4 w-4 animate-pulse" /></span>
     <div className="min-w-0"><div className="text-sm font-bold text-slate-900">Call in progress</div><div className="text-[13px] text-slate-600">Started {clock(live.at)} with {providerLabel(live.provider)}. The transcript below updates as they talk.</div></div>
+  </div>
+}
+
+/** An outbound text sits in the same thread as calls, so the next action is always visible in context. */
+function SmsCard({ message }: { message: SmsMessage }) {
+  const inbound = message.direction === 'inbound'
+  const attachments = message.media_attachments || (message.media_urls || []).map((url, index) => ({ url, name: message.media_names?.[index] || url.split('/').pop() || 'Attachment' }))
+  return <div className={`flex ${inbound ? 'justify-start' : 'justify-end'}`}>
+    <div className={`max-w-[82%] rounded-2xl px-3.5 py-2.5 shadow-[0_8px_18px_-12px_rgba(108,59,255,.55)] ${inbound ? 'rounded-bl-md border border-slate-200 bg-white text-slate-800' : 'rounded-br-md bg-[#6C3BFF] text-white'}`}>
+      {attachments.length ? <div className="mb-2 grid max-w-[280px] gap-1.5">{attachments.map((attachment) => { const displayUrl = localMediaUrl(attachment.url); return <a key={attachment.url} href={displayUrl} target="_blank" rel="noreferrer" className="overflow-hidden rounded-xl border border-black/10 bg-black/5">{isImageMedia(attachment.url) ? <img src={displayUrl} alt={attachment.name} loading="lazy" className="max-h-56 w-full object-cover" /> : <span className={`flex items-center gap-2 px-3 py-2 text-[11px] font-semibold ${inbound ? 'text-slate-600' : 'text-white/90'}`}><Paperclip className="h-3.5 w-3.5 shrink-0" /><span className="truncate" title={attachment.name}>{attachment.name}</span></span>}</a> })}</div> : null}
+      {message.body ? <p className="whitespace-pre-wrap break-words text-[13.5px] leading-[1.45]">{message.body}</p> : null}
+      <div className={`mt-1.5 flex items-center justify-end gap-2 text-[10.5px] ${inbound ? 'text-slate-400' : 'text-white/70'}`}><span>{inbound ? 'Customer' : 'You'}</span>{!inbound && <SmsStatus status={message.status} />}{message.created_at && <span>{clock(message.created_at)}</span>}</div>
+    </div>
+  </div>
+}
+
+function SmsStatus({ status }: { status?: string }) {
+  const value = String(status || 'queued').toLowerCase()
+  if (['failed', 'undelivered', 'canceled'].includes(value)) return <span className="inline-flex items-center gap-1 text-red-200" title="Message was not delivered"><AlertCircle className="h-3 w-3" />Failed</span>
+  if (value === 'delivered') return <span className="inline-flex items-center gap-1 text-sky-200" title="Delivered to the recipient’s phone network"><CheckCheck className="h-3.5 w-3.5" />Delivered</span>
+  if (['sent', 'accepted'].includes(value)) return <span className="inline-flex items-center gap-1 text-white/80" title="Accepted by the SMS provider"><CheckCheck className="h-3.5 w-3.5" />Sent</span>
+  return <span className="inline-flex items-center gap-1 text-white/70" title="Waiting for the SMS provider"><Check className="h-3.5 w-3.5" />Sending</span>
+}
+
+/** The customer reply box sits directly in the chat composer area; the locked note box below is for teammates. */
+function SmsComposer({ phone, body, attachments, onBodyChange, onSend, onPhoneSave, onPickMedia, onRemoveMedia, loading, sending, uploading, error, canText, canWork }: { phone?: string; body: string; attachments: SmsAttachment[]; onBodyChange: (value: string) => void; onSend: () => void; onPhoneSave: (phone: string) => void; onPickMedia: (file: File) => void; onRemoveMedia: (url: string) => void; loading: boolean; sending: boolean; uploading: boolean; error: string; canText: boolean; canWork: boolean }) {
+  const disabled = !canText || sending
+  const hasSmsNumber = Boolean(phone && isPhoneNumber(phone))
+  const placeholder = canText ? 'Write a message…' : hasSmsNumber && !canWork ? 'Only the assigned owner can reply' : 'Save a mobile number to start messaging'
+  const [phoneDraft, setPhoneDraft] = useState(hasSmsNumber ? phone : '')
+  const [savingPhone, setSavingPhone] = useState(false)
+  const fileInput = useRef<HTMLInputElement>(null)
+  useEffect(() => { setPhoneDraft(hasSmsNumber ? phone : '') }, [hasSmsNumber, phone])
+  const savePhone = async () => {
+    if (!phoneDraft?.trim() || savingPhone || !canWork) return
+    setSavingPhone(true)
+    try { await onPhoneSave(phoneDraft.trim()) } finally { setSavingPhone(false) }
+  }
+  return <div className="mb-2.5">
+    {error ? <p className="mb-1.5 rounded-lg bg-[#F1EBFF] px-2.5 py-2 text-[11px] leading-4 text-[#5A2BE6]">{error}</p> : null}
+    {loading ? <p className="mb-1.5 px-1 text-[11px] text-slate-400">Loading conversation…</p> : null}
+    {!hasSmsNumber && canWork && <div className="mb-1.5 flex items-center gap-2 rounded-xl border border-[#E9DFFF] bg-white p-1.5"><input value={phoneDraft || ''} onChange={(event) => setPhoneDraft(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); savePhone() } }} placeholder="Mobile number, e.g. +61 4xx xxx xxx" className="h-8 min-h-0 flex-1 rounded-lg border-0 bg-transparent px-2 text-sm text-slate-800 outline-none placeholder:text-slate-400" /><button type="button" onClick={savePhone} disabled={!phoneDraft?.trim() || savingPhone} className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-[#F1EBFF] px-2.5 text-xs font-bold text-[#5A2BE6] transition hover:bg-[#E9DFFF] disabled:cursor-not-allowed disabled:opacity-40">{savingPhone ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}Save number</button></div>}
+    {attachments.length > 0 && <div className="mb-1.5 flex flex-wrap gap-1.5 px-1">{attachments.map((attachment) => { const displayUrl = localMediaUrl(attachment.url); return <div key={attachment.url} className="group relative h-14 w-20 overflow-hidden rounded-lg border border-[#D8C8FF] bg-[#F8F5FF]">{isImageMedia(attachment.url) ? <img src={displayUrl} alt={attachment.name} className="h-full w-full object-cover" /> : <span className="flex h-full items-center justify-center px-1 text-center text-[9px] font-bold text-slate-500">{attachment.name}</span>}<button type="button" onClick={() => onRemoveMedia(attachment.url)} aria-label={`Remove ${attachment.name}`} className="absolute right-0.5 top-0.5 hidden h-5 w-5 items-center justify-center rounded-full bg-slate-900/70 text-white group-hover:flex"><X className="h-3 w-3" /></button></div> })}</div>}
+    <div className="flex items-end gap-2 rounded-2xl border border-[#D8C8FF] bg-[#FCFBFF] py-1.5 pl-2 pr-1.5 transition focus-within:border-[#6C3BFF] focus-within:shadow-[0_0_0_3px_rgba(108,59,255,.12)]">
+      <span className="mb-1.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#F1EBFF] text-[#6C3BFF]" title={phone ? `Reply to ${callerLine(phone)}` : 'No phone number on file'}><MessageSquare className="h-3.5 w-3.5" /></span>
+      <textarea value={body} onChange={(event) => onBodyChange(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); onSend() } }} maxLength={1600} rows={1} placeholder={placeholder} disabled={disabled} className="block min-h-[38px] flex-1 resize-none rounded-none border-0 bg-transparent px-1 py-2 text-sm leading-5 text-slate-800 shadow-none outline-none placeholder:text-slate-400 focus:shadow-none disabled:cursor-not-allowed disabled:bg-transparent" />
+      <span className="mb-1 hidden text-[10px] tabular-nums text-slate-400 sm:block">{body.length}/1600</span>
+      <button type="button" onClick={() => fileInput.current?.click()} disabled={disabled || uploading || attachments.length >= 4} aria-label="Attach image or file" title="Attach image or file" className="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[#6C3BFF] transition hover:bg-[#F1EBFF] disabled:cursor-not-allowed disabled:opacity-40"><Paperclip className="h-4 w-4" /></button>
+      <input ref={fileInput} type="file" accept="image/*,audio/*,video/*,application/pdf" multiple className="hidden" disabled={disabled || uploading || attachments.length >= 4} onChange={(event) => { Array.from(event.target.files || []).slice(0, 4 - attachments.length).forEach(onPickMedia); event.currentTarget.value = '' }} />
+      <button type="button" onClick={onSend} disabled={disabled || (!body.trim() && !attachments.length)} aria-label="Send message" title="Send message" className="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#8B5CF6] to-[#6C3BFF] text-white shadow-[0_8px_18px_-10px_rgba(108,59,255,.9)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40">{sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}</button>
+    </div>
+    <div className="mt-1.5 flex items-center justify-between gap-3 px-1 text-[10.5px] text-slate-400"><span title="RelayDesk accepts up to 5 MB, but SMS/MMS carrier limits vary. Images are the most reliable media type.">{hasSmsNumber ? `${callerLine(phone!)} · Max upload 5 MB · Images work best · PDFs may fail by carrier` : canWork ? 'Add a mobile number to start messaging' : 'Only the assigned owner can add a number or reply'}</span><span className="hidden sm:inline">1:1 chat</span></div>
   </div>
 }
 
@@ -725,7 +855,7 @@ function ContactPanel({ detail, editable, wide, onWide, onStage, onClose, onSave
   const answered = detail.calls.filter((call) => !call.failed)
   const talk = answered.reduce((total, call) => total + (call.duration || 0), 0)
   const lastCall = detail.calls.reduce<string | undefined>((latest, call) => (!latest || (asDate(call.at)?.getTime() || 0) > (asDate(latest)?.getTime() || 0) ? call.at : latest), undefined)
-  const phone = isPhoneNumber(detail.phone) ? detail.phone : undefined
+  const phone = isPhoneNumber(profile.phone || detail.phone) ? (profile.phone || detail.phone) : undefined
   return <aside className="hidden min-h-0 flex-col overflow-hidden rounded-2xl border border-[#E9DFFF] bg-white shadow-[0_18px_40px_-34px_rgba(70,35,117,.55)] 2xl:flex">
     <div className="flex items-center justify-between border-b border-[#F1EBFF] px-4 py-2.5">
       <span className="truncate text-[14px] font-bold text-slate-900">Contact</span>
@@ -773,7 +903,7 @@ function ContactPanel({ detail, editable, wide, onWide, onStage, onClose, onSave
           </div>
           {profileOpen && editing && <ProfileForm detail={detail} onDone={(saved) => { setEditing(false); if (saved) onSaved() }} />}
           {profileOpen && !editing && <div className="divide-y divide-[#F4F0FF]">
-            {field(Phone, 'Phone', phone || callerLine(detail.phone), phone)}
+            {field(Phone, 'Phone', phone || callerLine(profile.phone || detail.phone), phone)}
             {field(Mail, 'Email', profile.email, profile.email)}
             {field(Building2, 'Company', profile.company)}
             {field(MapPin, 'Address', profile.address)}
@@ -803,7 +933,7 @@ function ContactPanel({ detail, editable, wide, onWide, onStage, onClose, onSave
 /** Click-to-edit contact details; saves to the caller's lead and customer records (PUT …/profile). */
 function ProfileForm({ detail, onDone }: { detail: Detail; onDone: (saved: boolean) => void }) {
   const profile = detail.profile || {}
-  const [form, setForm] = useState({ name: profile.name || detail.name || '', email: profile.email || '', company: profile.company || '', address: profile.address || '', tags: (profile.tags || []).join(', ') })
+  const [form, setForm] = useState({ name: profile.name || detail.name || '', phone: profile.phone || (isPhoneNumber(detail.phone) ? detail.phone : ''), email: profile.email || '', company: profile.company || '', address: profile.address || '', tags: (profile.tags || []).join(', ') })
   const [saving, setSaving] = useState(false)
   const save = async () => {
     setSaving(true)
@@ -815,7 +945,7 @@ function ProfileForm({ detail, onDone }: { detail: Detail; onDone: (saved: boole
   }
   const input = (key: keyof typeof form, label: string, placeholder = '') => <label className="block py-1.5"><span className="mb-1 block text-xs font-semibold text-slate-600">{label}</span><input value={form[key]} placeholder={placeholder} onChange={(event) => setForm({ ...form, [key]: event.target.value })} className="h-9 min-h-0 rounded-lg px-3 py-1 text-sm" /></label>
   return <div className="space-y-0.5 pb-2">
-    {input('name', 'Name')}{input('email', 'Primary Email', 'name@company.com')}{input('company', 'Company')}{input('address', 'Address')}{input('tags', 'Tags', 'comma, separated')}
+    {input('name', 'Name')}{input('phone', 'Mobile number', '+61 4xx xxx xxx')}{input('email', 'Primary Email', 'name@company.com')}{input('company', 'Company')}{input('address', 'Address')}{input('tags', 'Tags', 'comma, separated')}
     <div className="flex justify-end gap-2 pt-2"><button type="button" onClick={() => onDone(false)} className="h-9 rounded-lg border border-slate-200 px-3 text-sm font-semibold text-slate-600 hover:border-slate-300">Cancel</button><button type="button" disabled={saving} onClick={save} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#6C3BFF] px-4 text-sm font-semibold text-white hover:bg-[#5A2BE6] disabled:opacity-50">{saving && <Loader2 className="h-4 w-4 animate-spin" />}Save</button></div>
   </div>
 }

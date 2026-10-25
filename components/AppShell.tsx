@@ -64,7 +64,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   if (checking) return <div className="app-loading-state"><i /> Connecting to your workspace…</div>
   if (!user) return <AccessState title="Workspace unavailable" copy={authError || 'Please try again.'} action="Sign in again" href="/login" />
   const permission = requiredPermission(pathname || '/')
-  const allowed = !permission || user.permissions?.includes('*') || user.permissions?.includes(permission)
+  const permissions = ['owner', 'admin'].includes(String(user.role || '').toLowerCase()) ? ['*'] : (user.permissions || [])
+  const allowed = !permission || permissions.includes('*') || permissions.includes(permission)
   if (!allowed) return <AccessState title="Access restricted" copy="Your role does not have permission to open this page." action="Back to overview" href="/" />
 
   return <div className="app-shell"><Sidebar /><main className="app-main"><GlobalHeader user={user} /><div className="app-content">{children}</div></main></div>

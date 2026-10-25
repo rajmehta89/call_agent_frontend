@@ -11,6 +11,7 @@ import { ActionButton, API_BASE, DataState, StatusBadge, authFetch } from '@/com
 
 type Lead = { _id?: string; name?: string; phone?: string; email?: string; company?: string; notes?: string; status?: string; source?: string; last_call?: string; created_at?: string }
 type Message = { role?: string; type?: string; content?: string; timestamp?: string; time_sec?: number }
+type SmsMessage = { _id?: string; body?: string; to?: string; from?: string; status?: string; created_at?: string; direction?: string }
 type Call = { _id: string; messages?: { role?: string; text?: string; at?: string }[]; call_date?: string; duration?: number; status?: string; direction?: string; call_summary?: string; summary?: string; sentiment?: string; transcription?: Message[]; ai_responses?: Message[]; transcript_with_tool_calls?: Message[]; human_callback_requested?: boolean; transfer_requested?: boolean; recording_url?: string; public_log_url?: string }
 
 const statuses = ['new', 'called', 'contacted', 'qualified', 'hot', 'converted', 'lost', 'unqualified']
@@ -28,6 +29,9 @@ export default function LeadDetail() {
   const [error, setError] = useState('')
   const [updating, setUpdating] = useState(false)
   const [smsBody, setSmsBody] = useState('')
+  const [smsMessages, setSmsMessages] = useState<SmsMessage[]>([])
+  const [smsLoading, setSmsLoading] = useState(true)
+  const [smsError, setSmsError] = useState('')
   const [sendingSms, setSendingSms] = useState(false)
 
   const load = async () => {
@@ -47,6 +51,18 @@ export default function LeadDetail() {
   }
 
   useEffect(() => { load() }, [id])
+  const loadSms = async () => {
+    setSmsLoading(true); setSmsError('')
+    try {
+      const response = await authFetch(`${API_BASE}/api/leads/${id}/sms`)
+      const payload = await response.json()
+      if (!response.ok || !payload.success) throw new Error(payload.error || payload.detail?.error || 'Unable to load messages')
+      setSmsMessages(payload.data || [])
+    } catch (reason) {
+      setSmsError(reason instanceof Error ? reason.message : 'Unable to load messages')
+    } finally { setSmsLoading(false) }
+  }
+  useEffect(() => { loadSms() }, [id])
   // The caller's inbox conversation (none until they have called in).
   const [conversationLink, setConversationLink] = useState('')
   useEffect(() => { authFetch(`${API_BASE}/api/inbox/lead/${id}`).then(async (response) => { const payload = await response.json(); setConversationLink(response.ok ? payload.data?.link || '' : '') }).catch(() => setConversationLink('')) }, [id])
@@ -73,6 +89,7 @@ export default function LeadDetail() {
       const payload = await response.json()
       if (!response.ok || !payload.success) throw new Error(payload.error || payload.detail?.error || 'SMS could not be sent')
       setSmsBody('')
+      await loadSms()
       toast.success('SMS sent to this lead')
     } catch (reason) {
       toast.error(reason instanceof Error ? reason.message : 'SMS could not be sent')
@@ -92,18 +109,26 @@ export default function LeadDetail() {
           </section>
           <section className="surface-panel rounded-2xl p-5"><h2 className="font-semibold text-slate-900">Pipeline status</h2><p className="mt-1 text-sm text-slate-400">Update this after reviewing the conversation.</p><div className="mt-4 flex flex-wrap gap-2">{statuses.map((status) => <button key={status} type="button" disabled={updating} onClick={() => updateStatus(status)} className={`rounded-lg px-3 py-2 text-xs font-medium capitalize transition ${lead.status === status ? 'bg-[#6C3BFF] text-slate-950' : 'bg-white/[.05] text-slate-300 hover:bg-white/[.1]'} disabled:cursor-wait disabled:opacity-60`}>{status}</button>)}</div></section>
           <ActionButton primary icon={<PhoneCall className="h-4 w-4" />}>Start follow-up call</ActionButton>
-          <section className="surface-panel rounded-2xl p-5">
-            <div className="flex items-center gap-2 text-sm font-bold text-slate-900"><MessageSquare className="h-4 w-4 text-[#6C3BFF]" />Text this lead</div>
-            <p className="mt-1 text-xs leading-5 text-slate-500">Sent only to {lead.phone || 'the lead phone number'} from the configured Australian business sender.</p>
-            <form onSubmit={sendSms} className="mt-3 space-y-2">
-              <textarea value={smsBody} onChange={(event) => setSmsBody(event.target.value)} maxLength={1600} rows={4} placeholder="Write a follow-up message…" className="w-full resize-y rounded-xl border border-[#E9DFFF] bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#8B5CF6] focus:ring-2 focus:ring-[#E9DFFF]" />
-              <div className="flex items-center justify-between gap-2"><span className="text-[11px] text-slate-400">{smsBody.length}/1600 characters</span><button type="submit" disabled={!smsBody.trim() || sendingSms || !lead.phone} className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#6C3BFF] px-3.5 text-xs font-bold text-white transition hover:bg-[#5A2BE6] disabled:cursor-not-allowed disabled:opacity-50">{sendingSms ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}Send SMS</button></div>
-            </form>
-          </section>
         </aside>
 
         <main className="min-w-0 space-y-6">
           <section className="surface-panel rounded-2xl p-5 sm:p-6"><div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><h2 className="text-lg font-semibold text-slate-900">Conversation timeline</h2><p className="mt-1 text-sm text-slate-400">{calls.length} call{calls.length === 1 ? '' : 's'} · {messages.length} captured messages</p></div>{calls.some((call) => call.human_callback_requested || call.transfer_requested) && <div className="inline-flex items-center gap-2 rounded-lg bg-purple-400/10 px-3 py-2 text-sm font-medium text-purple-600"><ClipboardCheck className="h-4 w-4" />Human follow-up requested</div>}</div></section>
+          <section className="surface-panel overflow-hidden rounded-2xl">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
+              <div className="flex items-center gap-2"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#F1EBFF] text-[#6C3BFF]"><MessageSquare className="h-4 w-4" /></span><div><h2 className="text-sm font-bold text-slate-900">Lead messages</h2><p className="mt-0.5 text-xs text-slate-500">Send a direct SMS follow-up from this lead record.</p></div></div>
+              <span className="rounded-full bg-[#F1EBFF] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[.12em] text-[#5A2BE6]">SMS thread</span>
+            </div>
+            <div className="max-h-[300px] min-h-[156px] space-y-3 overflow-y-auto bg-[#FBF9FF] px-5 py-4" aria-live="polite">
+              {smsLoading ? <div className="flex min-h-[120px] items-center justify-center text-sm text-slate-500"><Loader2 className="mr-2 h-4 w-4 animate-spin text-[#6C3BFF]" />Loading messages…</div>
+                : smsError ? <div className="flex min-h-[120px] items-center justify-center text-center text-sm text-rose-600">{smsError}</div>
+                : smsMessages.length === 0 ? <div className="flex min-h-[120px] flex-col items-center justify-center text-center"><MessageSquare className="h-6 w-6 text-[#B9A5D8]" /><p className="mt-2 text-sm font-semibold text-slate-700">No messages yet</p><p className="mt-1 text-xs text-slate-500">Your first follow-up will appear here.</p></div>
+                : smsMessages.map((message) => <div key={message._id || `${message.created_at}-${message.body}`} className="flex justify-end"><div className="max-w-[86%] rounded-2xl rounded-br-md bg-[#6C3BFF] px-4 py-3 text-white shadow-[0_8px_24px_rgba(108,59,255,.16)]"><p className="whitespace-pre-wrap text-sm leading-5">{message.body}</p><div className="mt-2 flex items-center justify-end gap-2 text-[10px] text-white/75"><span>{message.status || 'queued'}</span><span>{message.created_at ? dateLabel(message.created_at) : ''}</span></div></div></div>)}
+            </div>
+            <form onSubmit={sendSms} className="border-t border-slate-200 bg-white p-4">
+              <div className="flex items-end gap-3"><textarea value={smsBody} onChange={(event) => setSmsBody(event.target.value)} maxLength={1600} rows={2} placeholder={lead.phone ? 'Write a follow-up message…' : 'Add a phone number before sending an SMS'} disabled={!lead.phone || sendingSms} className="min-h-[62px] flex-1 resize-y rounded-xl border border-[#D8C8FF] bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#8B5CF6] focus:ring-2 focus:ring-[#E9DFFF] disabled:cursor-not-allowed disabled:bg-slate-50" /><button type="submit" disabled={!smsBody.trim() || sendingSms || !lead.phone} className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl bg-[#6C3BFF] px-4 text-xs font-bold text-white transition hover:bg-[#5A2BE6] disabled:cursor-not-allowed disabled:opacity-50">{sendingSms ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}Send</button></div>
+              <div className="mt-2 flex items-center justify-between gap-3 text-[11px] text-slate-400"><span>Sent from the configured Australian business sender.</span><span>{smsBody.length}/1600</span></div>
+            </form>
+          </section>
           {calls.length === 0 ? <section className="surface-panel rounded-2xl p-10 text-center"><FileText className="mx-auto h-7 w-7 text-slate-500" /><h2 className="mt-3 font-semibold text-slate-900">No conversation yet</h2><p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-400">Calls, transcripts, and Retell analysis will appear automatically as soon as this lead contacts the business.</p></section> : calls.map((call) => <section key={call._id} className="surface-panel overflow-hidden rounded-2xl"><div className="flex flex-col gap-3 border-b border-white/10 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"><div><div className="flex items-center gap-2"><PhoneCall className="h-4 w-4 text-[#6C3BFF]" /><h2 className="font-semibold text-slate-900">{call.direction || 'Inbound'} call</h2><StatusBadge value={call.status || 'completed'} /></div><p className="mt-1 text-sm text-slate-400">{dateLabel(call.call_date)} · {durationLabel(call.duration)} · {call.sentiment || 'Neutral'} sentiment</p></div><Link href={`/voice/calls/${call._id}`} className="inline-flex items-center gap-1 text-sm font-medium text-[#6C3BFF] hover:underline">Full call detail <ArrowUpRight className="h-3.5 w-3.5" /></Link></div>
             <div className="px-5 py-4"><p className="text-sm leading-6 text-slate-600">{call.call_summary || call.summary || 'No post-call summary is available yet.'}</p><div className="mt-5 space-y-3">{callMessages(call).map((message, index) => { const caller = message.role === 'user' || message.type === 'user'; return <article key={`${call._id}-${index}`} className={`rounded-xl px-4 py-3 ${caller ? 'border border-[#E9DFFF] bg-white' : 'bg-[#F1EBFF]'}`}><div className="flex items-center justify-between gap-3 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500"><span className="inline-flex items-center gap-1.5">{caller ? <User className="h-3.5 w-3.5" /> : <Bot className="h-3.5 w-3.5" />}{caller ? 'Caller' : 'AI agent'}</span>{message.timestamp && <span>{new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}</div><p className="mt-2 text-sm leading-6 text-slate-100">{message.content}</p></article> })}</div></div></section>)}</main>
       </div>

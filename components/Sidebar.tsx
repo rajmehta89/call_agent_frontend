@@ -75,7 +75,7 @@ export default function Sidebar() {
   const [anchor, setAnchor] = useState<{ left: number; top?: number; bottom?: number }>({ left: 0 })
   const previousCounts = useRef<Record<string, number> | null>(null)
   const { installed, installAvailable, promptInstall } = usePWA()
-  const permissions = me.permissions || []
+  const permissions = ['owner', 'admin'].includes(String(me.role || '').toLowerCase()) ? ['*'] : (me.permissions || [])
   const allowed = (permission?: string) => !permission || permissions.includes('*') || permissions.includes(permission)
 
   useEffect(() => {

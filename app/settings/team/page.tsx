@@ -36,7 +36,8 @@ export default function TeamSettingsPage() {
     try {
       const [team, profile] = await Promise.all([api('/api/platform/team'), api('/api/auth/me')])
       setRows(team.data || []); setMe(profile.data?.id || '')
-      setCanManage((profile.data?.permissions || []).includes('*') || (profile.data?.permissions || []).includes('manage_team'))
+      const permissions = ['owner', 'admin'].includes(String(profile.data?.role || '').toLowerCase()) ? ['*'] : (profile.data?.permissions || [])
+      setCanManage(permissions.includes('*') || permissions.includes('manage_team'))
       log(`team loaded: ${team.data?.length || 0} rows`)
     } catch (err) { log('team load failed', err); setError(userFacingError(err)) } finally { setLoading(false) }
   }, [])

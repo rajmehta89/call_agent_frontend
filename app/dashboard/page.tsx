@@ -62,7 +62,7 @@ export default function DashboardPage() {
   }, [daysAgo])
   useEffect(() => { setShowAllCalls(false); load() }, [load])
   useEffect(() => {
-    api<any>('/api/auth/me').then((result) => { setName(titleCase((result.data?.name || '').split(' ')[0])); const permissions: string[] = result.data?.permissions || []; setIsAdmin(permissions.includes('*') || permissions.includes('assign_conversations')) }).catch(() => {})
+    api<any>('/api/auth/me').then((result) => { setName(titleCase((result.data?.name || '').split(' ')[0])); const permissions = ['owner', 'admin'].includes(String(result.data?.role || '').toLowerCase()) ? ['*'] : (result.data?.permissions || []); setIsAdmin(permissions.includes('*') || permissions.includes('assign_conversations')) }).catch(() => {})
   }, [])
   useEffect(() => {
     // Live: calls, assignments and status changes arrive over the realtime stream; refresh at most every 2s, plus a 30s backup.

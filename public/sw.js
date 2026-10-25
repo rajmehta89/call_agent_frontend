@@ -1,4 +1,6 @@
-const OFFLINE_CACHE = 'relaydesk-offline-v2'
+// Bump this whenever app bundles change in a way that must invalidate an installed PWA.
+// Older versions cached the pre-permissions-fix Call forwarding chunk.
+const OFFLINE_CACHE = 'relaydesk-offline-v3'
 const PRECACHE_URLS = [
   '/offline.html',
   '/manifest.webmanifest',

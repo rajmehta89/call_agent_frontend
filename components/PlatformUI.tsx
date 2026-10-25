@@ -12,6 +12,7 @@ const ROLE_LABELS: Record<string, string> = { owner: 'Owner', admin: 'Admin', ag
 export const titleCase = (value: string) => value.replace(/\b\w/g, (letter) => letter.toUpperCase())
 
 export const roleLabel = (role?: string) => ROLE_LABELS[String(role || 'agent').toLowerCase()] || 'Team member'
+/** Built-in owner/admin roles always have full access, even while an older API is refreshing permissions. */
 
 type ApiError = Error & { status?: number }
 

@@ -30,7 +30,7 @@ export default function CallForwardingPage() {
     Promise.all([api<any>('/api/call-forwarding'), api<any>('/api/auth/me')]).then(([result, me]) => {
       const data: Settings = result.data
       setSaved(data); setForm({ ...data, agents: data.agents.length ? data.agents : [blankAgent()] })
-      const permissions: string[] = me.data?.permissions || []
+      const permissions = ['owner', 'admin'].includes(String(me.data?.role || '').toLowerCase()) ? ['*'] : (me.data?.permissions || [])
       setCanEdit(permissions.includes('*') || permissions.includes('manage_team'))
     }).catch((err) => setError(userFacingError(err)))
   }

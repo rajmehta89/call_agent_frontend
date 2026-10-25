@@ -40,7 +40,7 @@ export default function VoiceOverview() {
 
   useEffect(() => {
     load()
-    api<any>('/api/auth/me').then((result) => { const permissions: string[] = result.data?.permissions || []; setCanEditAgent(permissions.includes('*') || permissions.includes('manage_agents')) }).catch(() => {})
+    api<any>('/api/auth/me').then((result) => { const permissions = ['owner', 'admin'].includes(String(result.data?.role || '').toLowerCase()) ? ['*'] : (result.data?.permissions || []); setCanEditAgent(permissions.includes('*') || permissions.includes('manage_agents')) }).catch(() => {})
     const onChange = (event: Event) => { if ((event as CustomEvent<{ kind?: string }>).detail?.kind === 'call') load(true) }  // new or finished calls
     window.addEventListener('inbox:refresh', onChange)
     return () => window.removeEventListener('inbox:refresh', onChange)

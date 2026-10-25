@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Headphones, Mic, PhoneOff, PhoneCall, ShieldCheck } from 'lucide-react'
+import { Headphones, Mail, Mic, Phone, PhoneCall, PhoneOff, ShieldCheck, UserRound } from 'lucide-react'
 import { PageHeader } from '@/components/OmniPage'
 import { ActionButton, api, StatusBadge } from '@/components/PlatformUI'
 
@@ -12,6 +12,9 @@ export default function BrowserVoiceTestPage() {
   const callRef = useRef<any>(null)
   const [state, setState] = useState<CallState>('idle')
   const [message, setMessage] = useState('Ready to start a browser-only test call.')
+  const [callerName, setCallerName] = useState('Raj Mehta')
+  const [callerEmail, setCallerEmail] = useState('rajm267747@gmail.com')
+  const [callerPhone, setCallerPhone] = useState('+918866631491')
 
   const endCall = () => {
     callRef.current?.disconnect()
@@ -24,11 +27,20 @@ export default function BrowserVoiceTestPage() {
 
   const startCall = async () => {
     if (state === 'connecting' || state === 'connected') return
+    const name = callerName.trim()
+    const email = callerEmail.trim()
+    const phone = callerPhone.trim()
+    if (!name || !phone) {
+      setState('error')
+      setMessage('Add the caller name and mobile number before starting the test.')
+      return
+    }
     setState('connecting')
-    setMessage('Preparing your microphone and connecting securely to Twilio...')
+    setMessage('Saving caller details and connecting securely to Twilio...')
 
     try {
-      const fetchToken = async () => (await api<{ success: boolean; data: { token: string } }>('/api/twilio/browser-token')).data.token
+      const details = new URLSearchParams({ caller_name: name, caller_email: email, caller_phone: phone })
+      const fetchToken = async () => (await api<{ success: boolean; data: { token: string } }>(`/api/twilio/browser-token?${details.toString()}`)).data.token
       const { Device } = await import('@twilio/voice-sdk')
       // Ask for a fresh token a minute before expiry so long test calls are not cut off.
       const device = new Device(await fetchToken(), { logLevel: 1, tokenRefreshMs: 60000 })
@@ -48,7 +60,7 @@ export default function BrowserVoiceTestPage() {
       })
 
       await device.register()
-      const call = await device.connect({ params: { source: 'browser_test' } })
+      const call = await device.connect({ params: { source: 'browser_test', caller_name: name, caller_email: email, caller_phone: phone } })
       callRef.current = call
       setState('connected')
       setMessage('Connected. You should now hear the AI greeting through your speakers.')
@@ -64,7 +76,7 @@ export default function BrowserVoiceTestPage() {
 
   const active = state === 'connecting' || state === 'connected'
   return <div className="space-y-6">
-    <PageHeader title="Browser voice test" description="Talk to the inbound AI agent using this browser, without calling your business number from a phone." />
+    <PageHeader title="Browser voice test" description="Start a browser call and save the caller details to the matching Inbox contact." />
     <div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-[minmax(0,1fr)_380px] xl:items-start">
     <section className="surface-panel rounded-[24px] p-6 sm:p-8">
       <div className="flex flex-wrap items-start justify-between gap-5">
@@ -75,6 +87,16 @@ export default function BrowserVoiceTestPage() {
       <div className="mt-7 rounded-2xl border border-slate-200 bg-slate-50 p-5">
         <div className="flex items-center gap-2 text-sm font-semibold text-slate-800"><Mic className="h-4 w-4 text-[#5A2BE6]" />Call status</div>
         <p className="mt-2 text-sm leading-6 text-slate-600">{message}</p>
+      </div>
+
+      <div className="mt-6 rounded-2xl border border-[#E9DFFF] bg-[#FCFAFF] p-5">
+        <div className="flex items-center gap-2 text-sm font-semibold text-slate-900"><UserRound className="h-4 w-4 text-[#5A2BE6]" />Caller details</div>
+        <p className="mt-1 text-xs leading-5 text-slate-500">Add the caller’s details before starting. They are saved to the Inbox contact and used for SMS follow-up.</p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <label className="block"><span className="mb-1 block text-xs font-semibold text-slate-600">Caller name</span><div className="relative"><UserRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input value={callerName} onChange={(event) => setCallerName(event.target.value)} disabled={active} placeholder="e.g. Raj Mehta" className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm outline-none transition focus:border-[#6C3BFF] disabled:bg-slate-100" /></div></label>
+          <label className="block"><span className="mb-1 block text-xs font-semibold text-slate-600">Email address <span className="font-normal text-slate-400">(optional)</span></span><div className="relative"><Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input type="email" value={callerEmail} onChange={(event) => setCallerEmail(event.target.value)} disabled={active} placeholder="e.g. name@example.com" className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm outline-none transition focus:border-[#6C3BFF] disabled:bg-slate-100" /></div></label>
+          <label className="block sm:col-span-2"><span className="mb-1 block text-xs font-semibold text-slate-600">Mobile number</span><div className="relative"><Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input type="tel" value={callerPhone} onChange={(event) => setCallerPhone(event.target.value)} disabled={active} placeholder="e.g. +91 88666 31491" className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm outline-none transition focus:border-[#6C3BFF] disabled:bg-slate-100" /></div><span className="mt-1 block text-[11px] text-slate-400">This number receives SMS replies and follow-up messages.</span></label>
+        </div>
       </div>
 
       <div className="mt-6 flex flex-wrap gap-3">
