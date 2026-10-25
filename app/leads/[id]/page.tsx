@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import toast from 'react-hot-toast'
-import { ArrowUpRight, Bot, ClipboardCheck, Clock3, FileText, PhoneCall, User } from 'lucide-react'
+import { ArrowUpRight, Bot, ClipboardCheck, Clock3, FileText, Loader2, MessageSquare, PhoneCall, Send, User } from 'lucide-react'
 import { PageHeader } from '@/components/OmniPage'
 import { orderedTranscript } from '@/components/transcript'
 import { ActionButton, API_BASE, DataState, StatusBadge, authFetch } from '@/components/PlatformUI'
@@ -49,6 +49,8 @@ export default function LeadDetail() {
   const [conversationLink, setConversationLink] = useState('')
   useEffect(() => { authFetch(`${API_BASE}/api/inbox/lead/${id}`).then(async (response) => { const payload = await response.json(); setConversationLink(response.ok ? payload.data?.link || '' : '') }).catch(() => setConversationLink('')) }, [id])
   const messages = useMemo(() => calls.flatMap((call) => callMessages(call).map((message, index) => ({ ...message, call, key: `${call._id}-${index}` }))), [calls])
+  const [smsBody, setSmsBody] = useState('')
+  const [sendingSms, setSendingSms] = useState(false)
 
   const updateStatus = async (status: string) => {
     if (status === lead.status || updating) return
@@ -60,6 +62,19 @@ export default function LeadDetail() {
       setLead(payload.data)
       toast.success(`Lead moved to ${status}`)
     } catch (reason) { toast.error(reason instanceof Error ? reason.message : 'Status update failed') } finally { setUpdating(false) }
+  }
+
+  const sendSms = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!smsBody.trim() || sendingSms) return
+    setSendingSms(true)
+    try {
+      const response = await authFetch(`${API_BASE}/api/leads/${id}/sms`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ body: smsBody.trim() }) })
+      const payload = await response.json()
+      if (!response.ok || !payload.success) throw new Error(payload.error || payload.detail?.error || 'SMS could not be sent')
+      setSmsBody('')
+      toast.success('SMS sent to this lead')
+    } catch (reason) { toast.error(reason instanceof Error ? reason.message : 'SMS could not be sent') } finally { setSendingSms(false) }
   }
 
   return <div className="space-y-7">
@@ -75,6 +90,14 @@ export default function LeadDetail() {
           </section>
           <section className="surface-panel rounded-2xl p-5"><h2 className="font-semibold text-slate-900">Pipeline status</h2><p className="mt-1 text-sm text-slate-400">Update this after reviewing the conversation.</p><div className="mt-4 flex flex-wrap gap-2">{statuses.map((status) => <button key={status} type="button" disabled={updating} onClick={() => updateStatus(status)} className={`rounded-lg px-3 py-2 text-xs font-medium capitalize transition ${lead.status === status ? 'bg-[#6C3BFF] text-slate-950' : 'bg-white/[.05] text-slate-300 hover:bg-white/[.1]'} disabled:cursor-wait disabled:opacity-60`}>{status}</button>)}</div></section>
           <ActionButton primary icon={<PhoneCall className="h-4 w-4" />}>Start follow-up call</ActionButton>
+          <section className="surface-panel rounded-2xl p-5">
+            <div className="flex items-center gap-2 text-sm font-bold text-slate-900"><MessageSquare className="h-4 w-4 text-[#6C3BFF]" />Text this lead</div>
+            <p className="mt-1 text-xs leading-5 text-slate-500">Sent only to {lead.phone || 'the lead phone number'} from the configured business SMS number.</p>
+            <form onSubmit={sendSms} className="mt-3 space-y-2">
+              <textarea value={smsBody} onChange={(event) => setSmsBody(event.target.value)} maxLength={1600} rows={4} placeholder="Write a follow-up message…" className="w-full resize-y rounded-xl border border-[#E9DFFF] bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#8B5CF6] focus:ring-2 focus:ring-[#E9DFFF]" />
+              <div className="flex items-center justify-between gap-2"><span className="text-[11px] text-slate-400">{smsBody.length}/1600 characters</span><button type="submit" disabled={!smsBody.trim() || sendingSms || !lead.phone} className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#6C3BFF] px-3.5 text-xs font-bold text-white transition hover:bg-[#5A2BE6] disabled:cursor-not-allowed disabled:opacity-50">{sendingSms ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}Send SMS</button></div>
+            </form>
+          </section>
         </aside>
 
         <main className="min-w-0 space-y-6">
