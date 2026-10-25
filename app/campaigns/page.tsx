@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowLeft, ArrowRight, Check, ExternalLink, MailCheck, Save, ShieldCheck, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, CheckCheck, ExternalLink, MailCheck, Save, Send, ShieldCheck, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { PageHeader } from '@/components/OmniPage'
 import { api, userFacingError } from '@/components/PlatformUI'
@@ -46,6 +46,8 @@ export default function CampaignsPage() {
   const [body, setBody] = useState('')
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const [selectedDraftIds, setSelectedDraftIds] = useState<Set<string>>(new Set())
   const [error, setError] = useState('')
   const [prospects, setProspects] = useState<Prospect[]>([])
   const [prospectTotal, setProspectTotal] = useState(0)
@@ -88,6 +90,7 @@ export default function CampaignsPage() {
       const pending = outbox.data.filter((draft) => draft.status === 'awaiting_owner_review' || (draft.status === 'pending_approval' && draft.requires_explicit_approval))
       pending.sort((a, b) => (a.lead_id || a.company_name).localeCompare(b.lead_id || b.company_name))
       setDrafts(pending)
+      setSelectedDraftIds((current) => new Set(Array.from(current).filter((id) => pending.some((item) => item._id === id))))
       setSentDrafts(outbox.data.filter((item) => item.status === 'sent').sort((a, b) => (b.sent_at || '').localeCompare(a.sent_at || '')))
       setQueuedDrafts(outbox.data.filter((item) => item.status === 'approved' || item.status === 'scheduled'))
       setSummary(overview.data)
@@ -150,6 +153,34 @@ export default function CampaignsPage() {
     } catch (cause) { toast.error(userFacingError(cause)) } finally { setBusy(false) }
   }
 
+  function toggleDraft(id: string) {
+    setSelectedDraftIds((current) => {
+      const next = new Set(current)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function toggleAllDrafts() {
+    setSelectedDraftIds((current) => current.size === drafts.length ? new Set() : new Set(drafts.map((item) => item._id)))
+  }
+
+  async function bulkSend() {
+    if (!selectedDraftIds.size || !senderVerified || changed || bulkBusy) return
+    if (!window.confirm(`Approve and send ${selectedDraftIds.size} reviewed email${selectedDraftIds.size === 1 ? '' : 's'} now?`)) return
+    setBulkBusy(true)
+    try {
+      const result = await api<{ data: { sent: number; queued: number; failed: number } }>('/api/platform/email-outbox/bulk-decision', {
+        method: 'PUT', body: JSON.stringify({ value: { decision: 'approve', draft_ids: Array.from(selectedDraftIds) } }),
+      })
+      const { sent, queued, failed } = result.data
+      toast.success(failed ? `${sent} sent, ${queued} queued, ${failed} failed` : queued ? `${sent} sent and ${queued} queued` : `${sent} email${sent === 1 ? '' : 's'} sent`)
+      setSelectedDraftIds(new Set())
+      await load()
+    } catch (cause) { toast.error(userFacingError(cause)) } finally { setBulkBusy(false) }
+  }
+
   async function prepareDraft() {
     if (!selected || !verifiedEmail.trim() || !sourceUrl.trim()) return
     setBusy(true)
@@ -192,7 +223,7 @@ export default function CampaignsPage() {
   const safeHistoryPage = Math.min(historyPage, historyPageCount - 1)
   const visibleSent = matchingSent.slice(safeHistoryPage * 25, (safeHistoryPage + 1) * 25)
   return <div className="mx-auto max-w-6xl space-y-5 pb-12">
-    <PageHeader title="Email review" description="Read each Dubai outreach email, make any edits, then approve and send it one at a time." icon={MailCheck} />
+    <PageHeader title="Email review" description="Review Dubai outreach emails, then approve and send one or many selected drafts." icon={MailCheck} />
 
     <div className="grid gap-3 sm:grid-cols-3">
       <div className="rounded-2xl border border-[#E9DFFF] bg-white p-4"><p className="text-xs font-semibold text-slate-500">Ready for your review</p><p className="mt-1 text-2xl font-bold text-[#32136B]">{summary?.pending_approval ?? '—'}</p></div>
@@ -214,6 +245,20 @@ export default function CampaignsPage() {
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E9DFFF] bg-[#F8F5FF] px-5 py-4">
           <div><p className="text-xs font-semibold text-[#6C3BFF]">Email {index + 1} of {drafts.length} awaiting approval</p><h2 className="mt-1 text-lg font-bold text-[#32136B]">{draft.company_name}</h2></div>
           <div className="flex items-center gap-2"><button type="button" aria-label="Previous email" disabled={index === 0 || busy || changed} onClick={() => setIndex(index - 1)} className="rounded-lg border border-[#D8C8FF] p-2 text-[#32136B] hover:bg-white disabled:opacity-40"><ArrowLeft className="h-4 w-4" /></button><button type="button" aria-label="Next email" disabled={index >= drafts.length - 1 || busy || changed} onClick={() => setIndex(index + 1)} className="rounded-lg border border-[#D8C8FF] p-2 text-[#32136B] hover:bg-white disabled:opacity-40"><ArrowRight className="h-4 w-4" /></button></div>
+        </div>
+        <div className="border-b border-[#E9DFFF] bg-white px-5 py-4 sm:px-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <label className="inline-flex items-center gap-2 text-sm font-semibold text-[#32136B]"><input type="checkbox" checked={drafts.length > 0 && selectedDraftIds.size === drafts.length} onChange={toggleAllDrafts} className="h-4 w-4 rounded border-[#BBA6F5] text-[#6C3BFF] focus:ring-[#6C3BFF]" />Select all awaiting review</label>
+            <div className="flex flex-wrap items-center gap-2"><span className="text-xs text-slate-500">{selectedDraftIds.size} selected</span><button type="button" disabled={!selectedDraftIds.size || !senderVerified || changed || bulkBusy} onClick={bulkSend} className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#6C3BFF] px-3 text-xs font-semibold text-white hover:bg-[#5A2BE6] disabled:cursor-not-allowed disabled:opacity-40"><Send className="h-3.5 w-3.5" />{bulkBusy ? 'Sending selected…' : 'Approve selected & send'}</button></div>
+          </div>
+          <p className="mt-2 text-xs leading-5 text-slate-600">Open each draft with the arrows, review or save edits, then select the drafts you want to send. Sending still follows the campaign rate limit and delivery window.</p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {drafts.map((item, draftIndex) => <div key={item._id} className={`flex items-center gap-3 rounded-xl border px-3 py-2 ${item._id === draft._id ? 'border-[#A98BFF] bg-[#F8F5FF]' : 'border-[#E9DFFF] bg-white'}`}>
+              <input type="checkbox" aria-label={`Select ${item.company_name}`} checked={selectedDraftIds.has(item._id)} onChange={() => toggleDraft(item._id)} className="h-4 w-4 shrink-0 rounded border-[#BBA6F5] text-[#6C3BFF] focus:ring-[#6C3BFF]" />
+              <button type="button" onClick={() => setIndex(draftIndex)} className="min-w-0 flex-1 text-left"><span className="block truncate text-sm font-semibold text-slate-900">{item.company_name}</span><span className="block truncate text-xs text-slate-600">{item.recipient_email}</span></button>
+            </div>)}
+          </div>
+          {!senderVerified && <p className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-amber-800"><CheckCheck className="h-3.5 w-3.5" />Verify the sender mailbox above before sending selected emails.</p>}
         </div>
         <div className="space-y-5 p-5 sm:p-6">
           <div className="grid gap-3 text-sm sm:grid-cols-2"><div><span className="font-semibold text-slate-500">To</span><p className="mt-1 break-all font-medium text-slate-900">{draft.recipient_email}</p><span className="mt-2 block font-semibold text-slate-500">From</span><p className="mt-1 break-all font-medium text-slate-900">{sender?.address || 'raj@buildwithraj.com'}</p></div><div><span className="font-semibold text-slate-500">Address source</span><p className="mt-1">{source ? <a href={source} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 break-all font-medium text-[#5A2BE6] underline underline-offset-2">Official contact page <ExternalLink className="h-3.5 w-3.5 shrink-0" /></a> : <span className="text-slate-600">Source unavailable</span>}</p></div></div>
