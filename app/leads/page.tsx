@@ -484,7 +484,7 @@ export default function LeadsPage() {
 
         {/* Add Lead Modal */}
         {showAddForm && (
-            <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[rgba(50,19,107,.28)] p-4 backdrop-blur-sm sm:items-center sm:p-6">
+            <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[rgba(50,19,107,.28)] p-4 sm:items-center sm:p-6">
               <div className="my-auto w-full max-w-2xl overflow-hidden rounded-2xl border border-[#E9DFFF] bg-white shadow-[0_24px_70px_-28px_rgba(50,19,107,.45)]">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-lg font-semibold text-slate-900">Add New Lead</h3>
@@ -590,7 +590,7 @@ export default function LeadsPage() {
 
         {/* Edit Lead Modal */}
         {editingLead && (
-            <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/30 p-4 backdrop-blur-sm sm:items-center sm:p-6">
+            <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/30 p-4 sm:items-center sm:p-6">
               <div role="dialog" aria-modal="true" aria-labelledby="edit-lead-title" className="my-auto flex max-h-[calc(100vh-2rem)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-[#E9DFFF] bg-white shadow-[0_24px_70px_-28px_rgba(50,19,107,.45)] sm:max-h-[calc(100vh-3rem)]">
                 <div className="flex items-start justify-between gap-4 border-b border-[#F1EBFF] px-5 py-4 sm:px-6">
                   <div><h3 id="edit-lead-title" className="text-lg font-bold tracking-tight text-slate-900">Edit lead</h3><p className="mt-1 text-sm text-slate-500">Update contact details, pipeline status, and call language.</p></div>
