@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Headphones, Mail, Mic, Phone, PhoneCall, PhoneOff, ShieldCheck, UserRound } from 'lucide-react'
 import { PageHeader } from '@/components/OmniPage'
 import { ActionButton, api, StatusBadge } from '@/components/PlatformUI'
+import { LEAD_LANGUAGES, type LeadLanguage } from '@/components/lead-language'
 
 type CallState = 'idle' | 'connecting' | 'connected' | 'error'
 
@@ -15,6 +16,7 @@ export default function BrowserVoiceTestPage() {
   const [callerName, setCallerName] = useState('Raj Mehta')
   const [callerEmail, setCallerEmail] = useState('rajm267747@gmail.com')
   const [callerPhone, setCallerPhone] = useState('+918866631491')
+  const [callerLanguage, setCallerLanguage] = useState<LeadLanguage>('en')
 
   const endCall = () => {
     callRef.current?.disconnect()
@@ -39,7 +41,7 @@ export default function BrowserVoiceTestPage() {
     setMessage('Saving caller details and connecting securely to Twilio...')
 
     try {
-      const details = new URLSearchParams({ caller_name: name, caller_email: email, caller_phone: phone })
+      const details = new URLSearchParams({ caller_name: name, caller_email: email, caller_phone: phone, caller_language: callerLanguage })
       const fetchToken = async () => (await api<{ success: boolean; data: { token: string } }>(`/api/twilio/browser-token?${details.toString()}`)).data.token
       const { Device } = await import('@twilio/voice-sdk')
       // Ask for a fresh token a minute before expiry so long test calls are not cut off.
@@ -60,7 +62,7 @@ export default function BrowserVoiceTestPage() {
       })
 
       await device.register()
-      const call = await device.connect({ params: { source: 'browser_test', caller_name: name, caller_email: email, caller_phone: phone } })
+      const call = await device.connect({ params: { source: 'browser_test', caller_name: name, caller_email: email, caller_phone: phone, caller_language: callerLanguage } })
       callRef.current = call
       setState('connected')
       setMessage('Connected. You should now hear the AI greeting through your speakers.')
@@ -96,6 +98,7 @@ export default function BrowserVoiceTestPage() {
           <label className="block"><span className="mb-1 block text-xs font-semibold text-slate-600">Caller name</span><div className="relative"><UserRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input value={callerName} onChange={(event) => setCallerName(event.target.value)} disabled={active} placeholder="e.g. Raj Mehta" className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm outline-none transition focus:border-[#6C3BFF] disabled:bg-slate-100" /></div></label>
           <label className="block"><span className="mb-1 block text-xs font-semibold text-slate-600">Email address <span className="font-normal text-slate-400">(optional)</span></span><div className="relative"><Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input type="email" value={callerEmail} onChange={(event) => setCallerEmail(event.target.value)} disabled={active} placeholder="e.g. name@example.com" className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm outline-none transition focus:border-[#6C3BFF] disabled:bg-slate-100" /></div></label>
           <label className="block sm:col-span-2"><span className="mb-1 block text-xs font-semibold text-slate-600">Mobile number</span><div className="relative"><Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input type="tel" value={callerPhone} onChange={(event) => setCallerPhone(event.target.value)} disabled={active} placeholder="e.g. +91 88666 31491" className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm outline-none transition focus:border-[#6C3BFF] disabled:bg-slate-100" /></div><span className="mt-1 block text-[11px] text-slate-400">This number receives SMS replies and follow-up messages.</span></label>
+          <label className="block sm:col-span-2"><span className="mb-1 block text-xs font-semibold text-slate-600">Call language</span><select value={callerLanguage} onChange={(event) => setCallerLanguage(event.target.value as LeadLanguage)} disabled={active} className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-[#6C3BFF] disabled:bg-slate-100">{LEAD_LANGUAGES.map((language) => <option key={language.code} value={language.code}>{language.label} · {language.nativeLabel}</option>)}</select><span className="mt-1 block text-[11px] text-slate-400">Saved to this lead and used by the AI voice session.</span></label>
         </div>
       </div>
 

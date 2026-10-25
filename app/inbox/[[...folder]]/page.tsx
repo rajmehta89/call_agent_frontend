@@ -9,6 +9,7 @@ import { API_BASE, api, roleLabel, userFacingError } from '../../../components/P
 import { RecordingAudio } from '../../../components/RecordingAudio'
 import { STAGES, stageInfo } from '../../../components/stages'
 import { ANY_TIME, DayRangeMenu, rangeLabel, rangeQuery, type DayRange } from '../../../components/day-range'
+import { LEAD_LANGUAGES, leadLanguageLabel, type LeadLanguage } from '../../../components/lead-language'
 
 type Folder = 'all' | 'unassigned' | 'mine' | 'assigned' | 'mentioned' | 'failed' | 'channel'
 type Member = { id: string; name: string; email: string; role: string; assignable: boolean }
@@ -20,7 +21,7 @@ type SmsAttachment = { url: string; name: string; content_type?: string }
 type SmsMessage = { _id?: string; body?: string; to?: string; from?: string; status?: string; created_at?: string; direction?: 'inbound' | 'outbound'; media_urls?: string[]; media_names?: string[]; media_attachments?: SmsAttachment[] }
 type TeamMessage = { _id: string; author_id: string; author_name: string; text: string; mentions: string[]; mention_names?: string[]; conversation_id?: string; created_at: string; edited_at?: string; read_by?: string[] }
 type ThreadEvent = { type: string; text: string; by_name?: string; at: string; to?: string; to_label?: string; reason?: string }
-type Profile = { name?: string; phone?: string; email?: string; company?: string; address?: string; tags?: string[]; source?: string; lead_status?: string; created_at?: string; notes?: string; lead_id?: string }
+type Profile = { name?: string; phone?: string; email?: string; company?: string; address?: string; tags?: string[]; source?: string; lead_status?: string; created_at?: string; notes?: string; lead_id?: string; preferred_language?: LeadLanguage }
 type Detail = Conversation & { calls: CallEntry[]; discussion: TeamMessage[]; events?: ThreadEvent[]; profile?: Profile }
 type ListFilter = 'all' | 'live' | 'assigned' | 'unassigned' | 'missed' | 'new_today'
 
@@ -904,6 +905,7 @@ function ContactPanel({ detail, editable, wide, onWide, onStage, onClose, onSave
           {profileOpen && editing && <ProfileForm detail={detail} onDone={(saved) => { setEditing(false); if (saved) onSaved() }} />}
           {profileOpen && !editing && <div className="divide-y divide-[#F4F0FF]">
             {field(Phone, 'Phone', phone || callerLine(profile.phone || detail.phone), phone)}
+            {field(Globe, 'Call language', `${leadLanguageLabel(profile.preferred_language)} · ${LEAD_LANGUAGES.find((language) => language.code === (profile.preferred_language || 'en'))?.nativeLabel || 'English'}`)}
             {field(Mail, 'Email', profile.email, profile.email)}
             {field(Building2, 'Company', profile.company)}
             {field(MapPin, 'Address', profile.address)}
@@ -933,7 +935,7 @@ function ContactPanel({ detail, editable, wide, onWide, onStage, onClose, onSave
 /** Click-to-edit contact details; saves to the caller's lead and customer records (PUT …/profile). */
 function ProfileForm({ detail, onDone }: { detail: Detail; onDone: (saved: boolean) => void }) {
   const profile = detail.profile || {}
-  const [form, setForm] = useState({ name: profile.name || detail.name || '', phone: profile.phone || (isPhoneNumber(detail.phone) ? detail.phone : ''), email: profile.email || '', company: profile.company || '', address: profile.address || '', tags: (profile.tags || []).join(', ') })
+  const [form, setForm] = useState({ name: profile.name || detail.name || '', phone: profile.phone || (isPhoneNumber(detail.phone) ? detail.phone : ''), email: profile.email || '', company: profile.company || '', address: profile.address || '', tags: (profile.tags || []).join(', '), preferred_language: (profile.preferred_language || 'en') as LeadLanguage })
   const [saving, setSaving] = useState(false)
   const save = async () => {
     setSaving(true)
@@ -945,7 +947,9 @@ function ProfileForm({ detail, onDone }: { detail: Detail; onDone: (saved: boole
   }
   const input = (key: keyof typeof form, label: string, placeholder = '') => <label className="block py-1.5"><span className="mb-1 block text-xs font-semibold text-slate-600">{label}</span><input value={form[key]} placeholder={placeholder} onChange={(event) => setForm({ ...form, [key]: event.target.value })} className="h-9 min-h-0 rounded-lg px-3 py-1 text-sm" /></label>
   return <div className="space-y-0.5 pb-2">
-    {input('name', 'Name')}{input('phone', 'Mobile number', '+61 4xx xxx xxx')}{input('email', 'Primary Email', 'name@company.com')}{input('company', 'Company')}{input('address', 'Address')}{input('tags', 'Tags', 'comma, separated')}
+    {input('name', 'Name')}{input('phone', 'Mobile number', '+61 4xx xxx xxx')}{input('email', 'Primary Email', 'name@company.com')}{input('company', 'Company')}{input('address', 'Address')}
+    <label className="block py-1.5"><span className="mb-1 block text-xs font-semibold text-slate-600">Call language</span><select value={form.preferred_language} onChange={(event) => setForm({ ...form, preferred_language: event.target.value as LeadLanguage })} className="h-9 min-h-0 w-full rounded-lg px-3 py-1 text-sm">{LEAD_LANGUAGES.map((language) => <option key={language.code} value={language.code}>{language.label} · {language.nativeLabel}</option>)}</select><span className="mt-1 block text-[11px] text-slate-400">Controls the greeting, transcription, and AI replies for this lead.</span></label>
+    {input('tags', 'Tags', 'comma, separated')}
     <div className="flex justify-end gap-2 pt-2"><button type="button" onClick={() => onDone(false)} className="h-9 rounded-lg border border-slate-200 px-3 text-sm font-semibold text-slate-600 hover:border-slate-300">Cancel</button><button type="button" disabled={saving} onClick={save} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#6C3BFF] px-4 text-sm font-semibold text-white hover:bg-[#5A2BE6] disabled:opacity-50">{saving && <Loader2 className="h-4 w-4 animate-spin" />}Save</button></div>
   </div>
 }

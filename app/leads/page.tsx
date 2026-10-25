@@ -14,6 +14,7 @@ import { authFetch, titleCase } from '@/components/PlatformUI'
 import { PageHeader } from '@/components/OmniPage'
 import { Stat } from '@/components/premium'
 import { ANY_TIME, DayRangeMenu, inRange, type DayRange } from '@/components/day-range'
+import { LEAD_LANGUAGES, leadLanguageLabel, type LeadLanguage } from '@/components/lead-language'
 
 interface Lead {
   id: string
@@ -23,6 +24,7 @@ interface Lead {
   email: string
   company: string
   notes: string
+  preferred_language?: LeadLanguage
   status: 'new' | 'qualified' | 'hot' | 'converted' | 'lost' | 'unqualified' | 'called' | 'contacted'
   call_attempts: number
   last_call: string | null
@@ -54,6 +56,7 @@ function LeadBoard({ leads, ownerName, onMove }: { leads: Lead[]; ownerName: (id
     <div className="flex-1 space-y-2 px-3 pb-3">{items.length ? items.map((lead) => <article key={lead._id || lead.id} className="rounded-xl border border-[#E9DFFF] bg-white p-3 shadow-[0_10px_24px_-22px_rgba(73,35,117,.7)] transition hover:border-[#D8C8FF]">
       <Link href={`/leads/${lead._id || lead.id}`} className="block truncate text-sm font-semibold text-slate-900 hover:text-[#6C3BFF]">{lead.name}</Link>
       <div className="mt-0.5 truncate text-xs text-slate-500">{contactLabel(lead.phone)}{lead.company ? ` · ${lead.company}` : ''}</div>
+      <span className="mt-2 inline-flex rounded-full bg-[#F1EBFF] px-2 py-0.5 text-[10px] font-semibold text-[#5A2BE6]">{leadLanguageLabel(lead.preferred_language)}</span>
       <div className="mt-2.5 flex items-center justify-between gap-2"><span className="truncate text-[11px] text-slate-400">{ownerName(lead.assigned_to)}{lead.last_call ? ` · ${new Date(lead.last_call).toLocaleDateString([], { month: 'short', day: 'numeric' })}` : ''}</span>
         <select value={lead.status} onChange={(event) => onMove(lead, event.target.value)} aria-label={`Move ${lead.name}`} className="h-7 min-h-0 w-auto rounded-md py-0 pl-2 pr-7 text-[11px]">{LEAD_STATUSES.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></div>
     </article>) : <p className="rounded-xl border border-dashed border-[#E9DFFF] px-3 py-6 text-center text-xs text-slate-400">No leads</p>}</div>
@@ -131,7 +134,8 @@ export default function LeadsPage() {
     phone: '',
     email: '',
     company: '',
-    notes: ''
+    notes: '',
+    preferred_language: 'en' as LeadLanguage,
   })
 
   useEffect(() => {
@@ -201,6 +205,7 @@ export default function LeadsPage() {
           email: formData.email,
           company: formData.company,
           notes: formData.notes,
+          preferred_language: formData.preferred_language,
         }),
       })
 
@@ -212,7 +217,7 @@ export default function LeadsPage() {
           id: data.data._id || data.data.id
         }
         setLeads([newLead, ...leads])
-        setFormData({ name: '', countryCode: '+91', phone: '', email: '', company: '', notes: '' })
+        setFormData({ name: '', countryCode: '+91', phone: '', email: '', company: '', notes: '', preferred_language: 'en' })
         setShowAddForm(false)
         toast.success('Lead added successfully!')
         loadStats()
@@ -244,7 +249,8 @@ export default function LeadsPage() {
           email: lead.email,
           company: lead.company,
           notes: lead.notes,
-          status: lead.status
+          status: lead.status,
+          preferred_language: lead.preferred_language || 'en'
         }),
       })
 
@@ -393,6 +399,7 @@ export default function LeadsPage() {
               <tr>
                 <th className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-[.1em] text-slate-500">Lead</th>
                 <th className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-[.1em] text-slate-500">Contact</th>
+                <th className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-[.1em] text-slate-500">Call language</th>
                 <th className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-[.1em] text-slate-500">Owner</th>
                 <th className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-[.1em] text-slate-500">Status</th>
                 <th className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-[.1em] text-slate-500">Calls</th>
@@ -428,6 +435,7 @@ export default function LeadsPage() {
                         )}
                       </div>
                     </td>
+                    <td className="px-4 py-2 text-[13px] text-slate-700">{leadLanguageLabel(lead.preferred_language)}</td>
                     <td className="px-4 py-2 text-[13px]">
                       {isAdmin ? <select value={lead.assigned_to || ''} onChange={(event) => setOwner(lead, event.target.value)} aria-label={`Owner of ${lead.name}`} className="h-8 min-h-0 w-auto rounded-md py-0 pl-2 pr-8 text-xs"><option value="">Unassigned</option>{owners.map((owner) => <option key={owner.id} value={owner.id}>{owner.name}</option>)}</select>
                         : <span className="text-slate-500">{ownerName(lead.assigned_to)}</span>}
@@ -476,8 +484,8 @@ export default function LeadsPage() {
 
         {/* Add Lead Modal */}
         {showAddForm && (
-            <div className="fixed inset-0 bg-[rgba(50,19,107,.28)] backdrop-blur-sm flex items-center justify-center z-50 p-4">
-              <div className="bg-white rounded-xl border border-rd-border p-4 md:p-6 w-full max-w-md shadow-xl">
+            <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[rgba(50,19,107,.28)] p-4 backdrop-blur-sm sm:items-center sm:p-6">
+              <div className="my-auto w-full max-w-2xl overflow-hidden rounded-2xl border border-[#E9DFFF] bg-white shadow-[0_24px_70px_-28px_rgba(50,19,107,.45)]">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-lg font-semibold text-slate-900">Add New Lead</h3>
                   <button onClick={() => setShowAddForm(false)} className="text-slate-400 hover:text-slate-900">
@@ -486,7 +494,7 @@ export default function LeadsPage() {
                 </div>
                 <form onSubmit={handleAddLead} className="space-y-3 md:space-y-4">
                   <div>
-                    <label className="block text-xs md:text-sm font-medium text-slate-200 mb-1">Name *</label>
+                    <label className="block text-xs font-semibold text-slate-700 md:text-sm mb-1">Name *</label>
                     <input
                         type="text"
                         required
@@ -496,7 +504,7 @@ export default function LeadsPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs md:text-sm font-medium text-slate-200 mb-1">Phone *</label>
+                    <label className="block text-xs font-semibold text-slate-700 md:text-sm mb-1">Phone *</label>
                     <div className="grid grid-cols-[minmax(135px,0.9fr)_minmax(0,1.5fr)] gap-2">
                       <select
                           aria-label="Country code"
@@ -524,7 +532,7 @@ export default function LeadsPage() {
                     <p className="text-xs text-slate-500 mt-1">Choose the country, then enter the local number. It will be saved for international calling.</p>
                   </div>
                   <div>
-                    <label className="block text-xs md:text-sm font-medium text-slate-200 mb-1">Email</label>
+                    <label className="block text-xs font-semibold text-slate-700 md:text-sm mb-1">Email</label>
                     <input
                         type="email"
                         value={formData.email}
@@ -533,7 +541,7 @@ export default function LeadsPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs md:text-sm font-medium text-slate-200 mb-1">Company</label>
+                    <label className="block text-xs font-semibold text-slate-700 md:text-sm mb-1">Company</label>
                     <input
                         type="text"
                         value={formData.company}
@@ -542,7 +550,14 @@ export default function LeadsPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs md:text-sm font-medium text-slate-200 mb-1">Notes</label>
+                    <label className="block text-xs font-semibold text-slate-700 md:text-sm mb-1">Call language</label>
+                    <select value={formData.preferred_language} onChange={(e) => setFormData({ ...formData, preferred_language: e.target.value as LeadLanguage })} className="w-full px-3 py-2 bg-white border border-rd-border rounded-xl text-slate-900 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all text-sm md:text-base">
+                      {LEAD_LANGUAGES.map((language) => <option key={language.code} value={language.code}>{language.label} · {language.nativeLabel}</option>)}
+                    </select>
+                    <p className="mt-1 text-xs text-slate-500">The AI will use this language on this lead’s future calls.</p>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 md:text-sm mb-1">Notes</label>
                     <textarea
                         value={formData.notes}
                         onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
@@ -561,7 +576,7 @@ export default function LeadsPage() {
                         type="button"
                         onClick={() => {
                           setShowAddForm(false)
-                          setFormData({ name: '', countryCode: '+91', phone: '', email: '', company: '', notes: '' })
+                          setFormData({ name: '', countryCode: '+91', phone: '', email: '', company: '', notes: '', preferred_language: 'en' })
                         }}
                         className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 px-4 rounded-xl transition-all text-sm md:text-base"
                     >
@@ -575,94 +590,21 @@ export default function LeadsPage() {
 
         {/* Edit Lead Modal */}
         {editingLead && (
-            <div className="fixed inset-0 bg-[rgba(50,19,107,.28)] backdrop-blur-sm flex items-center justify-center z-50 p-4">
-              <div className="bg-white rounded-xl border border-rd-border p-4 md:p-6 w-full max-w-md shadow-xl">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-semibold text-slate-900">Edit Lead</h3>
-                  <button onClick={() => setEditingLead(null)} className="text-slate-400 hover:text-slate-900">
-                    <X className="w-5 h-5" />
-                  </button>
+            <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/30 p-4 backdrop-blur-sm sm:items-center sm:p-6">
+              <div role="dialog" aria-modal="true" aria-labelledby="edit-lead-title" className="my-auto flex max-h-[calc(100vh-2rem)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-[#E9DFFF] bg-white shadow-[0_24px_70px_-28px_rgba(50,19,107,.45)] sm:max-h-[calc(100vh-3rem)]">
+                <div className="flex items-start justify-between gap-4 border-b border-[#F1EBFF] px-5 py-4 sm:px-6">
+                  <div><h3 id="edit-lead-title" className="text-lg font-bold tracking-tight text-slate-900">Edit lead</h3><p className="mt-1 text-sm text-slate-500">Update contact details, pipeline status, and call language.</p></div>
+                  <button type="button" onClick={() => setEditingLead(null)} aria-label="Close edit lead" className="rounded-lg p-2 text-slate-400 transition hover:bg-[#F8F5FF] hover:text-slate-900"><X className="h-5 w-5" /></button>
                 </div>
-                <form onSubmit={(e) => { e.preventDefault(); handleUpdateLead(editingLead); }} className="space-y-3 md:space-y-4">
-                  <div>
-                    <label className="block text-xs md:text-sm font-medium text-slate-200 mb-1">Name *</label>
-                    <input
-                        type="text"
-                        required
-                        value={editingLead.name}
-                        onChange={(e) => setEditingLead({ ...editingLead, name: e.target.value })}
-                        className="w-full px-3 py-2 bg-white border border-rd-border rounded-xl text-slate-900 placeholder-slate-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all text-sm md:text-base"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs md:text-sm font-medium text-slate-200 mb-1">Phone *</label>
-                    <input
-                        type="tel"
-                        required
-                        value={editingLead.phone}
-                        onChange={(e) => setEditingLead({ ...editingLead, phone: e.target.value })}
-                        className="w-full px-3 py-2 bg-white border border-rd-border rounded-xl text-slate-900 placeholder-slate-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all text-sm md:text-base"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs md:text-sm font-medium text-slate-200 mb-1">Email</label>
-                    <input
-                        type="email"
-                        value={editingLead.email}
-                        onChange={(e) => setEditingLead({ ...editingLead, email: e.target.value })}
-                        className="w-full px-3 py-2 bg-white border border-rd-border rounded-xl text-slate-900 placeholder-slate-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all text-sm md:text-base"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs md:text-sm font-medium text-slate-200 mb-1">Company</label>
-                    <input
-                        type="text"
-                        value={editingLead.company}
-                        onChange={(e) => setEditingLead({ ...editingLead, company: e.target.value })}
-                        className="w-full px-3 py-2 bg-white border border-rd-border rounded-xl text-slate-900 placeholder-slate-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all text-sm md:text-base"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs md:text-sm font-medium text-slate-200 mb-1">Status</label>
-                    <select
-                        value={editingLead.status}
-                        onChange={(e) => setEditingLead({ ...editingLead, status: e.target.value as Lead['status'] })}
-                        className="w-full px-3 py-2 bg-white border border-rd-border rounded-xl text-slate-900 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all text-sm md:text-base"
-                    >
-                      <option value="new">New</option>
-                      <option value="qualified">Qualified</option>
-                      <option value="hot">Hot</option>
-                      <option value="called">Called</option>
-                      <option value="contacted">Contacted</option>
-                      <option value="converted">Converted</option>
-                      <option value="lost">Lost</option>
-                      <option value="unqualified">Unqualified</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs md:text-sm font-medium text-slate-200 mb-1">Notes</label>
-                    <textarea
-                        value={editingLead.notes}
-                        onChange={(e) => setEditingLead({ ...editingLead, notes: e.target.value })}
-                        rows={3}
-                        className="w-full px-3 py-2 bg-white border border-rd-border rounded-xl text-slate-900 placeholder-slate-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all text-sm md:text-base"
-                    />
-                  </div>
-                  <div className="flex space-x-3 pt-2 md:pt-4">
-                    <button
-                        type="submit"
-                        className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-xl transition-all text-sm md:text-base"
-                    >
-                      Update Lead
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setEditingLead(null)}
-                        className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 px-4 rounded-xl transition-all text-sm md:text-base"
-                    >
-                      Cancel
-                    </button>
-                  </div>
+                <form onSubmit={(e) => { e.preventDefault(); handleUpdateLead(editingLead); }} className="grid min-h-0 gap-4 overflow-y-auto p-5 sm:grid-cols-2 sm:p-6">
+                  <label className="space-y-1.5"><span className="block text-[13px] font-semibold text-slate-700">Name <span className="text-[#6C3BFF]">*</span></span><input type="text" required value={editingLead.name} onChange={(e) => setEditingLead({ ...editingLead, name: e.target.value })} className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#6C3BFF] focus:ring-4 focus:ring-[#6C3BFF]/10" /></label>
+                  <label className="space-y-1.5"><span className="block text-[13px] font-semibold text-slate-700">Phone <span className="text-[#6C3BFF]">*</span></span><input type="tel" required value={editingLead.phone} onChange={(e) => setEditingLead({ ...editingLead, phone: e.target.value })} className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#6C3BFF] focus:ring-4 focus:ring-[#6C3BFF]/10" /></label>
+                  <label className="space-y-1.5"><span className="block text-[13px] font-semibold text-slate-700">Email <span className="font-normal text-slate-400">(optional)</span></span><input type="email" value={editingLead.email} onChange={(e) => setEditingLead({ ...editingLead, email: e.target.value })} className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#6C3BFF] focus:ring-4 focus:ring-[#6C3BFF]/10" /></label>
+                  <label className="space-y-1.5"><span className="block text-[13px] font-semibold text-slate-700">Company <span className="font-normal text-slate-400">(optional)</span></span><input type="text" value={editingLead.company} onChange={(e) => setEditingLead({ ...editingLead, company: e.target.value })} className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#6C3BFF] focus:ring-4 focus:ring-[#6C3BFF]/10" /></label>
+                  <label className="space-y-1.5"><span className="block text-[13px] font-semibold text-slate-700">Pipeline status</span><select value={editingLead.status} onChange={(e) => setEditingLead({ ...editingLead, status: e.target.value as Lead['status'] })} className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-[#6C3BFF] focus:ring-4 focus:ring-[#6C3BFF]/10"><option value="new">New</option><option value="qualified">Qualified</option><option value="hot">Hot</option><option value="called">Called</option><option value="contacted">Contacted</option><option value="converted">Converted</option><option value="lost">Lost</option><option value="unqualified">Unqualified</option></select></label>
+                  <label className="space-y-1.5"><span className="block text-[13px] font-semibold text-slate-700">Call language</span><select value={editingLead.preferred_language || 'en'} onChange={(e) => setEditingLead({ ...editingLead, preferred_language: e.target.value as LeadLanguage })} className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-[#6C3BFF] focus:ring-4 focus:ring-[#6C3BFF]/10">{LEAD_LANGUAGES.map((language) => <option key={language.code} value={language.code}>{language.label} · {language.nativeLabel}</option>)}</select><span className="block text-[11px] leading-4 text-slate-400">Used for this lead’s greeting, transcription, and AI replies.</span></label>
+                  <label className="space-y-1.5 sm:col-span-2"><span className="block text-[13px] font-semibold text-slate-700">Notes <span className="font-normal text-slate-400">(optional)</span></span><textarea value={editingLead.notes} onChange={(e) => setEditingLead({ ...editingLead, notes: e.target.value })} rows={4} className="w-full resize-y rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm leading-5 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#6C3BFF] focus:ring-4 focus:ring-[#6C3BFF]/10" /></label>
+                  <div className="flex flex-col-reverse gap-2 border-t border-[#F1EBFF] pt-4 sm:col-span-2 sm:flex-row sm:justify-end"><button type="button" onClick={() => setEditingLead(null)} className="h-11 rounded-xl border border-slate-200 px-5 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50">Cancel</button><button type="submit" className="h-11 rounded-xl bg-[#6C3BFF] px-5 text-sm font-semibold text-white shadow-[0_10px_22px_-14px_rgba(108,59,255,.95)] transition hover:bg-[#5A2BE6]">Save changes</button></div>
                 </form>
               </div>
             </div>

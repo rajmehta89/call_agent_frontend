@@ -8,8 +8,9 @@ import { ArrowUpRight, Bot, ClipboardCheck, Clock3, FileText, Loader2, MessageSq
 import { PageHeader } from '@/components/OmniPage'
 import { orderedTranscript } from '@/components/transcript'
 import { ActionButton, API_BASE, DataState, StatusBadge, authFetch } from '@/components/PlatformUI'
+import { LEAD_LANGUAGES, leadLanguageLabel, type LeadLanguage } from '@/components/lead-language'
 
-type Lead = { _id?: string; name?: string; phone?: string; email?: string; company?: string; notes?: string; status?: string; source?: string; last_call?: string; created_at?: string }
+type Lead = { _id?: string; name?: string; phone?: string; email?: string; company?: string; notes?: string; status?: string; source?: string; preferred_language?: LeadLanguage; last_call?: string; created_at?: string }
 type Message = { role?: string; type?: string; content?: string; timestamp?: string; time_sec?: number }
 type SmsMessage = { _id?: string; body?: string; to?: string; from?: string; status?: string; created_at?: string; direction?: string }
 type Call = { _id: string; messages?: { role?: string; text?: string; at?: string }[]; call_date?: string; duration?: number; status?: string; direction?: string; call_summary?: string; summary?: string; sentiment?: string; transcription?: Message[]; ai_responses?: Message[]; transcript_with_tool_calls?: Message[]; human_callback_requested?: boolean; transfer_requested?: boolean; recording_url?: string; public_log_url?: string }
@@ -104,7 +105,7 @@ export default function LeadDetail() {
         <aside className="space-y-5">
           <section className="surface-panel rounded-2xl p-5">
             <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-lg font-semibold text-slate-900">{lead.name || 'Unnamed lead'}</h2><StatusBadge value={lead.status || 'new'} /></div>
-            <dl className="mt-5 space-y-3 text-sm"><Detail label="Phone" value={lead.phone || 'Not captured'} /><Detail label="Email" value={lead.email || 'Not captured'} /><Detail label="Company" value={lead.company || 'Not captured'} /><Detail label="Source" value={lead.source || 'Manual'} /><Detail label="Last activity" value={dateLabel(lead.last_call || lead.created_at)} /></dl>
+            <dl className="mt-5 space-y-3 text-sm"><Detail label="Phone" value={lead.phone || 'Not captured'} /><Detail label="Email" value={lead.email || 'Not captured'} /><Detail label="Company" value={lead.company || 'Not captured'} /><Detail label="Call language" value={`${leadLanguageLabel(lead.preferred_language)} · ${LEAD_LANGUAGES.find((language) => language.code === (lead.preferred_language || 'en'))?.nativeLabel || 'English'}`} /><Detail label="Source" value={lead.source || 'Manual'} /><Detail label="Last activity" value={dateLabel(lead.last_call || lead.created_at)} /></dl>
             {lead.notes && <div className="mt-5 border-t border-white/10 pt-4"><div className="text-xs font-medium uppercase tracking-[0.12em] text-slate-500">Notes</div><p className="mt-2 text-sm leading-6 text-slate-200">{lead.notes}</p></div>}
           </section>
           <section className="surface-panel rounded-2xl p-5"><h2 className="font-semibold text-slate-900">Pipeline status</h2><p className="mt-1 text-sm text-slate-400">Update this after reviewing the conversation.</p><div className="mt-4 flex flex-wrap gap-2">{statuses.map((status) => <button key={status} type="button" disabled={updating} onClick={() => updateStatus(status)} className={`rounded-lg px-3 py-2 text-xs font-medium capitalize transition ${lead.status === status ? 'bg-[#6C3BFF] text-slate-950' : 'bg-white/[.05] text-slate-300 hover:bg-white/[.1]'} disabled:cursor-wait disabled:opacity-60`}>{status}</button>)}</div></section>
