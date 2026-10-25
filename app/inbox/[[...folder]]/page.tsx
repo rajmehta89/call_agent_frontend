@@ -223,13 +223,14 @@ export default function InboxPage() {
     log(`assigning ${key} to ${userId || 'nobody'}`)
     try {
       await api(`/api/inbox/conversations/${encodeKey(key)}/assign`, { method: 'POST', body: JSON.stringify({ user_id: userId }) })
-      toast.success(userId ? `Sent to ${members.find((member) => member.id === userId)?.name}` : 'Moved back to Unassigned')
+      toast.success(userId ? (userId === me ? 'Assigned to you' : `Sent to ${members.find((member) => member.id === userId)?.name}`) : 'Moved back to Unassigned')
       await Promise.all([detail?.key === key ? openConversation(key, true) : Promise.resolve(), loadFolder(true)])
       countsChanged()
       return true
     } catch (error) { log('assign failed', error); toast.error(userFacingError(error)); return false }
   }
   const assign = (userId: string | null) => { if (detail) assignThread(detail.key, userId) }
+  const claim = (key: string) => assignThread(key, me)
 
   /** Move the open conversation to another pipeline stage (admins, or the team member it is assigned to). */
   const changeStage = async (next: string) => {
@@ -335,7 +336,7 @@ export default function InboxPage() {
           : folder === 'assigned' ? <AssignedList rows={rows} selectedId={selectedId} onOpen={openConversation} onAssign={assignThread} />
           : shown.length ? groupByDay(shown).map((group) => <div key={group.label} className="mb-1">
             <div className="sticky top-0 z-[1] -mx-2 flex items-center gap-2 bg-white/95 px-4 pb-1 pt-1.5 backdrop-blur"><span className="text-[10.5px] font-bold uppercase tracking-[.12em] text-slate-400">{group.label}</span><span className="text-[10.5px] font-semibold text-slate-400">· {group.rows.length}</span><span className="h-px flex-1 bg-[#F4F0FF]" /></div>
-            {group.rows.map((row) => <ConversationRow key={row.key} row={row} inStage={Boolean(stage)} selected={selectedId === row.key} onOpen={() => openConversation(row.key)} />)}
+            {group.rows.map((row) => <ConversationRow key={row.key} row={row} inStage={Boolean(stage)} selected={selectedId === row.key} canClaim={!canAssign && Boolean(me)} onClaim={() => claim(row.key)} onOpen={() => openConversation(row.key)} />)}
           </div>)
           : <Empty text={range.id !== 'any' ? `No ${closedTab ? 'closed' : 'open'} conversations ${stage ? `moved to ${stageInfo(stage).label}` : 'with activity'} ${range.id === 'date' ? `on ${rangeLabel(range)}` : rangeLabel(range).toLowerCase()}. Pick another day or clear the filter.` : closedTab ? 'No closed conversations here.' : stage ? `No open conversations in ${stageInfo(stage).label}. Change a conversation's status to move it here.` : listFilter !== 'all' ? 'Nothing matches this filter.' : EMPTY_TEXT[folder] || 'No conversations in this folder.'} />}
       </div>
@@ -356,7 +357,7 @@ export default function InboxPage() {
 
 const EMPTY_TEXT: Partial<Record<Folder, string>> = {
   assigned: 'Nothing is assigned yet. Open a conversation from Unassigned, then pick a team member in the Assign box at the top right.',
-  mine: 'Nothing is assigned to you yet. An admin assigns conversations from Unassigned.',
+  mine: 'Nothing is assigned to you yet. Open Unassigned and claim a conversation with one click.',
   unassigned: 'Every conversation has an owner.',
   failed: 'No failed calls.',
 }
@@ -388,29 +389,30 @@ function StageFilterBar({ rows, value, loading, onPick }: { rows: Conversation[]
 
 /** A conversation in the list: who (name, time, caller line), what (the AI summary), then one quiet line of details
     (live/missed, status or when it moved here, owner, number of calls). */
-function ConversationRow({ row, selected, inStage, onOpen }: { row: Conversation; selected: boolean; inStage?: boolean; onOpen: () => void }) {
+function ConversationRow({ row, selected, inStage, canClaim, onClaim, onOpen }: { row: Conversation; selected: boolean; inStage?: boolean; canClaim?: boolean; onClaim?: () => void; onOpen: () => void }) {
   const caller = callerLine(row.phone)
   const info = stageInfo(row.stage)
-  return <button type="button" onClick={onOpen} aria-current={selected || undefined} className={`group relative mb-0.5 flex w-full gap-2.5 rounded-xl px-2.5 py-2.5 text-left transition ${selected ? 'bg-[#F1EBFF] shadow-[inset_3px_0_0_#6C3BFF]' : 'hover:bg-[#F8F5FF]'}`}>
-    <span className="relative mt-0.5 shrink-0">
-      <span className={`flex h-9 w-9 items-center justify-center rounded-full text-[12px] font-bold ${row.failed ? 'bg-[#F1EBFF] text-[#6C3BFF] ring-1 ring-[#E9DFFF]' : 'bg-gradient-to-br from-[#8B5CF6] to-[#5A2BE6] text-white'}`}>{initials(row.name)}</span>
-      {row.live && <span title="On a call now" className="absolute -bottom-0.5 -right-0.5 h-3 w-3 animate-pulse rounded-full border-2 border-white bg-[#9747FF]" />}
-    </span>
-    <span className="min-w-0 flex-1">
-      <span className="flex items-baseline justify-between gap-2">
-        <span className="truncate text-[14px] font-semibold text-slate-900">{row.name}</span>
-        <span className={`shrink-0 text-[11px] ${row.live ? 'font-semibold text-[#6C3BFF]' : 'text-slate-400'}`}>{row.live ? 'Live' : ago(row.last_at)}</span>
+  const claimable = Boolean(canClaim && !row.assigned_to && onClaim)
+  return <div className={`group relative mb-0.5 flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-left transition ${selected ? 'bg-[#F1EBFF] shadow-[inset_3px_0_0_#6C3BFF]' : 'hover:bg-[#F8F5FF]'}`}>
+    <button type="button" onClick={onOpen} aria-current={selected || undefined} className="flex min-w-0 flex-1 gap-2.5 text-left">
+      <span className="relative mt-0.5 shrink-0">
+        <span className={`flex h-9 w-9 items-center justify-center rounded-full text-[12px] font-bold ${row.failed ? 'bg-[#F1EBFF] text-[#6C3BFF] ring-1 ring-[#E9DFFF]' : 'bg-gradient-to-br from-[#8B5CF6] to-[#5A2BE6] text-white'}`}>{initials(row.name)}</span>
+        {row.live && <span title="On a call now" className="absolute -bottom-0.5 -right-0.5 h-3 w-3 animate-pulse rounded-full border-2 border-white bg-[#9747FF]" />}
       </span>
-      {caller && caller !== row.name && <span className="block truncate text-[11.5px] text-slate-400">{caller}</span>}
-      <span className={`mt-0.5 line-clamp-2 text-[12.5px] leading-[18px] ${row.live ? 'text-[#5A2BE6]' : 'text-slate-600'}`}>{rowPreview(row)}</span>
-      <span className="mt-1.5 flex min-w-0 items-center gap-1 text-[11px]">
-        {row.failed && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#6C3BFF] px-2 py-0.5 font-semibold text-white"><PhoneMissed className="h-3 w-3" />Missed</span>}
-        <span title={inStage && row.stage_at ? `In ${info.label} since ${fullDate(row.stage_at)}` : info.label} className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#F4F0FF] px-2 py-0.5 font-semibold text-[#5A2BE6]"><StageIcon stage={row.stage} small />{inStage && row.stage_at ? agoText(row.stage_at) : info.label}</span>
-        <span title={row.assigned_to_name ? `Owner: ${row.assigned_to_name}` : 'No owner yet'} className={`inline-flex min-w-0 items-center gap-1 truncate rounded-full px-2 py-0.5 ${row.assigned_to_name ? 'bg-slate-100 text-slate-600' : 'text-slate-400'}`}><UserPlus className="h-3 w-3 shrink-0" /><span className="truncate">{row.assigned_to_name || 'No owner'}</span></span>
-        {row.call_count > 1 && <span className="ml-auto shrink-0 text-slate-400">{row.call_count} calls</span>}
+      <span className="min-w-0 flex-1">
+        <span className="flex items-baseline justify-between gap-2"><span className="truncate text-[14px] font-semibold text-slate-900">{row.name}</span><span className={`shrink-0 text-[11px] ${row.live ? 'font-semibold text-[#6C3BFF]' : 'text-slate-400'}`}>{row.live ? 'Live' : ago(row.last_at)}</span></span>
+        {caller && caller !== row.name && <span className="block truncate text-[11.5px] text-slate-400">{caller}</span>}
+        <span className={`mt-0.5 line-clamp-2 text-[12.5px] leading-[18px] ${row.live ? 'text-[#5A2BE6]' : 'text-slate-600'}`}>{rowPreview(row)}</span>
+        <span className="mt-1.5 flex min-w-0 items-center gap-1 text-[11px]">
+          {row.failed && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#6C3BFF] px-2 py-0.5 font-semibold text-white"><PhoneMissed className="h-3 w-3" />Missed</span>}
+          <span title={inStage && row.stage_at ? `In ${info.label} since ${fullDate(row.stage_at)}` : info.label} className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#F4F0FF] px-2 py-0.5 font-semibold text-[#5A2BE6]"><StageIcon stage={row.stage} small />{inStage && row.stage_at ? agoText(row.stage_at) : info.label}</span>
+          <span title={row.assigned_to_name ? `Owner: ${row.assigned_to_name}` : 'No owner yet'} className={`inline-flex min-w-0 items-center gap-1 truncate rounded-full px-2 py-0.5 ${row.assigned_to_name ? 'bg-slate-100 text-slate-600' : 'text-slate-400'}`}><UserPlus className="h-3 w-3 shrink-0" /><span className="truncate">{row.assigned_to_name || 'No owner'}</span></span>
+          {row.call_count > 1 && <span className="ml-auto shrink-0 text-slate-400">{row.call_count} calls</span>}
+        </span>
       </span>
-    </span>
-  </button>
+    </button>
+    {claimable && <button type="button" onClick={onClaim} className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-[#6C3BFF] px-2.5 py-1.5 text-[11px] font-bold text-white shadow-sm transition hover:bg-[#5A2BE6]" title="Assign this conversation to yourself"><UserCheck className="h-3.5 w-3.5" />Claim</button>}
+  </div>
 }
 
 /** Assigned folder: one section per team member (including those with nothing yet), their conversations underneath.
@@ -561,7 +563,8 @@ function ConversationDetail({ detail, canAssign, canWork, onAssign, onStage, onC
       {/* Owner, status and the latest call's facts on one slim row (scrolls sideways on a phone). */}
       <div className="-mx-1 mt-2.5 flex items-center gap-1.5 overflow-x-auto px-1 pb-0.5">
         {canAssign ? <AssignChip detail={detail} members={members} onAssign={onAssign} />
-          : <span className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-[#E9DFFF] px-2.5 text-[13px] text-slate-600"><UserPlus className="h-3.5 w-3.5 text-[#8B5CF6]" />{detail.assigned_to === me ? 'Assigned to you' : detail.assigned_to_name || 'Unassigned'}</span>}
+          : detail.assigned_to ? <span className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-[#E9DFFF] px-2.5 text-[13px] text-slate-600"><UserPlus className="h-3.5 w-3.5 text-[#8B5CF6]" />{detail.assigned_to === me ? 'Assigned to you' : detail.assigned_to_name || 'Assigned'}</span>
+          : <button type="button" onClick={() => onAssign(me)} disabled={!me} className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-[#6C3BFF] px-2.5 text-[13px] font-bold text-white shadow-sm transition hover:bg-[#5A2BE6] disabled:opacity-50"><UserCheck className="h-3.5 w-3.5" />Assign to me</button>}
         <StagePicker stage={detail.stage} editable={canWork} onChange={onStage} compact />
         <span className="mx-0.5 h-5 w-px shrink-0 bg-[#E9DFFF]" aria-hidden="true" />
         {last && <span className={chip} title="Latest call"><Clock className="h-3.5 w-3.5 text-[#8B5CF6]" />{last.live ? 'In progress' : last.duration ? duration(last.duration) : '—'} · {agoText(last.at)}</span>}

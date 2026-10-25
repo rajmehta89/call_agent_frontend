@@ -114,7 +114,7 @@ export default function GlobalHeader({ user }: { user?: User }) {
             <span className="app-notification-icon"><Icon aria-hidden /></span>
             <span className="app-notification-text"><span className="app-notification-top"><strong>{notification.title || 'Workspace update'}</strong><time>{since(notification.created_at)}</time></span><span>{notification.message || 'New activity needs your attention.'}</span></span>
           </button> })}</div>
-            : <p className="app-notifications-empty"><CheckCheck aria-hidden /><b>You’re all caught up</b><small>New assignments, mentions and team messages show up here.</small></p>}
+            : <p className="app-notifications-empty"><CheckCheck aria-hidden /><b>You’re all caught up</b><small>Assignments, status changes, closes, mentions and team messages show up here.</small></p>}
         </div>}
       </div>
       {user && <div className="app-header-account" title={user.email || ''}>
