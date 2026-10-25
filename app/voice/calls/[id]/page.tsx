@@ -10,7 +10,7 @@ import { RecordingAudio } from '@/components/RecordingAudio'
 
 type Message = { content?: string; timestamp?: string; type?: string }
 type Call = {
-  _id?: string; phone_number?: string; direction?: string; status?: string; duration?: number
+  _id?: string; phone_number?: string; contact_phone?: string; direction?: string; status?: string; duration?: number
   provider?: string; channel_type?: string; agent_name?: string; agent_version?: string
   recording_url?: string; recording_sid?: string; full_recording_url?: string; full_recording_sid?: string; recording_multi_channel_url?: string; public_log_url?: string
   transcription?: Message[]; ai_responses?: Message[]; messages?: { role?: string; text?: string; at?: string }[]; human_transcript?: { role?: string; text?: string; at?: string }[]; summary?: string; call_summary?: string; human_summary?: string
@@ -65,7 +65,7 @@ export default function CallDetail() {
   return <div className="space-y-7">
     <PageHeader
       title="Call detail"
-      description="Transcript, recording, post-call analysis, and follow-up signals from Retell."
+      description="Transcript, recording, post-call analysis, and follow-up signals."
     />
     <DataState loading={loading} error={error} onRetry={load}>
       <div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
@@ -74,11 +74,12 @@ export default function CallDetail() {
             <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="break-all text-xl font-semibold text-slate-900">{call.phone_number || 'Web caller'}</h2>
+                  <h2 className="break-all text-xl font-semibold text-slate-900">{call.contact_phone || (call.phone_number?.startsWith('client:') ? 'Web caller' : call.phone_number) || 'Web caller'}</h2>
                   <StatusBadge value={call.status || 'unknown'} />
                   {humanRequested && <span className="inline-flex items-center gap-1 rounded-full bg-purple-400/10 px-2.5 py-1 text-xs font-medium text-purple-600"><UserRoundCheck className="h-3.5 w-3.5" />Human follow-up</span>}
                 </div>
-                <p className="mt-2 text-sm text-slate-400">{call.channel_type === 'web_call' ? 'Retell web call' : `${call.direction || 'inbound'} call`} · {dateLabel(call.provider_started_at || call.started_at)}</p>
+                <p className="mt-2 text-sm text-slate-400">{call.channel_type === 'web_call' ? 'Web call' : `${call.direction || 'inbound'} call`} · {dateLabel(call.provider_started_at || call.started_at)}</p>
+                {call.contact_phone && <p className="mt-1 text-xs text-slate-500">Contact number provided during the call</p>}
               </div>
               {call.public_log_url && <a className="text-sm font-medium text-[#6C3BFF] underline-offset-4 hover:underline" href={call.public_log_url} target="_blank" rel="noreferrer">Open Retell log</a>}
             </div>
