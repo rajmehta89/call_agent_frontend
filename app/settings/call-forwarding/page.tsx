@@ -73,7 +73,7 @@ export default function CallForwardingPage() {
                 <div className="flex flex-wrap items-center gap-2"><h2 className="text-[15px] font-bold text-slate-900">Forward calls to the team</h2>
                   <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${form.enabled ? 'bg-[#6C3BFF] text-white' : 'bg-slate-100 text-slate-500'}`}>{form.enabled ? 'On' : 'Off'}</span></div>
                 <p className="mt-1 text-[13px] leading-5 text-slate-600">{form.enabled
-                  ? `When a caller asks for a person, the AI says it's connecting them and ${active === 1 ? 'your agent\'s phone rings' : `all ${active} active agents' phones ring`}. The first to answer takes the call.`
+                  ? `When a caller names a configured team member, only that person is rung. General requests ring ${active === 1 ? 'your active agent' : `all ${active} active agents`}, and the first to answer takes the call.`
                   : 'The AI handles every call. When a caller asks for a person, it takes a callback request and the conversation moves to Outreach.'}</p>
               </div>
               <button type="button" role="switch" aria-checked={form.enabled} aria-label="Forward calls to the team" disabled={!canEdit || saving} onClick={toggle}
@@ -85,7 +85,7 @@ export default function CallForwardingPage() {
           </section>
 
           {/* Agents */}
-          <Panel icon={Users} title="Human agents" subtitle={`${active} active · rung together, first to answer takes the call`} bodyClassName="p-0"
+          <Panel icon={Users} title="Human agents" subtitle={`${active} active · named requests route directly; general requests ring together`} bodyClassName="p-0"
             action={canEdit && form.agents.length < MAX_AGENTS ? <button type="button" onClick={() => setForm({ ...form, agents: [...form.agents, blankAgent()] })} className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#F1EBFF] px-2.5 text-[12.5px] font-semibold text-[#5A2BE6] transition hover:bg-[#E9DFFF]"><Plus className="h-3.5 w-3.5" />Add agent</button> : undefined}>
             <ul className="divide-y divide-[#F4F0FF]">
               {form.agents.map((agent, index) => <li key={index} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-3 sm:px-5">
@@ -118,9 +118,9 @@ export default function CallForwardingPage() {
           <ol className="space-y-3 text-[13px] leading-5 text-slate-600">
             {[
               ['Caller asks for a person', 'For example "can I talk to someone?". Questions the AI can answer stay with the AI.'],
-              ['The AI says it is connecting them', 'Then the call leaves the AI and every active agent\'s phone rings at once.'],
-              ['First to answer takes the call', 'Both active phones ring together. When one agent answers, the caller connects to that phone and the other stops ringing.'],
-              ['Nobody free?', 'The caller hears that the team will call back. The call is saved as a callback request (Outreach) and admins get a notification.'],
+              ['The AI says it is connecting them', 'If the caller named a configured person, only that person is rung. Otherwise every active agent is called.'],
+              ['The request is tracked', 'The matched team member receives the outreach notification. For a general request, the first active agent to answer takes the call.'],
+              ['Nobody free?', 'The caller hears that the team will call back. The request stays in Outreach and is notified to the named person or the general team.'],
             ].map(([title, text], index) => <li key={title} className="flex gap-3">
               <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#F1EBFF] text-[11px] font-bold text-[#5A2BE6]">{index + 1}</span>
               <span><b className="block font-semibold text-slate-800">{title}</b>{text}</span>
