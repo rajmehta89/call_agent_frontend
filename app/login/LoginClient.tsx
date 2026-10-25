@@ -18,7 +18,9 @@ export default function LoginClient() {
     try { token = window.localStorage.getItem('agentflow_token') || '' } catch {}
     if (!token) return () => { active = false }
 
-    apiWithRetry<any>('/api/auth/me', undefined, 1, 10000).then((result) => {
+    // Render's free instance may need up to about a minute to wake and reconnect
+    // MongoDB. Do not turn that normal cold start into a false sign-in failure.
+    apiWithRetry<any>('/api/auth/me', undefined, 1, 60000).then((result) => {
       if (!active) return
       if (result.data?.token) window.localStorage.setItem('agentflow_token', result.data.token)
       router.replace('/settings/team')
@@ -31,7 +33,9 @@ export default function LoginClient() {
   const submit = async (event: FormEvent) => {
     event.preventDefault(); setLoading(true); setError('')
     try {
-      const result = await apiWithRetry<any>('/api/auth/login', { method: 'POST', body: JSON.stringify(form) }, 1, 25000)
+      // Keep the login request alive through a Render cold start; the backend
+      // can be healthy but still need time to initialise its database client.
+      const result = await apiWithRetry<any>('/api/auth/login', { method: 'POST', body: JSON.stringify(form) }, 1, 60000)
       if (!result?.data?.token) throw new Error('The sign-in service returned an incomplete response. Please try again.')
       window.localStorage.setItem('agentflow_token', result.data.token)
       toast.success('Welcome back')
