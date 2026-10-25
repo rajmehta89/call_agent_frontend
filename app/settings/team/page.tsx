@@ -1,7 +1,8 @@
 'use client'
 
+import Link from 'next/link'
 import { FormEvent, useCallback, useEffect, useState } from 'react'
-import { Check, Copy, Link2, Loader2, MailPlus, UserMinus, UserPlus, X } from 'lucide-react'
+import { BarChart3, Check, Copy, Link2, Loader2, MailPlus, UserMinus, UserPlus, Users, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { PageHeader } from '../../../components/OmniPage'
 import { ActionButton, DataState, StatusBadge, api, roleLabel, userFacingError } from '../../../components/PlatformUI'
@@ -21,6 +22,7 @@ const shortDate = (value?: string) => { const date = new Date(value || ''); retu
 export default function TeamSettingsPage() {
   const [rows, setRows] = useState<Row[]>([])
   const [me, setMe] = useState('')
+  const [canManage, setCanManage] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [form, setForm] = useState({ name: '', email: '', role: 'agent' })
@@ -34,6 +36,7 @@ export default function TeamSettingsPage() {
     try {
       const [team, profile] = await Promise.all([api('/api/platform/team'), api('/api/auth/me')])
       setRows(team.data || []); setMe(profile.data?.id || '')
+      setCanManage((profile.data?.permissions || []).includes('*') || (profile.data?.permissions || []).includes('manage_team'))
       log(`team loaded: ${team.data?.length || 0} rows`)
     } catch (err) { log('team load failed', err); setError(userFacingError(err)) } finally { setLoading(false) }
   }, [])
@@ -66,9 +69,9 @@ export default function TeamSettingsPage() {
   const pending = rows.filter((row) => row.member_type === 'invitation')
 
   return <div className="space-y-6">
-    <PageHeader title="Team" description="Invite your team and remove access when someone leaves. Admins assign inbox conversations; team members work the ones assigned to them." />
+    <PageHeader title="Team" description="See everyone in this workspace. Admins can invite people, manage access, and review workload." actions={canManage ? <Link href="/settings/team/performance" className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#6C3BFF] px-4 text-sm font-semibold text-white shadow-[0_12px_24px_-14px_rgba(150,77,234,.9)] hover:bg-[#5A2BE6]"><BarChart3 className="h-4 w-4" />Performance</Link> : undefined} />
 
-    <section className="surface-panel p-5">
+    {canManage ? <section className="surface-panel p-5">
       <div className="flex items-center gap-2 text-sm font-bold text-slate-900"><MailPlus className="h-4 w-4 text-[#6C3BFF]" />Invite a teammate</div>
       <form onSubmit={sendInvite} className="mt-4 grid gap-3 md:grid-cols-[1fr_1.3fr_180px_auto]">
         <input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Full name" aria-label="Full name" className="h-10 rounded-lg border border-slate-200 px-3 text-sm" />
@@ -78,7 +81,7 @@ export default function TeamSettingsPage() {
       </form>
       <p className="mt-2 text-xs text-slate-500">{TEAM_ROLES.find((role) => role.name === form.role)?.description}</p>
       {invite && <InviteLink invite={invite} onClose={() => setInvite(null)} />}
-    </section>
+    </section> : <section className="surface-panel flex items-start gap-3 p-5"><Users className="mt-0.5 h-5 w-5 shrink-0 text-[#6C3BFF]" /><div><div className="text-sm font-bold text-slate-900">Workspace team</div><p className="mt-1 text-sm leading-6 text-slate-500">You can see the current roster here. Ask an Admin if you need someone invited or access changed.</p></div></section>}
 
     <RoleGuide />
 
@@ -89,10 +92,10 @@ export default function TeamSettingsPage() {
           <thead className="border-b border-slate-200 bg-slate-50/70 text-[10px] font-bold uppercase tracking-[.12em] text-slate-400"><tr><th className="px-5 py-3">Person</th><th className="px-3 py-3">Role</th><th className="px-3 py-3">Status</th><th className="px-3 py-3">Joined</th><th className="px-5 py-3 text-right">Access</th></tr></thead>
           <tbody className="divide-y divide-slate-100">{members.map((row) => { const self = row._id === me; const owner = row.role === 'owner'; const locked = self || owner; return <tr key={row._id} className={busy === row._id ? 'opacity-50' : ''}>
             <td className="px-5 py-3.5"><div className="font-semibold text-slate-800">{row.name}{self && <span className="ml-2 text-xs font-normal text-slate-400">(you)</span>}</div><div className="mt-0.5 text-xs text-slate-500">{row.email}</div></td>
-            <td className="px-3 py-3.5">{locked ? <span className="text-xs font-semibold text-slate-600">{roleLabel(row.role)}</span> : <select value={row.role} onChange={(event) => changeRole(row, event.target.value)} aria-label={`Role for ${row.name}`} className="h-8 rounded-md border border-slate-200 bg-white px-2 text-xs">{TEAM_ROLES.map((role) => <option key={role.name} value={role.name}>{role.label}</option>)}</select>}</td>
+            <td className="px-3 py-3.5">{locked || !canManage ? <span className="text-xs font-semibold text-slate-600">{roleLabel(row.role)}</span> : <select value={row.role} onChange={(event) => changeRole(row, event.target.value)} aria-label={`Role for ${row.name}`} className="h-8 rounded-md border border-slate-200 bg-white px-2 text-xs">{TEAM_ROLES.map((role) => <option key={role.name} value={role.name}>{role.label}</option>)}</select>}</td>
             <td className="px-3 py-3.5"><StatusBadge value={row.active === false ? 'disabled' : 'active'} /></td>
             <td className="px-3 py-3.5 text-xs text-slate-500">{shortDate(row.created_at)}</td>
-            <td className="px-5 py-3.5 text-right">{locked ? <span className="text-xs text-slate-400">{owner ? 'Owner' : 'Your account'}</span> : row.active === false ? <ActionButton onClick={() => setActive(row, true)} icon={<Check className="h-4 w-4" />}>Reactivate</ActionButton> : <ActionButton tone="danger" onClick={() => { if (window.confirm(`Remove access for ${row.name}? They are signed out straight away.`)) setActive(row, false) }} icon={<UserMinus className="h-4 w-4" />}>Deactivate</ActionButton>}</td>
+            <td className="px-5 py-3.5 text-right">{!canManage ? <span className="text-xs text-slate-400">View only</span> : locked ? <span className="text-xs text-slate-400">{owner ? 'Owner' : 'Your account'}</span> : row.active === false ? <ActionButton onClick={() => setActive(row, true)} icon={<Check className="h-4 w-4" />}>Reactivate</ActionButton> : <ActionButton tone="danger" onClick={() => { if (window.confirm(`Remove access for ${row.name}? They are signed out straight away.`)) setActive(row, false) }} icon={<UserMinus className="h-4 w-4" />}>Deactivate</ActionButton>}</td>
           </tr> })}</tbody>
         </table></div>
       </section>
@@ -101,7 +104,7 @@ export default function TeamSettingsPage() {
         <div className="border-b border-slate-200 px-5 py-4"><div className="text-sm font-bold text-slate-900">Pending invitations</div><div className="mt-1 text-xs text-slate-500">Waiting for these people to open their invite link and set a password.</div></div>
         <div className="divide-y divide-slate-100">{pending.map((row) => <div key={row._id} className={`flex flex-wrap items-center gap-3 px-5 py-3.5 ${busy === row._id ? 'opacity-50' : ''}`}>
           <div className="min-w-0 flex-1"><div className="font-semibold text-slate-800">{row.name}</div><div className="mt-0.5 text-xs text-slate-500">{row.email} · <span>{roleLabel(row.role)}</span> · expires {shortDate(row.expires_at)}</div></div>
-          <ActionButton tone="danger" onClick={() => revoke(row)} icon={<X className="h-4 w-4" />}>Revoke</ActionButton>
+          {canManage && <ActionButton tone="danger" onClick={() => revoke(row)} icon={<X className="h-4 w-4" />}>Revoke</ActionButton>}
         </div>)}</div>
       </section>}
     </DataState>

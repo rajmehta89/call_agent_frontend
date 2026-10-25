@@ -39,7 +39,7 @@ export function userFacingError(error: unknown, fallback = 'Something went wrong
   return message
 }
 
-const PUBLIC_PAGES = ['/login', '/signup', '/invite/accept']
+const PUBLIC_PAGES = ['/login', '/signup', '/verify-email', '/invite/accept']
 
 function signOutIfUnauthorized(status: number) {
   if (status === 401 && typeof window !== 'undefined' && !PUBLIC_PAGES.some((route) => window.location.pathname.startsWith(route))) {
