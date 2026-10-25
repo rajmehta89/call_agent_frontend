@@ -1,4 +1,4 @@
-import { AlertTriangle, AtSign, LayoutDashboard, BrainCircuit, CircleDollarSign, Hash, Headphones, Inbox, Mic2, PhoneCall, Settings2, ShoppingBag, UserCheck, UserCog, UserPlus, UserRound, Users, UserX , Store } from 'lucide-react'
+import { AlertTriangle, AtSign, LayoutDashboard, BrainCircuit, CircleDollarSign, Hash, Headphones, Inbox, MailCheck, Mic2, PhoneCall, Settings2, ShoppingBag, UserCheck, UserCog, UserPlus, UserRound, Users, UserX , Store, PhoneForwarded } from 'lucide-react'
 import { STAGES } from './stages'
 
 /** Statuses that mean the team has something to do: their open conversations make up the Tasks page and tile count. */
@@ -36,9 +36,11 @@ export const navigationGroups = [
   ]},
   { label: 'CRM', items: [
     { name: 'Leads', href: '/leads', icon: UserPlus, tone: 'red', permission: 'manage_assigned_leads' },
+    { name: 'Email review', href: '/campaigns', icon: MailCheck, tone: 'blue', permission: 'manage_automations', hiddenInProduction: true },
   ]},
   { label: 'Settings', items: [
     { name: 'Team', href: '/settings/team', icon: UserCog, tone: 'blue', permission: 'manage_team' },
+    { name: 'Call forwarding', href: '/settings/call-forwarding', icon: PhoneForwarded, tone: 'blue', permission: 'handle_calls' },
     { name: 'My account', href: '/settings/account', icon: UserRound, tone: 'blue' },
   ]},
 ]

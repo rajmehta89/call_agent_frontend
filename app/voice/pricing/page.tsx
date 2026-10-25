@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { AudioLines, ChevronDown, Zap } from 'lucide-react'
+import { AudioLines, ChevronDown, PhoneForwarded, Zap } from 'lucide-react'
 import { PageHeader } from '@/components/OmniPage'
 import { api } from '@/components/PlatformUI'
 
@@ -17,6 +17,17 @@ const AI_SUMMARY_PER_CALL = 0.001
 const FLUX_PER_MIN = 0.0065
 const ELEVENLABS_PER_MIN = 0.0165 // Flash $0.05 / 1K chars; the agent speaks ~330 characters per call minute
 const AURA_PER_MIN = 0.0099 // Aura-2 $0.030 / 1K chars at the same ~330 characters per call minute
+// Call forwarding: Twilio's outgoing rate from your number to the agent's phone, read from this Twilio account's pricing
+// on 23 October 2026 (Programmable Outbound Minute). The caller's incoming leg is still billed while they talk to the agent;
+// the AI costs stop once the call leaves the AI.
+const AGENT_PHONES = {
+  au_mobile: { label: 'Australian mobile', perMinute: 0.075 },
+  au_landline: { label: 'Australian landline', perMinute: 0.0252 },
+  in_mobile: { label: 'Indian mobile', perMinute: 0.0496 },
+  in_landline: { label: 'Indian landline', perMinute: 0.0699 },
+  us: { label: 'US / Canada', perMinute: 0.014 },
+}
+type AgentPhone = keyof typeof AGENT_PHONES
 
 type NumberType = keyof typeof TWILIO_INBOUND
 type Line = { vendor: string; label: string; perMinute: number }
@@ -76,6 +87,10 @@ export default function VoicePricingPage() {
   const [minutesPerCall, setMinutesPerCall] = useState(3)
   const [number, setNumber] = useState<NumberType>('local')
   const [inUse, setInUse] = useState<Option['id'] | null>(null)
+  // Call forwarding: every call starts with the AI; this share then goes to a person, who talks agentMinutes.
+  const [forwardPercent, setForwardPercent] = useState(0)
+  const [agentMinutes, setAgentMinutes] = useState(5)
+  const [agentPhone, setAgentPhone] = useState<AgentPhone>('au_mobile')
 
   useEffect(() => {
     api<{ data: { providers: { id: ProviderId; enabled: boolean; ready: boolean }[] } }>('/api/voice-providers')
@@ -83,25 +98,56 @@ export default function VoicePricingPage() {
       .catch(() => setInUse(null))
   }, [])
 
-  const minutes = Math.max(0, callsPerDay) * Math.max(0, minutesPerCall) * 30
+  const callsPerMonth = Math.max(0, callsPerDay) * 30
+  const share = Math.min(100, Math.max(0, forwardPercent)) / 100
+  const forwardedCalls = callsPerMonth * share
+  // Every call has the AI's minutes; forwarded calls add the agent's minutes on top.
+  const aiMinutes = callsPerMonth * Math.max(0, minutesPerCall)
+  const agentMinutesMonthly = forwardedCalls * Math.max(0, agentMinutes)
+  const minutes = aiMinutes + agentMinutesMonthly
+  const agentPerMinute = TWILIO_INBOUND[number] + AGENT_PHONES[agentPhone].perMinute
+  const agentMonthly = agentMinutesMonthly * agentPerMinute
   const rows = options(number, minutesPerCall).map((option) => {
     const perMinute = option.lines.reduce((sum, line) => sum + line.perMinute, 0)
-    return { ...option, perMinute, vendors: byVendor(option.lines), monthly: minutes * perMinute + TWILIO_NUMBER_MONTHLY[number] }
+    const aiMonthly = aiMinutes * perMinute
+    return { ...option, perMinute, aiMonthly, vendors: byVendor(option.lines), monthly: aiMonthly + agentMonthly + TWILIO_NUMBER_MONTHLY[number],
+             oneAi: Math.max(0, minutesPerCall) * perMinute, oneAgent: Math.max(0, agentMinutes) * agentPerMinute }
   })
+  const inUseRow = rows.find((row) => row.id === inUse) || rows[0]
   const cheapest = rows.reduce((best, row) => (row.monthly < best.monthly ? row : best), rows[0])
 
   return <div className="space-y-4">
     <PageHeader title="Voice cost planner" description="Estimate your monthly cost for each voice option. US prices, before tax." />
 
-    <section className="surface-panel grid gap-4 rounded-2xl p-4 sm:grid-cols-3 sm:p-5">
-      <label className="block"><span className="field-label">Calls per day</span><input type="number" min="0" inputMode="numeric" value={callsPerDay} onChange={(event) => setCallsPerDay(Number(event.target.value))} /></label>
-      <label className="block"><span className="field-label">Average call length (minutes)</span><input type="number" min="0" step="0.5" inputMode="decimal" value={minutesPerCall} onChange={(event) => setMinutesPerCall(Number(event.target.value))} /></label>
-      <div><span className="field-label">Phone number</span>
-        <div role="radiogroup" className="flex h-[42px] gap-1 rounded-lg bg-slate-100 p-1 text-sm font-semibold">
-          {(['local', 'tollfree'] as NumberType[]).map((type) => <button key={type} type="button" role="radio" aria-checked={number === type} onClick={() => setNumber(type)} className={`flex-1 rounded-md transition ${number === type ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>{type === 'local' ? 'Local' : 'Toll-free'}</button>)}
+    {/* One set of inputs: every call starts with the AI; some calls then go to a person. */}
+    <section className="surface-panel rounded-2xl p-4 sm:p-5">
+      <div className="grid gap-4 sm:grid-cols-3">
+        <label className="block"><span className="field-label">Calls per day</span><input type="number" min="0" inputMode="numeric" value={callsPerDay} onChange={(event) => setCallsPerDay(Number(event.target.value))} /></label>
+        <label className="block"><span className="field-label">AI talk minutes per call</span><input type="number" min="0" step="0.5" inputMode="decimal" value={minutesPerCall} onChange={(event) => setMinutesPerCall(Number(event.target.value))} /></label>
+        <div><span className="field-label">Phone number</span>
+          <div role="radiogroup" className="flex h-[42px] gap-1 rounded-lg bg-slate-100 p-1 text-sm font-semibold">
+            {(['local', 'tollfree'] as NumberType[]).map((type) => <button key={type} type="button" role="radio" aria-checked={number === type} onClick={() => setNumber(type)} className={`flex-1 rounded-md transition ${number === type ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>{type === 'local' ? 'Local' : 'Toll-free'}</button>)}
+          </div>
         </div>
       </div>
-      <p className="text-xs text-slate-500 sm:col-span-3">{minutes.toLocaleString()} call minutes a month (30 days).</p>
+      <div className="mt-4 border-t border-[#F1EBFF] pt-4">
+        <div className="mb-3 flex items-center gap-2 text-[13px] font-bold text-slate-900"><PhoneForwarded className="h-4 w-4 text-[#6C3BFF]" />Call forwarding <span className="font-normal text-slate-500">(when a caller asks for a person)</span></div>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <label className="block"><span className="field-label">Calls forwarded to an agent (%)</span><input type="number" min="0" max="100" step="5" inputMode="numeric" value={forwardPercent} onChange={(event) => setForwardPercent(Number(event.target.value))} /></label>
+          <label className="block"><span className="field-label">Agent talk minutes</span><input type="number" min="0" step="0.5" inputMode="decimal" value={agentMinutes} onChange={(event) => setAgentMinutes(Number(event.target.value))} /></label>
+          <label className="block"><span className="field-label">Agents&apos; phones</span>
+            <select value={agentPhone} onChange={(event) => setAgentPhone(event.target.value as AgentPhone)}>
+              {(Object.keys(AGENT_PHONES) as AgentPhone[]).map((key) => <option key={key} value={key}>{AGENT_PHONES[key].label} ({rate(AGENT_PHONES[key].perMinute)}/min)</option>)}
+            </select></label>
+        </div>
+      </div>
+      {/* The month in one sentence, and one forwarded call in dollars. */}
+      <div className="mt-4 rounded-xl bg-[#FAF8FF] p-3 text-[13px] leading-6 text-slate-700 ring-1 ring-[#EEE8FF]">
+        <p><b>{Math.round(callsPerMonth).toLocaleString()} calls a month.</b> The AI talks {minutesPerCall} min on each ({Math.round(aiMinutes).toLocaleString()} min).
+          {share > 0 ? <> {Math.round(forwardPercent)}% ({Math.round(forwardedCalls).toLocaleString()} calls) then go to an agent who talks {agentMinutes} min ({Math.round(agentMinutesMonthly).toLocaleString()} min).</> : ' No calls are forwarded.'}</p>
+        {share > 0 && <p className="mt-1 tabular-nums">One forwarded call with {inUseRow.name}: AI {usd(inUseRow.oneAi)} + agent {usd(inUseRow.oneAgent)} = <b className="text-slate-950">{usd(inUseRow.oneAi + inUseRow.oneAgent)}</b>
+          <span className="block text-xs text-slate-500">Agent minutes cost {rate(agentPerMinute)} each: Twilio incoming {rate(TWILIO_INBOUND[number])} + call to the agent&apos;s {AGENT_PHONES[agentPhone].label} {rate(AGENT_PHONES[agentPhone].perMinute)}.</span></p>}
+      </div>
     </section>
 
     <div className="grid gap-4 lg:grid-cols-3">
@@ -118,7 +164,11 @@ export default function VoicePricingPage() {
             {inUse === row.id && <span className="rounded-full bg-purple-50 px-2 py-0.5 text-[11px] font-semibold text-purple-700 ring-1 ring-inset ring-purple-200">In use now</span>}
           </div>
           <div className="mt-2 text-3xl font-extrabold tabular-nums tracking-tight text-slate-950">{usd(row.monthly)}<span className="ml-1 text-sm font-semibold text-slate-500">/month</span></div>
-          <div className="mt-1 text-sm text-slate-600">{rate(row.perMinute)} per call minute in total</div>
+          <div className="mt-1 text-sm text-slate-600">{rate(row.perMinute)} per AI call minute in total</div>
+          {share > 0 && <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+            <span className="rounded-md bg-slate-100 px-2 py-1.5 text-slate-700"><span className="block font-semibold">AI minutes</span>{usd(row.aiMonthly)}</span>
+            <span className="rounded-md bg-[#F1EBFF] px-2 py-1.5 text-[#5A2BE6]"><span className="block font-semibold">Agent minutes</span>{usd(agentMonthly)}</span>
+          </div>}
           <div className="mt-3 flex flex-wrap gap-1.5">
             {row.vendors.map((item) => <span key={item.vendor} className="rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-700"><span className="font-semibold">{item.vendor}</span> {rate(item.perMinute)}/min</span>)}
           </div>
@@ -141,7 +191,8 @@ export default function VoicePricingPage() {
       <a className="underline hover:text-slate-800" href="https://elevenlabs.io/pricing/api" target="_blank" rel="noreferrer">ElevenLabs</a>,{' '}
       <a className="underline hover:text-slate-800" href="https://www.retellai.com/pricing" target="_blank" rel="noreferrer">Retell</a>,{' '}
       <a className="underline hover:text-slate-800" href="https://openrouter.ai/openai/gpt-4.1-mini" target="_blank" rel="noreferrer">OpenRouter</a>.
-      Not included: tax, call recording ($0.0025/min), and Retell’s extra concurrency beyond 20 calls.
+      Agent call rates are this Twilio account&apos;s outbound prices (23 October 2026). Not included: tax, call recording ($0.0025/min),
+      Retell’s extra concurrency beyond 20 calls, and the few seconds an agent&apos;s phone is connected while hearing &quot;press 1 to accept&quot;.
     </p>
   </div>
 }

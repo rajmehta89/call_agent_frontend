@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { ArrowDownUp, ArrowRightLeft, AtSign, Bot, Check, ChevronDown, ChevronRight, ChevronUp, CalendarDays, Clock, Copy, Globe, Hash, PhoneIncoming, Mail, MapPin, Building2, Tag, Phone, UserCheck, Headphones, Loader2, Lock, Maximize2, MessageSquare, Minimize2, MoreVertical, StickyNote, PanelRightOpen, Pencil, PhoneCall, PhoneMissed, Sparkles, Plus, Radio, RotateCcw, Search, Send, SlidersHorizontal, Trash2, UserMinus, UserPlus, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { api, roleLabel, userFacingError } from '../../../components/PlatformUI'
+import { RecordingAudio } from '../../../components/RecordingAudio'
 import { STAGES, stageInfo } from '../../../components/stages'
 import { ANY_TIME, DayRangeMenu, rangeLabel, rangeQuery, type DayRange } from '../../../components/day-range'
 
@@ -13,8 +14,8 @@ type Folder = 'all' | 'unassigned' | 'mine' | 'assigned' | 'mentioned' | 'failed
 type Member = { id: string; name: string; email: string; role: string; assignable: boolean }
 /** One caller's thread: every call from them, newest activity first in the list. */
 type Conversation = { key: string; name: string; phone?: string; status?: string; last_at?: string; preview?: string; summary?: string; call_count: number; provider?: string; failed?: boolean; live?: boolean; closed?: boolean; closed_by_name?: string; assigned_to?: string; assigned_to_name?: string; assigned_by_name?: string; stage?: string; stage_by_name?: string; stage_at?: string; stage_reason?: string }
-type Line = { role: 'customer' | 'agent'; text: string; at?: string }
-type CallEntry = { id: string; at: string; phone?: string; status: string; live: boolean; failed: boolean; provider: string; channel_type?: string; duration: number; summary?: string; recording_url?: string; disconnection_reason?: string; messages: Line[] }
+type Line = { role: 'customer' | 'agent' | 'human_agent'; text: string; at?: string; segment?: 'ai' | 'human' }
+type CallEntry = { id: string; at: string; phone?: string; status: string; live: boolean; failed: boolean; provider: string; channel_type?: string; duration: number; summary?: string; recording_url?: string; recording_sid?: string; full_recording_url?: string; full_recording_sid?: string; transfer_status?: string; human_callback_requested?: boolean; disconnection_reason?: string; messages: Line[] }
 type TeamMessage = { _id: string; author_id: string; author_name: string; text: string; mentions: string[]; mention_names?: string[]; conversation_id?: string; created_at: string; edited_at?: string; read_by?: string[] }
 type ThreadEvent = { type: string; text: string; by_name?: string; at: string; to?: string; to_label?: string; reason?: string }
 type Profile = { name?: string; email?: string; company?: string; address?: string; tags?: string[]; source?: string; lead_status?: string; created_at?: string; notes?: string; lead_id?: string }
@@ -832,15 +833,17 @@ function CallCard({ call, name, defaultOpen }: { call: CallEntry; name: string; 
   useEffect(() => { if (call.live) setOpen(true) }, [call.live])
   const Icon = call.live ? Radio : call.failed ? PhoneMissed : PhoneCall
   // Consecutive lines from the same side are one group: who and when is shown once per group, like a messaging app.
-  const groups: { customer: boolean; lines: Line[] }[] = []
+  const groups: { customer: boolean; segment?: 'ai' | 'human'; lines: Line[] }[] = []
   call.messages.forEach((line) => {
     const customer = line.role === 'customer'
     const lastGroup = groups[groups.length - 1]
-    if (lastGroup && lastGroup.customer === customer) lastGroup.lines.push(line)
-    else groups.push({ customer, lines: [line] })
+    if (lastGroup && lastGroup.customer === customer && lastGroup.segment === line.segment && lastGroup.lines[lastGroup.lines.length - 1]?.role === line.role) lastGroup.lines.push(line)
+    else groups.push({ customer, segment: line.segment, lines: [line] })
   })
   const [playing, setPlaying] = useState(false)
-  const outcome = call.live ? 'Live now' : call.failed ? (call.status === 'missed' || call.status === 'no-answer' ? 'Missed' : 'Did not connect') : 'Completed'
+  const [playingHuman, setPlayingHuman] = useState(false)
+  const unansweredTransfer = call.human_callback_requested && call.transfer_status === 'no-answer'
+  const outcome = call.live ? 'Live now' : unansweredTransfer ? 'Team did not answer' : call.status === 'transfer_requested' ? 'Transfer requested' : call.failed ? (call.status === 'missed' || call.status === 'no-answer' ? 'Missed' : 'Did not connect') : 'Completed'
   return <div className="flex items-start gap-2">
     <span className={`mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${call.live ? 'bg-gradient-to-br from-[#8B5CF6] to-[#6C3BFF] text-white shadow-[0_6px_16px_-8px_rgba(108,59,255,.9)]' : call.failed ? 'bg-white text-[#6C3BFF] ring-1 ring-[#D8C8FF]' : 'bg-[#F1EBFF] text-[#6C3BFF]'}`}><Icon className={`h-4 w-4 ${call.live ? 'animate-pulse' : ''}`} /></span>
     <div className={`relative min-w-0 flex-1 overflow-hidden rounded-2xl rounded-tl-md bg-white sm:max-w-[640px] ${call.live ? 'ring-2 ring-[#8B5CF6]' : 'ring-1 ring-[#E9DFFF]'}`}>
@@ -852,31 +855,34 @@ function CallCard({ call, name, defaultOpen }: { call: CallEntry; name: string; 
           <span className={`inline-flex items-center gap-1 rounded-full px-1.5 py-px text-[10.5px] font-bold ${call.live ? 'bg-gradient-to-r from-[#8B5CF6] to-[#6C3BFF] text-white' : call.failed ? 'bg-[#6C3BFF] text-white' : 'bg-[#F1EBFF] text-[#5A2BE6]'}`}>{call.live ? <Radio className="h-3 w-3" /> : call.failed ? <PhoneMissed className="h-3 w-3" /> : <Check className="h-3 w-3" />}{outcome}</span>
           <span className="ml-auto text-[11px] text-slate-400">{clock(call.at)}{call.duration ? ` · ${duration(call.duration)}` : ''} · {providerLabel(call.provider)}</span>
         </div>
-        {call.failed ? <p className="mt-1 text-[13px] leading-5 text-slate-500">Couldn't connect{call.disconnection_reason ? ` (${call.disconnection_reason.replace(/_/g, ' ')})` : ''}. The team can call them back.</p>
+        {unansweredTransfer ? <p className="mt-1 text-[13px] leading-5 text-slate-600">The AI answered. The human agents were called but did not pick up. A callback was requested.</p>
+          : call.failed ? <p className="mt-1 text-[13px] leading-5 text-slate-500">Couldn't connect{call.disconnection_reason ? ` (${call.disconnection_reason.replace(/_/g, ' ')})` : ''}. The team can call them back.</p>
           : <p className="mt-1 text-[13px] leading-5 text-slate-700"><Sparkles className="mr-1 inline h-3 w-3 -translate-y-px text-[#8B5CF6]" aria-label="AI summary" />{call.summary || (call.live ? 'Summary appears when the call ends.' : 'No summary for this call.')}</p>}
-        {!call.failed && (call.messages.length > 0 || call.recording_url) && <div className="mt-1.5 flex flex-wrap items-center gap-1">
+        {(call.messages.length > 0 || call.full_recording_url || call.full_recording_sid || call.recording_url || call.recording_sid) && <div className="mt-1.5 flex flex-wrap items-center gap-1">
           {call.messages.length > 0 && <button type="button" onClick={() => setOpen(!open)} aria-expanded={open}
             className={`inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11.5px] font-semibold transition ${open ? 'bg-[#6C3BFF] text-white' : 'bg-[#F4F0FF] text-[#5A2BE6] hover:bg-[#E9DFFF]'}`}>
             <MessageSquare className="h-3.5 w-3.5" />{open ? 'Hide transcript' : `Transcript · ${call.messages.length}`}</button>}
-          {call.recording_url && <button type="button" onClick={() => setPlaying(!playing)} aria-pressed={playing}
+          {(call.full_recording_url || call.full_recording_sid || call.recording_url || call.recording_sid) && <button type="button" onClick={() => setPlaying(!playing)} aria-pressed={playing}
             className={`inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11.5px] font-semibold transition ${playing ? 'bg-[#6C3BFF] text-white' : 'bg-[#F4F0FF] text-[#5A2BE6] hover:bg-[#E9DFFF]'}`}>
-            <Headphones className="h-3.5 w-3.5" />{playing ? 'Hide recording' : 'Recording'}</button>}
+            <Headphones className="h-3.5 w-3.5" />{playing ? 'Hide recording' : call.full_recording_sid ? 'Full call recording' : call.recording_sid ? 'Human recording' : 'Recording'}</button>}
+          {(call.full_recording_sid || call.full_recording_url) && (call.recording_sid || call.recording_url) && <button type="button" onClick={() => setPlayingHuman(!playingHuman)} aria-pressed={playingHuman} className={`inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11.5px] font-semibold transition ${playingHuman ? 'bg-[#6C3BFF] text-white' : 'bg-[#F4F0FF] text-[#5A2BE6] hover:bg-[#E9DFFF]'}`}><Headphones className="h-3.5 w-3.5" />{playingHuman ? 'Hide human audio' : 'Human segment'}</button>}
         </div>}
-        {playing && call.recording_url && <audio className="mt-2 w-full" controls autoPlay src={call.recording_url} />}
+        {playing && (call.full_recording_url || call.full_recording_sid || call.recording_url || call.recording_sid) && <RecordingAudio callId={call.id} source={call.full_recording_url || call.recording_url} recordingSid={call.full_recording_sid || call.recording_sid} autoPlay />}
+        {playingHuman && (call.recording_sid || call.recording_url) && <RecordingAudio callId={call.id} source={call.recording_url} recordingSid={call.recording_sid} part="human" />}
       </div>
-      {open && !call.failed && <div className="border-t border-[#F1EBFF] bg-[#FBFAFF] px-3 py-3">
+      {open && call.messages.length > 0 && <div className="border-t border-[#F1EBFF] bg-[#FBFAFF] px-3 py-3">
         {/* Transcript as a chat: the caller on the left, the AI agent on the right. */}
         <div className="space-y-2.5">
-          {groups.length ? groups.map((group, groupIndex) => { const lastLine = group.lines[group.lines.length - 1]; return <div key={groupIndex} className={`flex items-end gap-2 ${group.customer ? 'justify-start' : 'justify-end'}`}>
+          {groups.length ? groups.map((group, groupIndex) => { const lastLine = group.lines[group.lines.length - 1]; return <div key={groupIndex}>{group.segment && (groupIndex === 0 || groups[groupIndex - 1]?.segment !== group.segment) && <div className="my-2 border-b border-[#E9DFFF] pb-1 text-[11px] font-bold uppercase tracking-wide text-[#5A2BE6]">{group.segment === 'human' ? 'Human agent conversation' : 'AI agent conversation'}</div>}<div className={`flex items-end gap-2 ${group.customer ? 'justify-start' : 'justify-end'}`}>
             {group.customer && <span className="mb-5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#8B5CF6] to-[#5A2BE6] text-[9px] font-bold text-white">{initials(name)}</span>}
             <div className={`flex max-w-[82%] flex-col gap-1 ${group.customer ? 'items-start' : 'items-end'}`}>
               {group.lines.map((line, index) => <div key={index}
                 className={`w-fit max-w-full whitespace-pre-wrap break-words px-3 py-1.5 text-[13.5px] leading-[1.45] ${group.customer
                   ? `bg-white text-slate-800 ring-1 ring-[#E9DFFF] ${index === 0 ? 'rounded-t-2xl' : 'rounded-t-md'} rounded-r-2xl rounded-bl-md`
                   : `bg-gradient-to-br from-[#7C4DFF] to-[#6C3BFF] text-white ${index === 0 ? 'rounded-t-2xl' : 'rounded-t-md'} rounded-l-2xl rounded-br-md`}`}>{line.text}</div>)}
-              <span className="px-1 text-[10.5px] text-slate-400">{group.customer ? 'Caller' : providerLabel(call.provider)}{clock(lastLine.at) ? ` · ${clock(lastLine.at)}` : ''}</span>
+              <span className="px-1 text-[10.5px] text-slate-400">{group.customer ? 'Caller' : lastLine.role === 'human_agent' ? 'Human agent' : providerLabel(call.provider)}{clock(lastLine.at) ? ` · ${clock(lastLine.at)}` : ''}</span>
             </div>
-          </div> }) : <p className="py-2 text-center text-xs text-slate-400">{call.live ? 'Waiting for the first words…' : 'No transcript for this call.'}</p>}
+          </div></div> }) : <p className="py-2 text-center text-xs text-slate-400">{call.live ? 'Waiting for the first words…' : 'No transcript for this call.'}</p>}
           {call.live && call.messages.length > 0 && <p className="flex items-center justify-center gap-1.5 pt-1 text-[11px] text-[#6C3BFF]"><Loader2 className="h-3 w-3 animate-spin" />Call in progress — the transcript updates live</p>}
         </div>
         <p className="mt-3 border-t border-[#F1EBFF] pt-2 text-[11px] text-slate-400">{fullDate(call.at)} · {channelLabel(call)}{call.duration ? ` · ${duration(call.duration)}` : ''} · answered by {providerLabel(call.provider)}{call.disconnection_reason ? ` · ended: ${call.disconnection_reason.replace(/_/g, ' ')}` : ''}</p>

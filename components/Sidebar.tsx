@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { BookOpen, BrainCircuit, ChevronDown, ChevronsLeft, ChevronsRight, CircleDollarSign, Grid2x2, Hash, Headphones, Home, KanbanSquare, LifeBuoy, ListChecks, LogOut, Menu, Mic2, PenSquare, Phone, PhoneCall, Plus, Radio, Settings2, ShoppingBag, UserCog, UserPlus, UserRound, Users, X , Store } from 'lucide-react'
+import { BookOpen, BrainCircuit, ChevronDown, ChevronsLeft, ChevronsRight, CircleDollarSign, Grid2x2, Hash, Headphones, Home, KanbanSquare, LifeBuoy, ListChecks, LogOut, Menu, Mic2, PenSquare, Phone, PhoneCall, Plus, Radio, Settings2, ShoppingBag, UserCog, UserPlus, UserRound, Users, X , Store, PhoneForwarded } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import toast from 'react-hot-toast'
@@ -47,6 +47,7 @@ const MORE_ITEMS: MenuItem[] = [
   { label: 'Shopify data access', href: '/integrations/shopify', icon: ShoppingBag, permission: 'manage_integrations' },
   { label: 'Store data', href: '/integrations/shopify/store', icon: Store, permission: 'manage_integrations' },
   { label: 'Team', href: '/settings/team', icon: UserCog, permission: 'manage_team' },
+  { label: 'Call forwarding', href: '/settings/call-forwarding', icon: PhoneForwarded, permission: 'handle_calls' },
   { label: 'My account', href: '/settings/account', icon: UserRound },
 ]
 
@@ -164,7 +165,7 @@ export default function Sidebar() {
             <button type="button" onClick={() => setCollapsedGroups((current) => ({ ...current, [group.label]: !current[group.label] }))} aria-expanded={!collapsedGroups[group.label]} className="app-nav-group"><span>{group.label}</span><ChevronDown className={collapsedGroups[group.label] ? '-rotate-90' : ''} /></button>
             {group.label === 'Inbox' && allowed('handle_calls') && <Link href="/voice/browser-test" onClick={close} className="app-nav-compose" title="Start a test call" aria-label="Start a test call"><PenSquare /></Link>}
           </div>
-          {!collapsedGroups[group.label] && <div className="app-nav-items">{group.items.filter((item: any) => allowed(item.permission) && (!item.audience || (item.audience === 'assigners') === isAssigner)).map((item) => {
+          {!collapsedGroups[group.label] && <div className="app-nav-items">{group.items.filter((item: any) => allowed(item.permission) && !(process.env.NODE_ENV === 'production' && item.hiddenInProduction) && (!item.audience || (item.audience === 'assigners') === isAssigner)).map((item) => {
             const active = item.href === '/inbox' || item.href === '/voice' ? pathname === item.href : pathname === item.href || pathname.startsWith(`${item.href}/`)
             const Icon = item.icon
             const extra = item as { countKey?: string; alert?: boolean }

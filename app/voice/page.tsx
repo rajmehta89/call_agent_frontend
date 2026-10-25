@@ -7,7 +7,7 @@ import { api, apiWithRetry, DataState, userFacingError } from '@/components/Plat
 import { Avatar, EmptyHint, Panel, PanelLink, Stat, duration, timeAgo } from '@/components/premium'
 import { PageHeader } from '@/components/OmniPage'
 
-type VoiceCall = { _id: string; phone_number?: string; lead?: { name?: string }; call_date?: string; status?: string; duration?: number; call_summary?: string; provider?: string }
+type VoiceCall = { _id: string; phone_number?: string; lead?: { name?: string }; call_date?: string; status?: string; duration?: number; call_summary?: string; human_summary?: string; provider?: string }
 type Overview = { kpis: { calls_today: number; calls_yesterday: number; calls_7d: number; calls_7d_change: number | null; calls_prev_7d?: number; avg_duration_prev_7d?: number; avg_duration_7d: number; avg_duration_change: number | null; answered_rate_7d: number | null; failed_7d: number; live_now: number }; daily: { calls: number }[]; voice: { active_provider: string; ready: boolean } }
 
 /** Browser-console trace; filter by "[voice]". */
@@ -84,7 +84,7 @@ export default function VoiceOverview() {
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-baseline gap-x-2"><span className="truncate text-sm font-semibold text-slate-900">{name}</span><span className="text-[11px] text-slate-400">{timeAgo(call.call_date)}{call.duration ? ` · ${duration(call.duration)}` : ''} · {providerName(call.provider)}</span>
               <span className={`ml-auto rounded-full px-2 py-0.5 text-[10px] font-bold ${failed ? 'bg-[#6C3BFF] text-white' : live ? 'bg-[#6C3BFF] text-white' : 'bg-[#F1EBFF] text-[#6C3BFF]'}`}>{failed ? 'Missed' : live ? 'In progress' : 'Completed'}</span></div>
-            <p className="mt-1 line-clamp-2 text-[13px] leading-5 text-slate-600">{call.call_summary || (failed ? 'The call did not connect.' : live ? 'Call in progress — the summary appears when it ends.' : 'No summary for this call.')}</p>
+            <p className="mt-1 line-clamp-2 text-[13px] leading-5 text-slate-600">{[call.call_summary, call.human_summary && `Human: ${call.human_summary}`].filter(Boolean).join(' ') || (failed ? 'The call did not connect.' : live ? 'Call in progress — the summary appears when it ends.' : 'No summary for this call.')}</p>
           </div>
         </Link> }) : <div className="p-5"><EmptyHint text="No calls yet. Make a test call from your browser to see one here." action={<Link href="/voice/browser-test" className="rounded-lg bg-[#6C3BFF] px-3 py-1.5 text-xs font-semibold text-white">Start a test call</Link>} /></div>}
       </Panel>
