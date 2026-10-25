@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowLeft, ArrowRight, Check, CheckCheck, ExternalLink, MailCheck, Save, Send, ShieldCheck, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Building2, Check, CheckCheck, ExternalLink, MailCheck, Save, Send, ShieldCheck, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { PageHeader } from '@/components/OmniPage'
 import { api, userFacingError } from '@/components/PlatformUI'
@@ -58,6 +58,8 @@ export default function CampaignsPage() {
   const [sourceUrl, setSourceUrl] = useState('')
   const [prospectSubject, setProspectSubject] = useState('')
   const [prospectBody, setProspectBody] = useState('')
+  const [discoverQuery, setDiscoverQuery] = useState('businesses')
+  const [discovering, setDiscovering] = useState(false)
 
   function selectProspect(prospect: Prospect | null) {
     setSelected(prospect)
@@ -195,6 +197,18 @@ export default function CampaignsPage() {
     } catch (cause) { toast.error(userFacingError(cause)) } finally { setBusy(false) }
   }
 
+  async function discoverDubaiBusinesses() {
+    if (!discoverQuery.trim() || discovering) return
+    setDiscovering(true)
+    try {
+      const result = await api<{ data: { found: number; drafts_created: number } }>('/api/platform/dubai-prospects/discover', {
+        method: 'POST', body: JSON.stringify({ value: { query: discoverQuery.trim(), location: 'Dubai, United Arab Emirates', max_results: 20 } }),
+      })
+      toast.success(`Found ${result.data.found} businesses, ${result.data.drafts_created} email preview${result.data.drafts_created === 1 ? '' : 's'} ready for review`)
+      await load()
+    } catch (cause) { toast.error(userFacingError(cause, 'Could not discover new Dubai businesses.')) } finally { setDiscovering(false) }
+  }
+
   async function verifySender() {
     setVerifyingSender(true)
     try {
@@ -287,9 +301,10 @@ export default function CampaignsPage() {
       {inbox.length > 0 ? <div className="mt-3 divide-y divide-[#E9DFFF]">{inbox.map((item, position) => <div key={`${item.date}-${position}`} className="flex flex-wrap justify-between gap-2 py-3 text-sm"><div><p className={`text-slate-900 ${item.unread ? 'font-bold' : 'font-medium'}`}>{item.subject || '(No subject)'}</p><p className="text-slate-600">{item.from}</p></div><p className="text-xs text-slate-500">{item.date}</p></div>)}</div> : <p className="mt-3 text-sm text-slate-600">{sender?.connected ? 'Click Refresh inbox to load recent messages.' : 'Connect the mailbox on the backend to see replies here.'}</p>}
     </section>
 
-    <section className="rounded-2xl border border-[#E9DFFF] bg-white p-5 sm:p-6" aria-label="Prospects needing an email address">
-      <h2 className="text-lg font-bold text-[#32136B]">Prepare the next prospect</h2>
-      <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600">Every remaining prospect has a proposed email below. Review it one by one, then add a public business email from the company’s official site and the page link. Creating a draft does not send it.</p>
+    <section className="rounded-2xl border border-[#E9DFFF] bg-white p-5 sm:p-6" aria-label="Dubai prospect discovery and verification">
+      <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-lg font-bold text-[#32136B]">Find more Dubai businesses</h2><p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600">Search Google Places for new businesses, inspect public contact pages, and place verified email previews into the same review queue. Discovery never sends by itself.</p></div><Building2 className="h-5 w-5 shrink-0 text-[#6C3BFF]" /></div>
+      <div className="mt-4 flex max-w-xl flex-wrap gap-2"><label className="sr-only" htmlFor="dubai-discovery-query">Business type to find</label><input id="dubai-discovery-query" value={discoverQuery} onChange={(event) => setDiscoverQuery(event.target.value)} placeholder="e.g. dental clinics, real estate agencies" className="min-w-0 flex-1 rounded-xl border border-[#D8C8FF] px-3 py-2.5 text-sm" /><button type="button" disabled={discovering || !discoverQuery.trim()} onClick={discoverDubaiBusinesses} className="inline-flex items-center gap-2 rounded-xl bg-[#6C3BFF] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#5A2BE6] disabled:cursor-wait disabled:opacity-40">{discovering ? 'Finding businesses…' : 'Find and prepare previews'}</button></div>
+      <div className="mt-7 border-t border-[#E9DFFF] pt-5"><h3 className="text-base font-bold text-[#32136B]">Verify a workbook prospect</h3><p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600">For existing rows without a public email, review the suggested copy, add the business email shown on its official HTTPS page, and create a draft. It will join the same batch above.</p></div>
       <form onSubmit={(event) => { event.preventDefault(); loadProspects(search).catch((cause) => toast.error(userFacingError(cause))) }} className="mt-4 flex max-w-xl gap-2"><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search company name" aria-label="Search prospects" className="min-w-0 flex-1 rounded-xl border border-[#D8C8FF] px-3 py-2.5 text-sm" /><button type="submit" className="rounded-xl border border-[#D8C8FF] px-4 text-sm font-semibold text-[#32136B] hover:bg-[#F8F5FF]">Search</button></form>
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2"><p className="text-xs font-medium text-slate-500">Showing {prospects.length ? prospectOffset + 1 : 0}–{prospectOffset + prospects.length} of {prospectTotal} needing verification</p><div className="flex gap-2"><button type="button" disabled={prospectOffset === 0} onClick={() => loadProspects(search, Math.max(0, prospectOffset - 20)).catch((cause) => toast.error(userFacingError(cause)))} className="rounded-lg border border-[#D8C8FF] px-3 py-1.5 text-xs font-semibold text-[#32136B] disabled:opacity-40">Previous 20</button><button type="button" disabled={prospectOffset + 20 >= prospectTotal} onClick={() => loadProspects(search, prospectOffset + 20).catch((cause) => toast.error(userFacingError(cause)))} className="rounded-lg border border-[#D8C8FF] px-3 py-1.5 text-xs font-semibold text-[#32136B] disabled:opacity-40">Next 20</button></div></div>
       <div className="mt-3 max-h-72 divide-y divide-[#E9DFFF] overflow-y-auto rounded-xl border border-[#E9DFFF]">{prospects.map((prospect) => <button key={prospect.lead_id} type="button" onClick={() => selectProspect(prospect)} className={`flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-[#F8F5FF] ${selected?.lead_id === prospect.lead_id ? 'bg-[#F1EBFF]' : ''}`}><span className="min-w-0"><strong className="block truncate text-sm text-slate-900">{prospect.company_name}</strong><span className="block truncate text-xs text-slate-600">{prospect.lead_id} · {prospect.industry}</span></span><span className="shrink-0 text-xs font-semibold text-[#6C3BFF]">Review</span></button>)}</div>
