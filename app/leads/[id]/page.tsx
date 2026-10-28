@@ -4,10 +4,10 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import toast from 'react-hot-toast'
-import { ArrowUpRight, Bot, ClipboardCheck, Clock3, FileText, Loader2, MessageSquare, PhoneCall, Send, User } from 'lucide-react'
+import { ArrowUpRight, Bot, ClipboardCheck, Clock3, FileText, MessageSquare, PhoneCall, Send, User } from 'lucide-react'
 import { PageHeader } from '@/components/OmniPage'
 import { orderedTranscript } from '@/components/transcript'
-import { ActionButton, API_BASE, DataState, StatusBadge, authFetch } from '@/components/PlatformUI'
+import { ActionButton, API_BASE, DataState, Loader, StatusBadge, authFetch, Spinner } from '@/components/PlatformUI'
 import { LEAD_LANGUAGES, leadLanguageLabel, type LeadLanguage } from '@/components/lead-language'
 
 type Lead = { _id?: string; name?: string; phone?: string; email?: string; company?: string; notes?: string; status?: string; source?: string; preferred_language?: LeadLanguage; last_call?: string; created_at?: string }
@@ -120,13 +120,13 @@ export default function LeadDetail() {
               <span className="rounded-full bg-[#F1EBFF] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[.12em] text-[#5A2BE6]">SMS thread</span>
             </div>
             <div className="max-h-[300px] min-h-[156px] space-y-3 overflow-y-auto bg-[#FBF9FF] px-5 py-4" aria-live="polite">
-              {smsLoading ? <div className="flex min-h-[120px] items-center justify-center text-sm text-slate-500"><Loader2 className="mr-2 h-4 w-4 animate-spin text-[#6C3BFF]" />Loading messages…</div>
-                : smsError ? <div className="flex min-h-[120px] items-center justify-center text-center text-sm text-rose-600">{smsError}</div>
+              {smsLoading ? <Loader variant="rows" label="Loading messages" />
+                : smsError ? <div className="flex min-h-[120px] items-center justify-center text-center text-sm text-[#5A2BE6]">{smsError}</div>
                 : smsMessages.length === 0 ? <div className="flex min-h-[120px] flex-col items-center justify-center text-center"><MessageSquare className="h-6 w-6 text-[#B9A5D8]" /><p className="mt-2 text-sm font-semibold text-slate-700">No messages yet</p><p className="mt-1 text-xs text-slate-500">Your first follow-up will appear here.</p></div>
                 : smsMessages.map((message) => <div key={message._id || `${message.created_at}-${message.body}`} className="flex justify-end"><div className="max-w-[86%] rounded-2xl rounded-br-md bg-[#6C3BFF] px-4 py-3 text-white shadow-[0_8px_24px_rgba(108,59,255,.16)]"><p className="whitespace-pre-wrap text-sm leading-5">{message.body}</p><div className="mt-2 flex items-center justify-end gap-2 text-[10px] text-white/75"><span>{message.status || 'queued'}</span><span>{message.created_at ? dateLabel(message.created_at) : ''}</span></div></div></div>)}
             </div>
             <form onSubmit={sendSms} className="border-t border-slate-200 bg-white p-4">
-              <div className="flex items-end gap-3"><textarea value={smsBody} onChange={(event) => setSmsBody(event.target.value)} maxLength={1600} rows={2} placeholder={lead.phone ? 'Write a follow-up message…' : 'Add a phone number before sending an SMS'} disabled={!lead.phone || sendingSms} className="min-h-[62px] flex-1 resize-y rounded-xl border border-[#D8C8FF] bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#8B5CF6] focus:ring-2 focus:ring-[#E9DFFF] disabled:cursor-not-allowed disabled:bg-slate-50" /><button type="submit" disabled={!smsBody.trim() || sendingSms || !lead.phone} className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl bg-[#6C3BFF] px-4 text-xs font-bold text-white transition hover:bg-[#5A2BE6] disabled:cursor-not-allowed disabled:opacity-50">{sendingSms ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}Send</button></div>
+              <div className="flex items-end gap-3"><textarea aria-label="Follow-up SMS message" value={smsBody} onChange={(event) => setSmsBody(event.target.value)} maxLength={1600} rows={2} placeholder={lead.phone ? 'Write a follow-up message…' : 'Add a phone number before sending an SMS'} disabled={!lead.phone || sendingSms} className="min-h-[62px] flex-1 resize-y rounded-xl border border-[#D8C8FF] bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#8B5CF6] focus:ring-2 focus:ring-[#E9DFFF] disabled:cursor-not-allowed disabled:bg-slate-50" /><button type="submit" disabled={!smsBody.trim() || sendingSms || !lead.phone} title={!lead.phone ? 'Add a phone number to this lead first' : !smsBody.trim() ? 'Write a message first' : undefined} className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl bg-[#6C3BFF] px-4 text-xs font-bold text-white transition hover:bg-[#5A2BE6] disabled:cursor-not-allowed disabled:opacity-50">{sendingSms ? <Spinner size="sm" /> : <Send className="h-3.5 w-3.5" />}Send</button></div>
               <div className="mt-2 flex items-center justify-between gap-3 text-[11px] text-slate-400"><span>Sent from the configured Australian business sender.</span><span>{smsBody.length}/1600</span></div>
             </form>
           </section>

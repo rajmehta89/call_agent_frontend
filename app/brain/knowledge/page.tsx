@@ -1,10 +1,10 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { BrainCircuit, FileText, Globe, Loader2, Plus, RefreshCw, Save, ShoppingBag, Trash2, Upload } from 'lucide-react'
+import { BrainCircuit, FileText, Globe, Plus, RefreshCw, Save, ShoppingBag, Trash2, Upload } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { PageHeader } from '@/components/OmniPage'
-import { ActionButton, api, DataState } from '@/components/PlatformUI'
+import { ActionButton, api, DataState, Spinner } from '@/components/PlatformUI'
 
 type Brain = Record<string, unknown> & { index?: { documents_count?: number; chunks_count?: number; source_count?: number } }
 type Source = { source_id: string; source_type: string; source_name: string; chunks?: number; updated_at?: string; metadata?: { url?: string; filename?: string; pages?: number } }
@@ -97,7 +97,7 @@ export default function KnowledgePage() {
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-purple-50 text-purple-700"><BrainCircuit className="h-[18px] w-[18px]" /></span>
             <div><h2 className="text-[15px] font-bold text-slate-950">Business knowledge</h2><p className="mt-0.5 text-sm text-slate-600">Only facts written here (and in the sources below) are quoted. Clear a box and save to remove it.</p></div>
           </div>
-          <ActionButton primary disabled={saving} onClick={saveBrain} icon={saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}>{saving ? 'Saving…' : 'Save & index'}</ActionButton>
+          <ActionButton primary disabled={saving} onClick={saveBrain} icon={saving ? <Spinner /> : <Save className="h-4 w-4" />}>{saving ? 'Saving…' : 'Save & index'}</ActionButton>
         </div>
         <div className="mt-4 grid gap-4 lg:grid-cols-2">
           {FIELDS.map((field) => <label key={field.key} className="block min-w-0">
@@ -115,11 +115,11 @@ export default function KnowledgePage() {
         <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
           <div className="flex min-w-0 gap-2">
             <input value={url} onChange={(event) => setUrl(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') addWebsite() }} placeholder="https://your-website.com/page" aria-label="Website address" className="min-w-0 flex-1" />
-            <ActionButton disabled={busy === 'url'} onClick={addWebsite} icon={busy === 'url' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}>Add website</ActionButton>
+            <ActionButton disabled={busy === 'url'} onClick={addWebsite} icon={busy === 'url' ? <Spinner /> : <Plus className="h-4 w-4" />}>Add website</ActionButton>
           </div>
           <div>
             <input ref={file} type="file" accept="application/pdf,.pdf" className="hidden" onChange={(event) => uploadPdf(event.target.files?.[0])} />
-            <ActionButton disabled={busy === 'pdf'} onClick={() => file.current?.click()} icon={busy === 'pdf' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}>Upload PDF</ActionButton>
+            <ActionButton disabled={busy === 'pdf'} onClick={() => file.current?.click()} icon={busy === 'pdf' ? <Spinner /> : <Upload className="h-4 w-4" />}>Upload PDF</ActionButton>
           </div>
         </div>
         {sources.length ? <ul className="mt-4 divide-y divide-[#E9DFFF] overflow-hidden rounded-xl border border-[#E9DFFF]">
@@ -134,7 +134,7 @@ export default function KnowledgePage() {
                 <span className="block truncate text-xs text-slate-500">{settings ? 'The form above' : source.metadata?.url || source.metadata?.filename || source.source_type} · {source.chunks || 0} chunks{updated(source.updated_at) ? ` · updated ${updated(source.updated_at)}` : ''}</span>
               </span>
               {settings ? <span className="text-xs text-slate-500">Edit with the form above</span> : <span className="flex shrink-0 gap-2">
-                {source.source_type !== 'shopify' && <ActionButton disabled={working} onClick={() => refresh(source)} title={`Refresh ${source.source_name}`} icon={working ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}>Refresh</ActionButton>}
+                {source.source_type !== 'shopify' && <ActionButton disabled={working} onClick={() => refresh(source)} title={`Refresh ${source.source_name}`} icon={working ? <Spinner /> : <RefreshCw className="h-4 w-4" />}>Refresh</ActionButton>}
                 <ActionButton tone="danger" disabled={working} onClick={() => remove(source)} title={`Remove ${source.source_name}`} icon={<Trash2 className="h-4 w-4" />}>Remove</ActionButton>
               </span>}
             </li>

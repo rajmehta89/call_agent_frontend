@@ -51,9 +51,17 @@ export default function PWAProvider({ children }: { children: React.ReactNode })
     window.addEventListener('offline', goOffline)
 
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {
-        // PWA support is progressive; the CRM remains fully usable in browsers without SW access.
-      })
+      if (process.env.NODE_ENV === 'production') {
+        navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {
+          // PWA support is progressive; the CRM remains fully usable in browsers without SW access.
+        })
+      } else {
+        // The dev server's bundles keep the same names (/_next/static/chunks/app/layout.js) while their code changes,
+        // so a worker that caches them served old components against new server HTML (hydration errors). In
+        // development: remove any installed worker and its caches, so every reload runs the current code.
+        navigator.serviceWorker.getRegistrations().then((registrations) => registrations.forEach((registration) => registration.unregister())).catch(() => {})
+        if ('caches' in window) caches.keys().then((names) => names.filter((name) => name.startsWith('relaydesk-')).forEach((name) => caches.delete(name))).catch(() => {})
+      }
     }
 
     return () => {

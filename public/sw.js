@@ -1,6 +1,9 @@
 // Bump this whenever app bundles change in a way that must invalidate an installed PWA.
-// Older versions cached the pre-permissions-fix Call forwarding chunk.
-const OFFLINE_CACHE = 'relaydesk-offline-v3'
+// v3 cached the pre-permissions-fix Call forwarding chunk; v4 drops dev-server chunks cached before 2026-10-28
+// (same names, new code: hydration errors on localhost).
+const OFFLINE_CACHE = 'relaydesk-offline-v4'
+// The dev server reuses bundle names while their code changes: never cache there.
+const DEVELOPMENT = ['localhost', '127.0.0.1'].includes(self.location.hostname)
 const PRECACHE_URLS = [
   '/offline.html',
   '/manifest.webmanifest',
@@ -39,7 +42,7 @@ self.addEventListener('fetch', (event) => {
   const isStaticAsset = requestUrl.pathname.startsWith('/_next/static/')
     || requestUrl.pathname.startsWith('/icons/')
     || requestUrl.pathname === '/manifest.webmanifest'
-  if (!isStaticAsset) return
+  if (!isStaticAsset || DEVELOPMENT) return
 
   event.respondWith(caches.match(event.request).then((cached) => cached || fetch(event.request).then((response) => {
     if (response.ok) {

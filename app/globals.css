@@ -409,3 +409,25 @@ main .text-\[9px\], main .text-\[10px\], main .text-\[10\.5px\] { font-size:11px
 .app-notifications-empty b { color:var(--rd-ink); font-size:.82rem; }
 .app-notifications-empty small { color:var(--rd-muted); font-size:.72rem; }
 @media (max-width:640px) { .app-notifications { position:fixed; top:62px; left:12px; right:12px; width:auto; max-width:none; } }
+
+/* ===== Done-checklist pass (2026-10-27) =====
+   Touch screens: every control is at least 44px (WCAG 2.5.5) so it can be tapped reliably; desktop density is unchanged.
+   Switches keep their drawn track size. */
+@media (pointer:coarse) {
+  .action-button, .app-icon-button, .app-header .app-icon-button, .app-nav-toggle, .app-collapse-button, .app-bottom-link, .app-nav-items a, .app-nav-compose, .app-popover-item, .app-user-card, .app-new-button, .app-tile { min-height:44px !important; }
+  .app-icon-button, .app-header .app-icon-button, .app-nav-toggle, .app-collapse-button, .app-nav-compose { min-width:44px !important; }
+  main button:not([role="switch"]), main a.inline-flex, main [role="button"], main select, main input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]), main textarea { min-height:44px; }
+  main button:not([role="switch"]):has(> svg:only-child), main a.inline-flex:has(> svg:only-child) { min-width:44px; }
+}
+/* The legacy command hero used a near-black purple; it now uses the brand gradient with white copy on the dark end. */
+.dashboard-command-hero { border-color:transparent !important; background:linear-gradient(120deg,#5A2BE6 0%,#6C3BFF 55%,#9747FF 100%) !important; box-shadow:var(--rd-shadow-lg) !important; }
+.dashboard-command-copy p, .dashboard-command-copy > div { color:rgba(255,255,255,.9) !important; }
+.dashboard-command-actions a:first-child { color:#5A2BE6 !important; border-color:#fff !important; background:#fff !important; }
+
+/* The sign-in check fills the screen with the shared page loader, centred. */
+.app-loading-state { align-items:center; justify-content:center; }
+
+/* Workspace check error: "Try again" is the main action (the service was slow), "Sign in again" the quieter one. */
+.app-access-state button { display:inline-flex; min-height:44px; align-items:center; margin:1.4rem .5rem 0 0; padding:.65rem 1rem; border-radius:8px; color:#fff; background:#6C3BFF; font-size:.8rem; font-weight:800; }
+.app-access-state button:hover { background:#5A2BE6; }
+.app-access-state button + a { min-height:44px; align-items:center; color:#5A2BE6; background:#F1EBFF; }

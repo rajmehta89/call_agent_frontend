@@ -1,10 +1,10 @@
 'use client'
 
 import { FormEvent, useEffect, useState } from 'react'
-import { KeyRound, Loader2, LogOut, Save, Trash2, UserRound } from 'lucide-react'
+import { KeyRound, LogOut, Save, Trash2, UserRound } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { PageHeader } from '../../../components/OmniPage'
-import { DataState, api, roleLabel, userFacingError } from '../../../components/PlatformUI'
+import { DataState, Loader, api, roleLabel, userFacingError, Spinner } from '../../../components/PlatformUI'
 import { stopRealtime } from '../../../components/realtime'
 
 type Me = { id: string; name: string; email: string; phone?: string; timezone?: string; role: string }
@@ -94,7 +94,7 @@ export default function AccountPage() {
           {field('Name', <input required minLength={2} maxLength={120} value={profile.name} onChange={(event) => setProfile({ ...profile, name: event.target.value })} />, 'Shown to your team in the inbox, mentions and assignments.')}
           {field('Phone', <input maxLength={40} value={profile.phone} onChange={(event) => setProfile({ ...profile, phone: event.target.value })} placeholder="+1 555 000 0000" />)}
           {field('Time zone', <input maxLength={80} value={profile.timezone} onChange={(event) => setProfile({ ...profile, timezone: event.target.value })} />, 'Times in the dashboard follow your browser; this is stored for your team to see.')}
-          <div className="flex justify-end"><button type="submit" disabled={savingProfile} className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#6C3BFF] px-4 text-sm font-semibold text-white hover:bg-[#5A2BE6] disabled:opacity-50">{savingProfile ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}Save profile</button></div>
+          <div className="flex justify-end"><button type="submit" disabled={savingProfile} className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#6C3BFF] px-4 text-sm font-semibold text-white hover:bg-[#5A2BE6] disabled:opacity-50">{savingProfile ? <Spinner /> : <Save className="h-4 w-4" />}Save profile</button></div>
         </form>
 
         <div className="space-y-6">
@@ -103,7 +103,7 @@ export default function AccountPage() {
             {field('Current password', <input type="password" required autoComplete="current-password" value={passwords.current} onChange={(event) => setPasswords({ ...passwords, current: event.target.value })} />)}
             {field('New password', <input type="password" required minLength={8} autoComplete="new-password" value={passwords.next} onChange={(event) => setPasswords({ ...passwords, next: event.target.value })} />, 'At least 8 characters. Your other devices will be signed out.')}
             {field('Repeat new password', <input type="password" required minLength={8} autoComplete="new-password" value={passwords.confirm} onChange={(event) => setPasswords({ ...passwords, confirm: event.target.value })} />)}
-            <div className="flex justify-end"><button type="submit" disabled={savingPassword} className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#6C3BFF] px-4 text-sm font-semibold text-white hover:bg-[#5A2BE6] disabled:opacity-50">{savingPassword ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}Change password</button></div>
+            <div className="flex justify-end"><button type="submit" disabled={savingPassword} className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#6C3BFF] px-4 text-sm font-semibold text-white hover:bg-[#5A2BE6] disabled:opacity-50">{savingPassword ? <Spinner /> : <KeyRound className="h-4 w-4" />}Change password</button></div>
           </form>
 
           <section className="surface-panel rounded-2xl p-6">
@@ -112,17 +112,17 @@ export default function AccountPage() {
             <button type="button" onClick={signOutEverywhere} className="mt-4 inline-flex h-10 items-center gap-2 rounded-lg border border-[#D8C8FF] px-4 text-sm font-semibold text-[#5A2BE6] hover:border-[#6C3BFF]"><LogOut className="h-4 w-4" />Sign out everywhere</button>
           </section>
           {(me.role === 'admin' || me.role === 'owner') && <section id="call-data" className="surface-panel scroll-mt-24 rounded-2xl p-6">
-            <div className="flex items-center gap-2 text-base font-bold text-slate-900"><Trash2 className="h-4 w-4 text-red-700" />Clear call data</div>
+            <div className="flex items-center gap-2 text-base font-bold text-slate-900"><Trash2 className="h-4 w-4 text-[#5A2BE6]" />Clear call data</div>
             <p className="mt-2 text-sm leading-6 text-slate-600">Start fresh with call testing. This removes call history and records generated for those calls. Customer records, unrelated leads, campaigns, WhatsApp, account settings, and general team data stay in place.</p>
-            {!resetOpen ? <button type="button" onClick={openReset} className="mt-4 inline-flex min-h-10 items-center gap-2 rounded-lg border border-red-300 px-4 text-sm font-semibold text-red-800 hover:bg-red-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-700"><Trash2 className="h-4 w-4" />Clear all call data</button>
+            {!resetOpen ? <button type="button" onClick={openReset} className="mt-4 inline-flex min-h-10 items-center gap-2 rounded-lg border border-[#D8C8FF] px-4 text-sm font-semibold text-[#5A2BE6] hover:bg-[#F1EBFF] focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-700"><Trash2 className="h-4 w-4" />Clear all call data</button>
               : <form onSubmit={clearData} className="mt-5 space-y-4 border-t border-slate-200 pt-5">
-                  {resetError && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{resetError}</p>}
-                  {!resetPreview ? <p className="text-sm text-slate-600">Loading record counts...</p> : <>
+                  {resetError && <p role="alert" className="rounded-lg bg-[#F1EBFF] p-3 text-sm text-[#5A2BE6]">{resetError}</p>}
+                  {!resetPreview ? <Loader variant="rows" count={3} label="Loading record counts" /> : <>
                     <div className="rounded-xl bg-slate-50 p-4"><div className="text-sm font-semibold text-slate-900">{resetPreview.total.toLocaleString()} call-related records</div><ul className="mt-3 grid gap-2 text-xs text-slate-600 sm:grid-cols-2">{Object.entries(resetPreview.counts).map(([name, count]) => <li key={name} className="flex justify-between gap-3"><span>{resetPreview.labels[name] || name}</span><strong className="tabular-nums text-slate-800">{count.toLocaleString()}</strong></li>)}</ul></div>
                     <p className="text-xs leading-5 text-slate-600">This permanently deletes these database records. Recordings stored at Twilio are not removed.</p>
                     {field('Type CLEAR CALL DATA', <input required name="reset-confirmation-phrase" autoComplete="off" spellCheck={false} readOnly={!resetPhraseReady} onFocus={() => setResetPhraseReady(true)} value={resetPhrase} onChange={(event) => setResetPhrase(event.target.value)} />)}
                     {field('Current password', <input required type="password" name="reset-current-password" autoComplete="off" readOnly={!resetPasswordReady} onFocus={() => setResetPasswordReady(true)} value={resetPassword} onChange={(event) => setResetPassword(event.target.value)} />)}
-                    <div className="flex flex-wrap gap-2"><button type="submit" disabled={resetting || resetPhrase !== 'CLEAR CALL DATA' || !resetPassword} className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-red-700 px-4 text-sm font-semibold text-white hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50">{resetting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}Delete call data</button><button type="button" onClick={() => { setResetOpen(false); setResetPassword(''); setResetPhrase('') }} className="min-h-10 rounded-lg border border-slate-200 px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancel</button></div>
+                    <div className="flex flex-wrap gap-2"><button type="submit" disabled={resetting || resetPhrase !== 'CLEAR CALL DATA' || !resetPassword} title={resetPhrase !== 'CLEAR CALL DATA' || !resetPassword ? 'Type CLEAR CALL DATA and your password first' : undefined} className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-[#5A2BE6] px-4 text-sm font-semibold text-white hover:bg-[#4520B8] disabled:cursor-not-allowed disabled:opacity-50">{resetting ? <Spinner /> : <Trash2 className="h-4 w-4" />}Delete call data</button><button type="button" onClick={() => { setResetOpen(false); setResetPassword(''); setResetPhrase('') }} className="min-h-10 rounded-lg border border-slate-200 px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancel</button></div>
                   </>}
                 </form>}
           </section>}

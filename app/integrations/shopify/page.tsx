@@ -2,10 +2,10 @@
 
 import Link from 'next/link'
 import { FormEvent, ReactNode, useEffect, useState } from 'react'
-import { AlertCircle, ArrowRight, Check, CheckCircle2, Copy, ExternalLink, KeyRound, Loader2, ShieldCheck, ShoppingBag, Store } from 'lucide-react'
+import { AlertCircle, ArrowRight, Check, CheckCircle2, Copy, ExternalLink, KeyRound, ShieldCheck, ShoppingBag, Store } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { PageHeader } from '@/components/OmniPage'
-import { ActionButton, api, DataState } from '@/components/PlatformUI'
+import { ActionButton, api, DataState, Spinner } from '@/components/PlatformUI'
 
 type AuthMode = 'client_credentials' | 'admin_token'
 type Shopify = {
@@ -156,7 +156,7 @@ export default function ShopifyIntegrationPage() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          {live && <ActionButton onClick={indexCatalog} disabled={indexing} title="Copy product names and descriptions into the knowledge base so the AI recognises them" icon={indexing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Store className="h-4 w-4" />}>{indexing ? 'Indexing…' : 'Index catalog'}</ActionButton>}
+          {live && <ActionButton onClick={indexCatalog} disabled={indexing} title="Copy product names and descriptions into the knowledge base so the AI recognises them" icon={indexing ? <Spinner /> : <Store className="h-4 w-4" />}>{indexing ? 'Indexing…' : 'Index catalog'}</ActionButton>}
         </div>
       </section>
 
@@ -213,7 +213,7 @@ export default function ShopifyIntegrationPage() {
               <input type="checkbox" checked={allOrders || granted.includes('read_all_orders')} disabled={granted.includes('read_all_orders')} onChange={(event) => setAllOrders(event.target.checked)} className="mt-0.5 h-4 w-4 accent-purple-600" />
               <span className="text-xs leading-5 text-slate-600"><span className="font-semibold text-slate-800">Include orders older than 60 days</span>{granted.includes('read_all_orders') ? ' (granted)' : <> — first add <code className="text-[11px]">read_all_orders</code> to the app's scopes in Shopify and release; Shopify may ask you to request it.</>}</span>
             </label>}
-            <div className="mt-4"><ActionButton type="submit" primary disabled={saving} icon={saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Store className="h-4 w-4" />}>{saving ? 'Connecting…' : mode === 'client_credentials' ? 'Connect with Shopify' : 'Save & test connection'}</ActionButton></div>
+            <div className="mt-4"><ActionButton type="submit" primary disabled={saving} icon={saving ? <Spinner /> : <Store className="h-4 w-4" />}>{saving ? 'Connecting…' : mode === 'client_credentials' ? 'Connect with Shopify' : 'Save & test connection'}</ActionButton></div>
           </form>
 
           <section className="rounded-2xl border border-purple-100 bg-purple-50/50 p-4 sm:p-5">

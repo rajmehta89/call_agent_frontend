@@ -1,10 +1,10 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { BellRing, Check, Loader2, PhoneForwarded, PhoneOff, Plus, Save, Trash2, UserRound, Users } from 'lucide-react'
+import { BellRing, Check, PhoneForwarded, PhoneOff, Plus, Save, Trash2, UserRound, Users } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { PageHeader } from '../../../components/OmniPage'
-import { DataState, api, userFacingError } from '../../../components/PlatformUI'
+import { DataState, api, userFacingError, Spinner } from '../../../components/PlatformUI'
 import { Panel } from '../../../components/premium'
 
 type Agent = { name: string; phone: string; enabled: boolean; preferred_languages?: string[] }
@@ -92,7 +92,7 @@ export default function CallForwardingPage() {
                   ? `When a caller names a configured team member, only that person is rung. General requests ring ${active === 1 ? 'your active agent' : `all ${active} active agents`}, and the first to answer takes the call.`
                   : 'The AI handles every call. When a caller asks for a person, it takes a callback request and the conversation moves to Outreach.'}</p>
               </div>
-              <button type="button" role="switch" aria-checked={form.enabled} aria-label="Forward calls to the team" disabled={!canEdit || saving} onClick={toggle}
+              <button type="button" role="switch" aria-checked={form.enabled} aria-label="Forward calls to the team" disabled={!canEdit || saving} title={canEdit ? undefined : 'Only people who manage the team can change this'} onClick={toggle}
                 className={`relative mt-1 h-7 w-12 shrink-0 rounded-full transition disabled:opacity-50 ${form.enabled ? 'bg-[#6C3BFF]' : 'bg-slate-300'}`}>
                 <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all ${form.enabled ? 'left-6' : 'left-1'}`} />
               </button>
@@ -112,7 +112,7 @@ export default function CallForwardingPage() {
                   <label className="min-w-0 flex-1"><span className="sr-only">Phone number</span>
                     <input value={agent.phone} disabled={!canEdit} maxLength={32} inputMode="tel" placeholder="Phone, e.g. 0412 345 678" onChange={(event) => setAgent(index, { phone: event.target.value })} className="h-9 w-full rounded-lg px-3 text-[13.5px] tabular-nums" /></label>
                   <div className="flex items-center gap-2">
-                    <button type="button" disabled={!canEdit} onClick={() => setAgent(index, { enabled: !agent.enabled })} aria-pressed={agent.enabled}
+                    <button type="button" disabled={!canEdit} title={canEdit ? undefined : 'Only people who manage the team can change this'} onClick={() => setAgent(index, { enabled: !agent.enabled })} aria-pressed={agent.enabled}
                       className={`inline-flex h-8 items-center gap-1 rounded-lg px-2.5 text-[12px] font-semibold transition disabled:opacity-60 ${agent.enabled ? 'bg-[#6C3BFF] text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>{agent.enabled ? <><Check className="h-3.5 w-3.5" />Active</> : 'Paused'}</button>
                     {canEdit && <button type="button" onClick={() => removeAgent(index)} aria-label={`Remove ${agent.name || 'agent'}`} title="Remove" className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-[#F4F0FF] hover:text-[#5A2BE6]"><Trash2 className="h-4 w-4" /></button>}
                   </div>
@@ -136,7 +136,7 @@ export default function CallForwardingPage() {
                 <select value={form.ring_seconds} disabled={!canEdit} onChange={(event) => setForm({ ...form, ring_seconds: Number(event.target.value) })} className="h-8 w-auto rounded-lg px-2 text-[13px]">
                   {RING_CHOICES.map((seconds) => <option key={seconds} value={seconds}>{seconds} seconds</option>)}
                 </select>before telling the caller the team will call back</label>
-              {canEdit ? <button type="button" disabled={saving || !changed} onClick={() => save()} className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-[#6C3BFF] px-4 text-sm font-semibold text-white transition hover:bg-[#5A2BE6] disabled:opacity-50">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}{changed ? 'Save changes' : 'Saved'}</button>
+              {canEdit ? <button type="button" disabled={saving || !changed} title={!changed && !saving ? 'No changes to save' : undefined} onClick={() => save()} className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-[#6C3BFF] px-4 text-sm font-semibold text-white transition hover:bg-[#5A2BE6] disabled:opacity-50">{saving ? <Spinner /> : <Save className="h-4 w-4" />}{changed ? 'Save changes' : 'Saved'}</button>
                 : <span className="text-[12px] text-slate-500">Only admins can change call forwarding.</span>}
             </div>
           </Panel>

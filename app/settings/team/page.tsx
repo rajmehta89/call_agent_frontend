@@ -2,10 +2,10 @@
 
 import Link from 'next/link'
 import { FormEvent, useCallback, useEffect, useState } from 'react'
-import { BarChart3, Check, Copy, Link2, Loader2, MailPlus, UserMinus, UserPlus, Users, X } from 'lucide-react'
+import { BarChart3, Check, Copy, Link2, MailPlus, UserMinus, UserPlus, Users, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { PageHeader } from '../../../components/OmniPage'
-import { ActionButton, DataState, StatusBadge, api, roleLabel, userFacingError } from '../../../components/PlatformUI'
+import { ActionButton, DataState, StatusBadge, api, roleLabel, userFacingError, Spinner } from '../../../components/PlatformUI'
 
 // The two roles a team needs (auth_service.DEFAULT_ROLES). "agent" is the team member role's internal name.
 const TEAM_ROLES = [
@@ -78,7 +78,7 @@ export default function TeamSettingsPage() {
         <input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Full name" aria-label="Full name" className="h-10 rounded-lg border border-slate-200 px-3 text-sm" />
         <input required type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} placeholder="name@company.com" aria-label="Email" className="h-10 rounded-lg border border-slate-200 px-3 text-sm" />
         <select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value })} aria-label="Role" className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm">{TEAM_ROLES.map((role) => <option key={role.name} value={role.name}>{role.label}</option>)}</select>
-        <button type="submit" disabled={sending} className="action-button action-button-primary inline-flex h-10 items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold disabled:opacity-50">{sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}Send invite</button>
+        <button type="submit" disabled={sending} className="action-button action-button-primary inline-flex h-10 items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold disabled:opacity-50">{sending ? <Spinner /> : <UserPlus className="h-4 w-4" />}Send invite</button>
       </form>
       <p className="mt-2 text-xs text-slate-500">{TEAM_ROLES.find((role) => role.name === form.role)?.description}</p>
       {invite && <InviteLink invite={invite} onClose={() => setInvite(null)} />}

@@ -4,8 +4,8 @@ import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { AlertTriangle, ArrowRight, CalendarCheck, CheckCircle2, ChevronLeft, ChevronRight, Headphones, Inbox, ListChecks, PhoneCall, PhoneIncoming, PhoneMissed, Radio, Timer, UserPlus, UserX } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { api, titleCase, userFacingError } from '../../components/PlatformUI'
-import { Avatar, EmptyHint, Panel, PanelLink, Skeleton, duration, timeAgo } from '../../components/premium'
+import { Loader, api, titleCase, userFacingError } from '../../components/PlatformUI'
+import { Avatar, EmptyHint, Panel, PanelLink, duration, timeAgo } from '../../components/premium'
 import { stageInfo } from '../../components/stages'
 
 type DayStats = { calls: number; answered: number; missed: number; avg_duration: number; talk_seconds: number; new_leads: number; follow_ups: number }
@@ -87,7 +87,7 @@ export default function DashboardPage() {
         <div className="min-w-0">
           <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">{greeting()}{name ? `, ${name}` : ''}</h1>
           <p className="mt-1 text-sm text-white/80">
-            {!k ? 'Loading your workspace…' : k.live_now ? <b className="text-white">{k.live_now} call{k.live_now === 1 ? '' : 's'} live right now</b>
+            {!k ? 'Your calls, conversations and follow-ups for today.' : k.live_now ? <b className="text-white">{k.live_now} call{k.live_now === 1 ? '' : 's'} live right now</b>
               : data && data.follow_ups_total ? <><b className="text-white">{data.follow_ups_total} follow-up{data.follow_ups_total === 1 ? '' : 's'}</b> waiting for the team{k.unassigned ? <>, {k.unassigned} without an owner</> : null}.</>
                 : 'Nothing waiting for the team right now.'}
             <span className="ml-2 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-0.5 text-xs font-semibold ring-1 ring-white/15"><span className={`h-1.5 w-1.5 rounded-full ${data?.voice.ready === false ? 'bg-white/40' : 'bg-[#C4B5FD]'}`} />Answering with {data?.voice.active_provider || '…'}</span>
@@ -114,7 +114,7 @@ export default function DashboardPage() {
         </div>
         <span className="text-xs text-slate-500">Compared with {previousName.replace(/^on /, '')}</span>
       </div>
-      {!sameDay || !day ? <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">{Array.from({ length: 6 }).map((_, index) => <Skeleton key={index} className="h-[104px]" />)}</div>
+      {!sameDay || !day ? <Loader variant="cards" count={6} label="Loading today's numbers" />
         : <div className="keep-cols grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
           <DayStat icon={PhoneIncoming} label="Calls" value={day.stats.calls} before={day.previous.calls} beforeName={previousName} note={day.stats.talk_seconds ? `${minutes(day.stats.talk_seconds)} talking` : undefined} href="/calls" />
           <DayStat icon={CheckCircle2} label="Answered" value={day.stats.answered} before={day.previous.answered} beforeName={previousName} note={day.stats.calls ? `${Math.round(day.stats.answered / day.stats.calls * 100)}% of calls` : undefined} />
@@ -128,7 +128,7 @@ export default function DashboardPage() {
     {/* Follow-ups + needs attention */}
     <div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
       <Panel icon={CalendarCheck} title="Follow-ups" subtitle={data ? (data.follow_ups_total ? `${data.follow_ups_total} conversation${data.follow_ups_total === 1 ? '' : 's'} waiting for the team, newest first` : 'Nothing to follow up') : ' '} action={<PanelLink href="/tasks">All tasks</PanelLink>} bodyClassName="divide-y divide-[#F1EBFF]">
-        {!data ? <div className="p-5"><Skeleton className="h-56" /></div> : data.follow_ups.length ? data.follow_ups.map((item) => { const Icon = stageInfo(item.stage).icon; return <Link key={item.key} href={openLink(item.key)} className="group flex items-start gap-3 px-5 py-3.5 transition hover:bg-[#F8F5FF]">
+        {!data ? <Loader variant="rows" label="Loading follow-ups" className="p-3" /> : data.follow_ups.length ? data.follow_ups.map((item) => { const Icon = stageInfo(item.stage).icon; return <Link key={item.key} href={openLink(item.key)} className="group flex items-start gap-3 px-5 py-3.5 transition hover:bg-[#F8F5FF]">
           <Avatar name={item.name} size="sm" />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -145,7 +145,7 @@ export default function DashboardPage() {
       </Panel>
 
       <Panel icon={AlertTriangle} title="Needs attention" subtitle={data ? (data.attention.length ? `${data.attention.length} conversation${data.attention.length === 1 ? '' : 's'}` : 'Nothing waiting') : ' '} bodyClassName="p-3">
-        {!data ? <Skeleton className="h-56" /> : data.attention.length ? <ul className="space-y-1">{data.attention.map((item) => { const meta = ATTENTION[item.kind]; const Icon = meta.icon; return <li key={`${item.kind}-${item.key}`}>
+        {!data ? <Loader variant="rows" label="Loading what needs attention" /> : data.attention.length ? <ul className="space-y-1">{data.attention.map((item) => { const meta = ATTENTION[item.kind]; const Icon = meta.icon; return <li key={`${item.kind}-${item.key}`}>
           <Link href={openLink(item.key)} className="group flex items-center gap-3 rounded-xl px-2.5 py-2.5 transition hover:bg-[#F8F5FF]">
             <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${item.kind === 'live' ? 'bg-[#6C3BFF] text-white' : 'bg-[#F1EBFF] text-[#6C3BFF]'}`}><Icon className="h-4 w-4" /></span>
             <span className="min-w-0 flex-1"><span className="flex items-baseline justify-between gap-2"><span className="truncate text-sm font-semibold text-slate-900">{item.name}</span><span className="shrink-0 text-[11px] text-slate-500">{timeAgo(item.at)}</span></span><span className="block truncate text-xs text-slate-500">{meta.label} · {item.text}</span></span>
@@ -157,7 +157,7 @@ export default function DashboardPage() {
 
     {/* The day's calls, compact: one line each */}
     <Panel icon={PhoneCall} title={daysAgo === 0 ? "Today's calls" : `Calls on ${dayName(daysAgo)}`} subtitle={sameDay && day ? `${calls.length}${calls.length === 50 ? '+' : ''} call${calls.length === 1 ? '' : 's'} · click one to open the conversation` : ' '} action={<PanelLink href="/calls">Call history</PanelLink>} bodyClassName="p-0">
-      {!sameDay ? <div className="p-5"><Skeleton className="h-32" /></div> : calls.length ? <>
+      {!sameDay ? <Loader variant="rows" count={3} label="Loading calls" className="p-3" /> : calls.length ? <>
         <ul className="divide-y divide-[#F1EBFF]">{shownCalls.map((call) => <li key={call.id}>
           <Link href={openLink(call.key)} className="group grid grid-cols-[64px_minmax(0,1fr)_auto] items-center gap-3 px-5 py-2.5 transition hover:bg-[#F8F5FF] sm:grid-cols-[64px_minmax(0,200px)_minmax(0,1fr)_auto]">
             <span className="whitespace-nowrap text-xs font-semibold tabular-nums text-slate-500">{new Date(call.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>

@@ -3,9 +3,9 @@
 import Link from 'next/link'
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { AlertCircle, ArrowDownUp, ArrowRightLeft, AtSign, Bot, Check, CheckCheck, ChevronDown, ChevronRight, ChevronUp, CalendarDays, Clock, Copy, Globe, Hash, PhoneIncoming, Mail, MapPin, Building2, Tag, Phone, UserCheck, Headphones, Loader2, Lock, Maximize2, MessageSquare, Minimize2, MoreVertical, Paperclip, StickyNote, PanelRightOpen, Pencil, PhoneCall, PhoneMissed, Sparkles, Plus, Radio, RotateCcw, Search, Send, SlidersHorizontal, Trash2, UserMinus, UserPlus, X } from 'lucide-react'
+import { AlertCircle, ArrowDownUp, ArrowRightLeft, AtSign, Bot, Check, CheckCheck, ChevronDown, ChevronRight, ChevronUp, CalendarDays, Clock, Copy, Globe, Hash, PhoneIncoming, Mail, MapPin, Building2, Tag, Phone, UserCheck, Headphones, Lock, Maximize2, MessageSquare, Minimize2, MoreVertical, Paperclip, StickyNote, PanelRightOpen, Pencil, PhoneCall, PhoneMissed, Sparkles, Plus, Radio, RotateCcw, Search, Send, SlidersHorizontal, Trash2, UserMinus, UserPlus, X } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { API_BASE, api, roleLabel, userFacingError } from '../../../components/PlatformUI'
+import { API_BASE, Loader, api, roleLabel, userFacingError, Spinner } from '../../../components/PlatformUI'
 import { RecordingAudio } from '../../../components/RecordingAudio'
 import { STAGES, stageInfo } from '../../../components/stages'
 import { ANY_TIME, DayRangeMenu, rangeLabel, rangeQuery, type DayRange } from '../../../components/day-range'
@@ -148,6 +148,12 @@ export default function InboxPage() {
   useEffect(() => { const onKey = (event: KeyboardEvent) => shortcuts.current(event); window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey) }, [])
   const selectedRef = useRef('')  // read inside loadFolder without reloading the list on every selection
   useEffect(() => { selectedRef.current = selectedId }, [selectedId])
+  // The conversation the user asked for last: a slower earlier answer must never replace it on the right.
+  const requestedRef = useRef('')
+  // Opened from a link (?open=): kept even when it is not in the list (e.g. a closed conversation).
+  const linkedRef = useRef('')
+  const [detailLoading, setDetailLoading] = useState(false)
+  const clearSelection = () => { requestedRef.current = ''; setDetail(null); setSelectedId(''); setDetailLoading(false) }
   // Contact panel open/closed and wide/narrow are remembered per browser.
   const [showContact, setShowContact] = useState(true)
   const [wideContact, setWideContact] = useState(false)
@@ -160,20 +166,30 @@ export default function InboxPage() {
   }, [])
 
   const openConversation = useCallback(async (id: string, quiet = false) => {
-    setSelectedId(id)
-    if (!quiet) log(`opening conversation ${id}`)
-    try { setDetail((await api(`/api/inbox/conversations/${encodeKey(id)}`)).data); if (!quiet) countsChanged() /* opening it reads its notifications */ } catch (error) { log(`conversation ${id} failed`, error); if (!quiet) toast.error(userFacingError(error)) }
+    if (quiet && id !== requestedRef.current) return  // a refresh for a conversation that is no longer open
+    if (!quiet) { log(`opening conversation ${id}`); requestedRef.current = id; setSelectedId(id); setDetailLoading(true) }
+    try {
+      const data = (await api(`/api/inbox/conversations/${encodeKey(id)}`)).data
+      if (id !== requestedRef.current) return  // the user picked another conversation meanwhile
+      setDetail(data)
+      if (data?.key && data.key !== id) { requestedRef.current = data.key; setSelectedId(data.key) }  // links may use another form of the key
+      if (!quiet) countsChanged() /* opening it reads its notifications */
+    } catch (error) {
+      log(`conversation ${id} failed`, error)
+      if (!quiet && id === requestedRef.current) { setDetail(null); toast.error(userFacingError(error)) }
+    } finally { if (!quiet && id === requestedRef.current) setDetailLoading(false) }
   }, [])
 
   useEffect(() => {
-    setDetail(null); setSelectedId(''); setSelectedMention(null)
+    clearSelection(); setSelectedMention(null)
     const open = new URLSearchParams(window.location.search).get('open')
+    linkedRef.current = open || ''
     if (open && folder !== 'channel') openConversation(open)
   }, [folder, stage, closedTab, openConversation])
 
   // The header's notification bell asks to open a conversation (see GlobalHeader).
   useEffect(() => {
-    const onOpen = (event: Event) => { const key = (event as CustomEvent<string>).detail; if (key) openConversation(key) }
+    const onOpen = (event: Event) => { const key = (event as CustomEvent<string>).detail; if (key) { linkedRef.current = key; openConversation(key) } }
     window.addEventListener('inbox:open', onOpen)
     return () => window.removeEventListener('inbox:open', onOpen)
   }, [openConversation])
@@ -203,10 +219,15 @@ export default function InboxPage() {
         const result = await api(`/api/inbox/conversations?folder=${folder}&stage=${stage}&state=${state}&search=${encodeURIComponent(search)}${rangeQuery(range)}`)
         setRows(result.data || [])
         if (!quiet) log(`folder ${folder}${stage ? ` / status ${stage}` : ''} (${state}): ${result.data?.length || 0} conversations`)
-        // Like Podium: with nothing open yet, open the first (newest) conversation in the list.
-        const first = result.data?.[0]?.key
+        // Like Podium: the right side always shows a conversation from this list. With nothing open, or when the open
+        // one is no longer in the list (another search, day or folder), open the first (newest).
+        const keys: string[] = (result.data || []).map((row: Conversation) => row.key)
+        const current = requestedRef.current
+        const stale = !current || (current !== linkedRef.current && !keys.includes(current))
         // Desktop only: on a phone the list comes first and a tap opens the conversation full screen.
-        if (!quiet && first && !selectedRef.current && folder !== 'assigned' && window.matchMedia('(min-width: 1024px)').matches) { log(`opening first conversation ${first}`); openConversation(first) }
+        if (!quiet && stale && window.matchMedia('(min-width: 1024px)').matches) {
+          if (keys[0]) { log(`opening first conversation ${keys[0]}`); openConversation(keys[0]) } else if (current) clearSelection()
+        }
       }
     } catch (error) { log(`folder ${folder} failed`, error); if (!quiet) toast.error(userFacingError(error)) } finally { setLoading(false) }
   }, [folder, stage, search, closedTab, range, openConversation])
@@ -265,8 +286,15 @@ export default function InboxPage() {
     log(`opening mention ${message._id}`)
     setSelectedMention(message)
     if (message.conversation_id) openConversation(message.conversation_id)
-    else { setDetail(null); setSelectedId('') }
+    else clearSelection()
   }
+
+  // A quick filter that hides the open conversation opens the first one it shows, so both sides agree.
+  useEffect(() => {
+    if (listFilter === 'all' || folder === 'assigned' || folder === 'mentioned' || !window.matchMedia('(min-width: 1024px)').matches) return
+    const visible = rows.filter(([...FILTERS, ...STAGE_FILTERS].find((item) => item.id === listFilter) || FILTERS[0]).test)
+    if (visible[0] && !visible.some((row) => row.key === requestedRef.current)) openConversation(visible[0].key)
+  }, [listFilter])  // eslint-disable-line react-hooks/exhaustive-deps
 
   const team = { members, me, canModerate: canAssign }
   const canWork = Boolean(detail && (canAssign || detail.assigned_to === me))
@@ -275,7 +303,7 @@ export default function InboxPage() {
 
   const filtered = rows.filter(([...FILTERS, ...STAGE_FILTERS].find((item) => item.id === listFilter) || FILTERS[0]).test)
   const shown = newestFirst ? filtered : [...filtered].reverse()
-  const contactOpen = Boolean(detail && showContact && folder !== 'assigned')
+  const contactOpen = Boolean((detail || detailLoading) && showContact && folder !== 'assigned')
   // Podium layout: conversation list | conversation | contact sheet, joined into one surface.
   const columns = folder === 'assigned' ? 'lg:grid-cols-[420px_minmax(0,1fr)]'
     : contactOpen ? `lg:grid-cols-[340px_minmax(0,1fr)] ${wideContact ? '2xl:grid-cols-[340px_minmax(0,1fr)_480px]' : '2xl:grid-cols-[340px_minmax(0,1fr)_380px]'}`
@@ -296,8 +324,8 @@ export default function InboxPage() {
     if (event.key === 'e' && detail && canWork) { event.preventDefault(); setClosed(!detail.closed) }
   }
   // Below lg one pane at a time, like Podium's app: the list, or the open conversation with a Back button.
-  const reading = Boolean(detail || selectedMention)
-  const back = () => { setDetail(null); setSelectedId(''); setSelectedMention(null); log('back to the list') }
+  const reading = Boolean(detail || selectedMention || detailLoading)
+  const back = () => { clearSelection(); setSelectedMention(null); log('back to the list') }
 
   // Three floating cards on the white canvas (list | conversation | contact), as in the RelayDesk inbox concept.
   const card = 'min-h-0 overflow-hidden rounded-2xl border border-[#E9DFFF] bg-white shadow-[0_18px_40px_-34px_rgba(70,35,117,.55)]'
@@ -329,7 +357,7 @@ export default function InboxPage() {
         </>}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
-        {loading ? <div className="flex items-center justify-center py-12 text-sm text-slate-500"><Loader2 className="mr-2 h-4 w-4 animate-spin" />Loading…</div>
+        {loading ? <Loader variant="rows" label="Loading conversations" />
           : folder === 'mentioned' ? (mentions.length ? mentions.map((message) => { const selected = selectedMention?._id === message._id; const unread = !message.read_by?.includes(me); return <button key={message._id} type="button" onClick={() => pickMention(message)} className={`mb-1 flex w-full gap-3 rounded-xl px-3 py-3 text-left transition ${selected ? 'bg-gradient-to-r from-[#F1EBFF] to-[#F8F5FF] shadow-[inset_3px_0_0_#6C3BFF]' : 'hover:bg-[#F8F5FF]'}`}>
             <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#8B5CF6] to-[#5A2BE6] text-[13px] font-bold text-white">{initials(message.author_name)}{unread && !selected && <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-white bg-[#9747FF]" />}</span>
             <span className="min-w-0 flex-1">
@@ -349,14 +377,16 @@ export default function InboxPage() {
 
     <section className={`${reading ? 'flex' : 'hidden lg:flex'} ${card} min-w-0 flex-col`}>
       {reading && <button type="button" onClick={back} className="flex items-center gap-1 border-b border-[#E9DFFF] px-4 py-2.5 text-left text-sm font-semibold text-[#5A2BE6] lg:hidden"><ChevronRight className="h-4 w-4 rotate-180" />{title}</button>}
-      {detail ? <ConversationDetail detail={detail} canAssign={canAssign} canWork={canWork} onAssign={assign} onStage={changeStage} onClose={setClosed}
+      {detailLoading || (loading && !detail && !selectedMention) ? <Loader variant="panel" label="Loading conversation" className="flex-1" />
+        : detail ? <ConversationDetail detail={detail} canAssign={canAssign} canWork={canWork} onAssign={assign} onStage={changeStage} onClose={setClosed}
           contactHidden={!contactOpen && folder !== 'assigned'} onToggleContact={() => toggleContact(!showContact)}
           onChanged={() => { openConversation(detail.key, true); if (folder === 'mentioned') loadFolder(true) }} />
         : selectedMention ? <ChannelMention message={selectedMention} onChanged={() => loadFolder(true)} />
-        : <Empty text={folder === 'mentioned' ? 'Select a mention to read it in context and reply.' : 'Select a conversation to see the transcript, assign it, or discuss it with your team.'} />}
+        : <Empty text={folder === 'mentioned' ? (mentions.length ? 'Select a mention to read it in context and reply.' : 'No mentions to show.') : rows.length ? 'Select a conversation to see the transcript, assign it, or discuss it with your team.' : 'No conversation to show here. Pick another folder, status or day.'} />}
     </section>
 
-    {contactOpen && detail && <ContactPanel detail={detail} editable={canWork} wide={wideContact} onWide={() => setWideContact(!wideContact)} onStage={changeStage} onClose={() => toggleContact(false)} onSaved={() => { openConversation(detail.key, true); loadFolder(true) }} />}
+    {contactOpen && (detailLoading || !detail) && <aside className="hidden min-h-0 flex-col overflow-hidden rounded-2xl border border-[#E9DFFF] bg-white shadow-[0_18px_40px_-34px_rgba(70,35,117,.55)] 2xl:flex"><Loader variant="rows" label="Loading contact details" className="p-3" /></aside>}
+    {contactOpen && detail && !detailLoading && <ContactPanel detail={detail} editable={canWork} wide={wideContact} onWide={() => setWideContact(!wideContact)} onStage={changeStage} onClose={() => toggleContact(false)} onSaved={() => { openConversation(detail.key, true); loadFolder(true) }} />}
   </div></Team.Provider>
 }
 
@@ -491,13 +521,13 @@ function UnassignedPicker({ memberName, onPick, onClose }: { memberName: string;
   }, [memberName])
   const shown = (items || []).filter((item) => `${item.name} ${item.phone || ''} ${item.preview || ''}`.toLowerCase().includes(query.toLowerCase()))
   return <div className="border-b border-[#E9DFFF] bg-[#F8F5FF] p-3">
-    <div className="flex items-center gap-2"><div className="relative flex-1"><Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" /><input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`Send a conversation to ${memberName}…`} className="h-8 w-full rounded-lg border border-slate-200 bg-white pl-8 text-xs" /></div><button type="button" onClick={onClose} aria-label="Close" className="rounded-md p-1.5 text-slate-400 hover:bg-white"><X className="h-3.5 w-3.5" /></button></div>
+    <div className="flex items-center gap-2"><div className="relative flex-1"><Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" /><input autoFocus aria-label="Find a conversation to send" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`Send a conversation to ${memberName}…`} className="h-8 w-full rounded-lg border border-slate-200 bg-white pl-8 text-xs" /></div><button type="button" onClick={onClose} aria-label="Close" className="rounded-md p-1.5 text-slate-400 hover:bg-white"><X className="h-3.5 w-3.5" /></button></div>
     <div className="mt-2 max-h-56 space-y-1 overflow-y-auto">
-      {items === null ? <p className="flex items-center gap-2 py-3 text-xs text-slate-500"><Loader2 className="h-3.5 w-3.5 animate-spin" />Loading unassigned conversations…</p>
+      {items === null ? <Loader variant="rows" label="Loading unassigned conversations" />
         : shown.length ? shown.map((item) => <button key={item.key} type="button" disabled={Boolean(sending)} onClick={() => { setSending(item.key); onPick(item.key) }} className="flex w-full items-center gap-2.5 rounded-lg border border-transparent bg-white px-2.5 py-2 text-left transition hover:border-[#D8C8FF] disabled:opacity-60">
           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#6C3BFF] to-[#5A2BE6] text-[9px] font-bold text-white">{initials(item.name)}</span>
           <span className="min-w-0 flex-1"><span className="block truncate text-xs font-semibold text-slate-900">{item.name}</span><span className="block truncate text-[10px] text-slate-500">{item.preview || item.phone}</span></span>
-          {sending === item.key ? <Loader2 className="h-3.5 w-3.5 animate-spin text-[#6C3BFF]" /> : <span className="shrink-0 text-[11px] font-bold text-[#6C3BFF]">Send →</span>}
+          {sending === item.key ? <Spinner size="sm" /> : <span className="shrink-0 text-[11px] font-bold text-[#6C3BFF]">Send →</span>}
         </button>)
         : <p className="py-3 text-xs text-slate-500">{items.length ? 'No match.' : 'Every conversation is already assigned.'}</p>}
     </div>
@@ -641,7 +671,7 @@ function ConversationDetail({ detail, canAssign, canWork, onAssign, onStage, onC
       <div className="-mx-1 mt-2.5 flex items-center gap-1.5 overflow-x-auto px-1 pb-0.5">
         {canAssign ? <AssignChip detail={detail} members={members} onAssign={onAssign} />
           : detail.assigned_to ? <span className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-[#E9DFFF] px-2.5 text-[13px] text-slate-600"><UserPlus className="h-3.5 w-3.5 text-[#8B5CF6]" />{detail.assigned_to === me ? 'Assigned to you' : detail.assigned_to_name || 'Assigned'}</span>
-          : <button type="button" onClick={() => onAssign(me)} disabled={!me} className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-[#6C3BFF] px-2.5 text-[13px] font-bold text-white shadow-sm transition hover:bg-[#5A2BE6] disabled:opacity-50"><UserCheck className="h-3.5 w-3.5" />Assign to me</button>}
+          : <button type="button" onClick={() => onAssign(me)} disabled={!me} title={me ? undefined : 'Still loading your account'} className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-[#6C3BFF] px-2.5 text-[13px] font-bold text-white shadow-sm transition hover:bg-[#5A2BE6] disabled:opacity-50"><UserCheck className="h-3.5 w-3.5" />Assign to me</button>}
         <StagePicker stage={detail.stage} editable={canWork} onChange={onStage} compact />
         <span className="mx-0.5 h-5 w-px shrink-0 bg-[#E9DFFF]" aria-hidden="true" />
         {last && <span className={chip} title="Latest call"><Clock className="h-3.5 w-3.5 text-[#8B5CF6]" />{last.live ? 'In progress' : last.duration ? duration(last.duration) : '—'} · {agoText(last.at)}</span>}
@@ -701,7 +731,7 @@ function SmsCard({ message }: { message: SmsMessage }) {
   const attachments = message.media_attachments || (message.media_urls || []).map((url, index) => ({ url, name: message.media_names?.[index] || url.split('/').pop() || 'Attachment' }))
   return <div className={`flex ${inbound ? 'justify-start' : 'justify-end'}`}>
     <div className={`max-w-[82%] rounded-2xl px-3.5 py-2.5 shadow-[0_8px_18px_-12px_rgba(108,59,255,.55)] ${inbound ? 'rounded-bl-md border border-slate-200 bg-white text-slate-800' : 'rounded-br-md bg-[#6C3BFF] text-white'}`}>
-      {attachments.length ? <div className="mb-2 grid max-w-[280px] gap-1.5">{attachments.map((attachment) => { const displayUrl = localMediaUrl(attachment.url); return <a key={attachment.url} href={displayUrl} target="_blank" rel="noreferrer" className="overflow-hidden rounded-xl border border-black/10 bg-black/5">{isImageMedia(attachment.url) ? <img src={displayUrl} alt={attachment.name} loading="lazy" className="max-h-56 w-full object-cover" /> : <span className={`flex items-center gap-2 px-3 py-2 text-[11px] font-semibold ${inbound ? 'text-slate-600' : 'text-white/90'}`}><Paperclip className="h-3.5 w-3.5 shrink-0" /><span className="truncate" title={attachment.name}>{attachment.name}</span></span>}</a> })}</div> : null}
+      {attachments.length ? <div className="mb-2 grid max-w-[280px] gap-1.5">{attachments.map((attachment) => { const displayUrl = localMediaUrl(attachment.url); return <a key={attachment.url} href={displayUrl} target="_blank" rel="noreferrer" className="overflow-hidden rounded-xl border border-[#E9DFFF] bg-[#F8F5FF]">{isImageMedia(attachment.url) ? <img src={displayUrl} alt={attachment.name} loading="lazy" className="max-h-56 w-full object-cover" /> : <span className={`flex items-center gap-2 px-3 py-2 text-[11px] font-semibold ${inbound ? 'text-slate-600' : 'text-white/90'}`}><Paperclip className="h-3.5 w-3.5 shrink-0" /><span className="truncate" title={attachment.name}>{attachment.name}</span></span>}</a> })}</div> : null}
       {message.body ? <p className="whitespace-pre-wrap break-words text-[13.5px] leading-[1.45]">{message.body}</p> : null}
       <div className={`mt-1.5 flex items-center justify-end gap-2 text-[10.5px] ${inbound ? 'text-slate-400' : 'text-white/70'}`}><span>{inbound ? 'Customer' : 'You'}</span>{!inbound && <SmsStatus status={message.status} />}{message.created_at && <span>{clock(message.created_at)}</span>}</div>
     </div>
@@ -710,8 +740,8 @@ function SmsCard({ message }: { message: SmsMessage }) {
 
 function SmsStatus({ status }: { status?: string }) {
   const value = String(status || 'queued').toLowerCase()
-  if (['failed', 'undelivered', 'canceled'].includes(value)) return <span className="inline-flex items-center gap-1 text-red-200" title="Message was not delivered"><AlertCircle className="h-3 w-3" />Failed</span>
-  if (value === 'delivered') return <span className="inline-flex items-center gap-1 text-sky-200" title="Delivered to the recipient’s phone network"><CheckCheck className="h-3.5 w-3.5" />Delivered</span>
+  if (['failed', 'undelivered', 'canceled'].includes(value)) return <span className="inline-flex items-center gap-1 text-white" title="Message was not delivered"><AlertCircle className="h-3 w-3" />Failed</span>
+  if (value === 'delivered') return <span className="inline-flex items-center gap-1 text-white/80" title="Delivered to the recipient’s phone network"><CheckCheck className="h-3.5 w-3.5" />Delivered</span>
   if (['sent', 'accepted'].includes(value)) return <span className="inline-flex items-center gap-1 text-white/80" title="Accepted by the SMS provider"><CheckCheck className="h-3.5 w-3.5" />Sent</span>
   return <span className="inline-flex items-center gap-1 text-white/70" title="Waiting for the SMS provider"><Check className="h-3.5 w-3.5" />Sending</span>
 }
@@ -732,16 +762,16 @@ function SmsComposer({ phone, body, attachments, onBodyChange, onSend, onPhoneSa
   }
   return <div className="mb-2.5">
     {error ? <p className="mb-1.5 rounded-lg bg-[#F1EBFF] px-2.5 py-2 text-[11px] leading-4 text-[#5A2BE6]">{error}</p> : null}
-    {loading ? <p className="mb-1.5 px-1 text-[11px] text-slate-400">Loading conversation…</p> : null}
-    {!hasSmsNumber && canWork && <div className="mb-1.5 flex items-center gap-2 rounded-xl border border-[#E9DFFF] bg-white p-1.5"><input value={phoneDraft || ''} onChange={(event) => setPhoneDraft(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); savePhone() } }} placeholder="Mobile number, e.g. +61 4xx xxx xxx" className="h-8 min-h-0 flex-1 rounded-lg border-0 bg-transparent px-2 text-sm text-slate-800 outline-none placeholder:text-slate-400" /><button type="button" onClick={savePhone} disabled={!phoneDraft?.trim() || savingPhone} className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-[#F1EBFF] px-2.5 text-xs font-bold text-[#5A2BE6] transition hover:bg-[#E9DFFF] disabled:cursor-not-allowed disabled:opacity-40">{savingPhone ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}Save number</button></div>}
+    {loading ? <p className="mb-1.5 flex items-center gap-1.5 px-1 text-[11px] text-slate-400"><Spinner size="sm" />Loading conversation…</p> : null}
+    {!hasSmsNumber && canWork && <div className="mb-1.5 flex items-center gap-2 rounded-xl border border-[#E9DFFF] bg-white p-1.5"><input aria-label="Mobile number" value={phoneDraft || ''} onChange={(event) => setPhoneDraft(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); savePhone() } }} placeholder="Mobile number, e.g. +61 4xx xxx xxx" className="h-8 min-h-0 flex-1 rounded-lg border-0 bg-transparent px-2 text-sm text-slate-800 outline-none placeholder:text-slate-400" /><button type="button" onClick={savePhone} disabled={!phoneDraft?.trim() || savingPhone} title={!phoneDraft?.trim() ? 'Type a mobile number first' : undefined} className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-[#F1EBFF] px-2.5 text-xs font-bold text-[#5A2BE6] transition hover:bg-[#E9DFFF] disabled:cursor-not-allowed disabled:opacity-40">{savingPhone ? <Spinner size="sm" /> : null}Save number</button></div>}
     {attachments.length > 0 && <div className="mb-1.5 flex flex-wrap gap-1.5 px-1">{attachments.map((attachment) => { const displayUrl = localMediaUrl(attachment.url); return <div key={attachment.url} className="group relative h-14 w-20 overflow-hidden rounded-lg border border-[#D8C8FF] bg-[#F8F5FF]">{isImageMedia(attachment.url) ? <img src={displayUrl} alt={attachment.name} className="h-full w-full object-cover" /> : <span className="flex h-full items-center justify-center px-1 text-center text-[9px] font-bold text-slate-500">{attachment.name}</span>}<button type="button" onClick={() => onRemoveMedia(attachment.url)} aria-label={`Remove ${attachment.name}`} className="absolute right-0.5 top-0.5 hidden h-5 w-5 items-center justify-center rounded-full bg-slate-900/70 text-white group-hover:flex"><X className="h-3 w-3" /></button></div> })}</div>}
     <div className="flex items-end gap-2 rounded-2xl border border-[#D8C8FF] bg-[#FCFBFF] py-1.5 pl-2 pr-1.5 transition focus-within:border-[#6C3BFF] focus-within:shadow-[0_0_0_3px_rgba(108,59,255,.12)]">
       <span className="mb-1.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#F1EBFF] text-[#6C3BFF]" title={phone ? `Reply to ${callerLine(phone)}` : 'No phone number on file'}><MessageSquare className="h-3.5 w-3.5" /></span>
-      <textarea value={body} onChange={(event) => onBodyChange(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); onSend() } }} maxLength={1600} rows={1} placeholder={placeholder} disabled={disabled} className="block min-h-[38px] flex-1 resize-none rounded-none border-0 bg-transparent px-1 py-2 text-sm leading-5 text-slate-800 shadow-none outline-none placeholder:text-slate-400 focus:shadow-none disabled:cursor-not-allowed disabled:bg-transparent" />
+      <textarea aria-label={placeholder} value={body} onChange={(event) => onBodyChange(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); onSend() } }} maxLength={1600} rows={1} placeholder={placeholder} disabled={disabled} className="block min-h-[38px] flex-1 resize-none rounded-none border-0 bg-transparent px-1 py-2 text-sm leading-5 text-slate-800 shadow-none outline-none placeholder:text-slate-400 focus:shadow-none disabled:cursor-not-allowed disabled:bg-transparent" />
       <span className="mb-1 hidden text-[10px] tabular-nums text-slate-400 sm:block">{body.length}/1600</span>
       <button type="button" onClick={() => fileInput.current?.click()} disabled={disabled || uploading || attachments.length >= 4} aria-label="Attach image or file" title="Attach image or file" className="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[#6C3BFF] transition hover:bg-[#F1EBFF] disabled:cursor-not-allowed disabled:opacity-40"><Paperclip className="h-4 w-4" /></button>
       <input ref={fileInput} type="file" accept="image/*,audio/*,video/*,application/pdf" multiple className="hidden" disabled={disabled || uploading || attachments.length >= 4} onChange={(event) => { Array.from(event.target.files || []).slice(0, 4 - attachments.length).forEach(onPickMedia); event.currentTarget.value = '' }} />
-      <button type="button" onClick={onSend} disabled={disabled || (!body.trim() && !attachments.length)} aria-label="Send message" title="Send message" className="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#8B5CF6] to-[#6C3BFF] text-white shadow-[0_8px_18px_-10px_rgba(108,59,255,.9)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40">{sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}</button>
+      <button type="button" onClick={onSend} disabled={disabled || (!body.trim() && !attachments.length)} aria-label="Send message" title="Send message" className="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#8B5CF6] to-[#6C3BFF] text-white shadow-[0_8px_18px_-10px_rgba(108,59,255,.9)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40">{sending ? <Spinner size="sm" /> : <Send className="h-3.5 w-3.5" />}</button>
     </div>
     <div className="mt-1.5 flex items-center justify-between gap-3 px-1 text-[10.5px] text-slate-400"><span title="RelayDesk accepts up to 5 MB, but SMS/MMS carrier limits vary. Images are the most reliable media type.">{hasSmsNumber ? `${callerLine(phone!)} · Max upload 5 MB · Images work best · PDFs may fail by carrier` : canWork ? 'Add a mobile number to start messaging' : 'Only the assigned owner can add a number or reply'}</span><span className="hidden sm:inline">1:1 chat</span></div>
   </div>
@@ -950,7 +980,7 @@ function ProfileForm({ detail, onDone }: { detail: Detail; onDone: (saved: boole
     {input('name', 'Name')}{input('phone', 'Mobile number', '+61 4xx xxx xxx')}{input('email', 'Primary Email', 'name@company.com')}{input('company', 'Company')}{input('address', 'Address')}
     <label className="block py-1.5"><span className="mb-1 block text-xs font-semibold text-slate-600">Call language</span><select value={form.preferred_language} onChange={(event) => setForm({ ...form, preferred_language: event.target.value as LeadLanguage })} className="h-9 min-h-0 w-full rounded-lg px-3 py-1 text-sm">{LEAD_LANGUAGES.map((language) => <option key={language.code} value={language.code}>{language.label} · {language.nativeLabel}</option>)}</select><span className="mt-1 block text-[11px] text-slate-400">Controls the greeting, transcription, and AI replies for this lead.</span></label>
     {input('tags', 'Tags', 'comma, separated')}
-    <div className="flex justify-end gap-2 pt-2"><button type="button" onClick={() => onDone(false)} className="h-9 rounded-lg border border-slate-200 px-3 text-sm font-semibold text-slate-600 hover:border-slate-300">Cancel</button><button type="button" disabled={saving} onClick={save} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#6C3BFF] px-4 text-sm font-semibold text-white hover:bg-[#5A2BE6] disabled:opacity-50">{saving && <Loader2 className="h-4 w-4 animate-spin" />}Save</button></div>
+    <div className="flex justify-end gap-2 pt-2"><button type="button" onClick={() => onDone(false)} className="h-9 rounded-lg border border-slate-200 px-3 text-sm font-semibold text-slate-600 hover:border-slate-300">Cancel</button><button type="button" disabled={saving} onClick={save} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#6C3BFF] px-4 text-sm font-semibold text-white hover:bg-[#5A2BE6] disabled:opacity-50">{saving && <Spinner />}Save</button></div>
   </div>
 }
 
@@ -1020,7 +1050,7 @@ function CallCard({ call, name, defaultOpen }: { call: CallEntry; name: string; 
               <span className="px-1 text-[10.5px] text-slate-400">{group.customer ? 'Caller' : lastLine.role === 'human_agent' ? 'Human agent' : providerLabel(call.provider)}{clock(lastLine.at) ? ` · ${clock(lastLine.at)}` : ''}</span>
             </div>
           </div></div> }) : <p className="py-2 text-center text-xs text-slate-400">{call.live ? 'Waiting for the first words…' : 'No transcript for this call.'}</p>}
-          {call.live && call.messages.length > 0 && <p className="flex items-center justify-center gap-1.5 pt-1 text-[11px] text-[#6C3BFF]"><Loader2 className="h-3 w-3 animate-spin" />Call in progress — the transcript updates live</p>}
+          {call.live && call.messages.length > 0 && <p className="flex items-center justify-center gap-1.5 pt-1 text-[11px] text-[#6C3BFF]"><Spinner size="sm" />Call in progress — the transcript updates live</p>}
         </div>
         <p className="mt-3 border-t border-[#F1EBFF] pt-2 text-[11px] text-slate-400">{fullDate(call.at)} · {channelLabel(call)}{call.duration ? ` · ${duration(call.duration)}` : ''} · answered by {providerLabel(call.provider)}{call.disconnection_reason ? ` · ended: ${call.disconnection_reason.replace(/_/g, ' ')}` : ''}</p>
       </div>}
@@ -1164,7 +1194,7 @@ function Composer({ id, conversationId, placeholder, onDone, editing, onCancel, 
       <textarea id={id} ref={box} value={text} onChange={(event) => setText(event.target.value)} onKeyDown={onKeyDown} rows={1} placeholder={placeholder} className="block max-h-[150px] min-h-[40px] w-full resize-none rounded-none border-0 bg-transparent px-1 py-2.5 text-sm leading-5 shadow-none outline-none focus:shadow-none" />
       <button type="button" onClick={() => { setText((current) => `${current}${current && !current.endsWith(' ') ? ' ' : ''}@`); box.current?.focus() }} title="Mention a teammate" aria-label="Mention a teammate" className="mb-1 rounded-lg p-2 text-[#6C3BFF] transition hover:bg-[#F1EBFF]"><AtSign className="h-4 w-4" /></button>
       {onSendAndClose && text.trim() && <button type="button" onClick={() => send(true)} disabled={sending} title="Send the note and close the conversation" className="mb-1 hidden h-9 shrink-0 rounded-lg border border-[#D8C8FF] px-3 text-[13px] font-semibold text-[#5A2BE6] transition hover:border-[#6C3BFF] disabled:opacity-40 sm:block">Send &amp; close</button>}
-      <button type="button" onClick={() => send()} disabled={!text.trim() || sending} aria-label="Send" title="Send (Enter) · Shift + Enter for a new line" className="mb-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#8B5CF6] to-[#6C3BFF] text-white shadow-[0_8px_18px_-10px_rgba(108,59,255,.9)] transition hover:brightness-110 disabled:opacity-40">{sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}</button>
+      <button type="button" onClick={() => send()} disabled={!text.trim() || sending} aria-label="Send" title="Send (Enter) · Shift + Enter for a new line" className="mb-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#8B5CF6] to-[#6C3BFF] text-white shadow-[0_8px_18px_-10px_rgba(108,59,255,.9)] transition hover:brightness-110 disabled:opacity-40">{sending ? <Spinner /> : <Send className="h-4 w-4" />}</button>
     </div>
   </div>
 
@@ -1173,7 +1203,7 @@ function Composer({ id, conversationId, placeholder, onDone, editing, onCancel, 
     <div className="flex items-end gap-2">
       <textarea id={id} ref={box} autoFocus={Boolean(editing)} value={text} onChange={(event) => setText(event.target.value)} onKeyDown={onKeyDown} rows={2} placeholder={placeholder} className="min-h-[44px] flex-1 resize-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm" />
       {onCancel && <button type="button" onClick={onCancel} aria-label="Cancel edit" title="Cancel (Esc)" className="action-button action-button-neutral inline-flex h-10 w-10 items-center justify-center rounded-md"><X className="h-4 w-4" /></button>}
-      <button type="button" onClick={() => send()} disabled={!text.trim() || sending} aria-label={editing ? 'Save' : 'Send'} title={editing ? 'Save (Enter)' : 'Send (Enter)'} className="action-button action-button-primary inline-flex h-10 w-10 items-center justify-center rounded-md disabled:opacity-40">{sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}</button>
+      <button type="button" onClick={() => send()} disabled={!text.trim() || sending} aria-label={editing ? 'Save' : 'Send'} title={editing ? 'Save (Enter)' : 'Send (Enter)'} className="action-button action-button-primary inline-flex h-10 w-10 items-center justify-center rounded-md disabled:opacity-40">{sending ? <Spinner /> : <Send className="h-4 w-4" />}</button>
     </div>
   </div>
 }

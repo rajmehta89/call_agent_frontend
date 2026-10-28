@@ -3,10 +3,10 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import Link from 'next/link'
-import { AlertCircle, ArrowDown, AudioLines, CheckCircle2, Loader2, PhoneIncoming, ShieldCheck, Zap } from 'lucide-react'
+import { AlertCircle, ArrowDown, AudioLines, CheckCircle2, PhoneIncoming, ShieldCheck, Zap } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { PageHeader } from '@/components/OmniPage'
-import { api, DataState } from '@/components/PlatformUI'
+import { api, DataState, Spinner } from '@/components/PlatformUI'
 
 type VoiceProvider = {
   id: 'retell' | 'custom' | 'custom_deepgram'
@@ -44,7 +44,7 @@ function Switch({ checked, disabled, busy, label, onChange }: { checked: boolean
     className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full p-0 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${checked ? 'bg-purple-600' : 'bg-slate-300'}`}
   >
     <span className={`pointer-events-none absolute left-0.5 top-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-white shadow transition-transform ${checked ? 'translate-x-5' : 'translate-x-0'}`}>
-      {busy && <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-500" />}
+      {busy && <Spinner size="sm" />}
     </span>
   </button>
 }

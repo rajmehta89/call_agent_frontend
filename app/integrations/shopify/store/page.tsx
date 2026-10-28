@@ -2,11 +2,11 @@
 
 import Link from 'next/link'
 import { FormEvent, useCallback, useEffect, useState } from 'react'
-import { ArrowUpRight, Boxes, HeartPulse, RefreshCw, ChevronDown, FileText, Info, Loader2, MessageSquareText, Package, Search, Settings2, ShoppingBag, Sparkles, Truck, Users } from 'lucide-react'
+import { ArrowUpRight, Boxes, HeartPulse, RefreshCw, ChevronDown, FileText, Info, MessageSquareText, Package, Search, Settings2, ShoppingBag, Sparkles, Truck, Users } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { PageHeader } from '@/components/OmniPage'
-import { api } from '@/components/PlatformUI'
-import { Avatar, EmptyHint, Skeleton, Stat } from '@/components/premium'
+import { Loader, api, Spinner } from '@/components/PlatformUI'
+import { Avatar, EmptyHint, Stat } from '@/components/premium'
 
 type Overview = { name?: string; currencyCode?: string; myshopifyDomain?: string; primaryDomain?: { url?: string }; products?: number | null; orders?: number | null; customers?: number | null }
 type Product = { id: string; title: string; status?: string; product_type?: string; vendor?: string; url?: string; inventory?: number | null; options?: number | null; image?: string; currency?: string; min_price?: string; max_price?: string }
@@ -62,7 +62,7 @@ export default function StoreDataPage() {
       </div>} />
 
     {problem ? <div className="rounded-2xl border border-[#E9DFFF] bg-white p-8 text-center"><p className="text-sm text-slate-600">{problem}</p><Link href="/integrations/shopify" className="mt-4 inline-flex rounded-lg bg-[#6C3BFF] px-4 py-2 text-sm font-semibold text-white">Check the connection</Link></div> : <>
-      {!overview ? <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">{Array.from({ length: 4 }).map((_, index) => <Skeleton key={index} className="h-[112px]" />)}</div>
+      {!overview ? <Loader variant="cards" label="Loading store overview" />
         : <div className="keep-cols grid grid-cols-2 gap-3 xl:grid-cols-4">
           <Stat icon={Package} label="Products" value={count(overview.products)} hint="in the catalogue" />
           <Stat icon={Truck} label="Orders" value={count(overview.orders)} hint="last 60 days (Shopify's limit)" />
@@ -96,7 +96,7 @@ export default function StoreDataPage() {
 function SearchBar({ value, onChange, onSubmit, placeholder, busy }: { value: string; onChange: (value: string) => void; onSubmit: () => void; placeholder: string; busy: boolean }) {
   return <form onSubmit={(event: FormEvent) => { event.preventDefault(); onSubmit() }} className="flex gap-2">
     <div className="relative min-w-0 flex-1"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} aria-label={placeholder} className="h-10 w-full rounded-xl border border-[#E9DFFF] bg-white pl-9 pr-3 text-sm outline-none transition focus:border-[#6C3BFF]" /></div>
-    <button type="submit" disabled={busy} className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl bg-[#6C3BFF] px-4 text-sm font-semibold text-white transition hover:bg-[#5A2BE6] disabled:opacity-60">{busy && <Loader2 className="h-4 w-4 animate-spin" />}Search</button>
+    <button type="submit" disabled={busy} className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl bg-[#6C3BFF] px-4 text-sm font-semibold text-white transition hover:bg-[#5A2BE6] disabled:opacity-60">{busy && <Spinner />}Search</button>
   </form>
 }
 
@@ -126,7 +126,7 @@ function Products({ currency, total }: { currency: string; total?: number | null
     <SearchBar value={query} onChange={setQuery} onSubmit={() => load(query.trim())} placeholder="Search products, e.g. basin mixer" busy={busy && !rows?.length} />
     {rows && rows.length > 0 && <p className="mt-3 text-xs text-slate-500">Showing {rows.length.toLocaleString()}{searched ? ` matching "${searched}"` : total ? ` of ${total.toLocaleString()} products` : ''}{searched ? '' : ', most recently updated first'}</p>}
     {error && <Failure text={error} />}
-    {!rows ? <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">{Array.from({ length: 8 }).map((_, index) => <Skeleton key={index} className="h-64" />)}</div>
+    {!rows ? <Loader variant="cards" count={8} label="Loading products" className="mt-4" />
       : rows.length ? <>
         <ul className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">{rows.map((product) => <li key={product.id} className="group flex flex-col overflow-hidden rounded-2xl border border-[#E9DFFF] bg-white transition hover:-translate-y-0.5 hover:shadow-[0_18px_36px_-26px_rgba(70,35,117,.6)]">
           <div className="relative aspect-[4/3] bg-[#F8F5FF]">
@@ -143,7 +143,7 @@ function Products({ currency, total }: { currency: string; total?: number | null
             {product.url && <a href={product.url} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-[#6C3BFF] hover:underline">View on website<ArrowUpRight className="h-3 w-3" /></a>}
           </div>
         </li>)}</ul>
-        {next && <div className="mt-4 text-center"><button type="button" onClick={() => load(searched, next)} disabled={busy} className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#D8C8FF] bg-white px-5 text-sm font-semibold text-[#5A2BE6] transition hover:border-[#6C3BFF] disabled:opacity-60">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronDown className="h-4 w-4" />}Load more products</button></div>}
+        {next && <div className="mt-4 text-center"><button type="button" onClick={() => load(searched, next)} disabled={busy} className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#D8C8FF] bg-white px-5 text-sm font-semibold text-[#5A2BE6] transition hover:border-[#6C3BFF] disabled:opacity-60">{busy ? <Spinner /> : <ChevronDown className="h-4 w-4" />}Load more products</button></div>}
       </> : <div className="mt-4"><EmptyHint text={query ? `No products match "${query}".` : 'No products in the store.'} /></div>}
   </div>
 }
@@ -175,7 +175,7 @@ function Orders({ total }: { total?: number | null }) {
     {rows && rows.length > 0 && <div className="mt-3 flex flex-wrap gap-1.5">{ORDER_FILTERS.map((item) => { const total = rows.filter(item.test).length; const active = filter === item.id; if (!total && !active && item.id !== 'all') return null; return <button key={item.id} type="button" onClick={() => setFilter(item.id)}
       className={`inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition ${active ? 'bg-[#6C3BFF] text-white' : 'bg-[#F1EBFF] text-slate-600 hover:bg-[#E9DFFF]'}`}>{item.label}<span className={active ? 'text-white/70' : 'text-slate-400'}>{total}</span></button> })}</div>}
     {error && <Failure text={error} />}
-    {!rows ? <div className="mt-4 space-y-2">{Array.from({ length: 4 }).map((_, index) => <Skeleton key={index} className="h-20" />)}</div>
+    {!rows ? <Loader variant="rows" label="Loading orders" className="mt-4" />
       : shown.length ? <ul className="mt-4 divide-y divide-[#F1EBFF] overflow-hidden rounded-2xl border border-[#E9DFFF]">{shown.map((order) => <li key={order.name} className="grid gap-2 bg-white px-4 py-3.5 sm:grid-cols-[150px_minmax(0,1fr)_auto] sm:items-center sm:gap-4">
         <div><div className="text-sm font-bold text-slate-900">{order.name}</div><div className="text-[11px] text-slate-500">{shortDate(order.created_at)}</div></div>
         <div className="min-w-0">
@@ -191,7 +191,7 @@ function Orders({ total }: { total?: number | null }) {
         </div>
       </li>)}</ul>
       : <div className="mt-4"><EmptyHint text={searched ? `No order ${searched} in the last 60 days.` : filter !== 'all' ? 'No loaded orders with this status.' : 'No orders in the last 60 days.'} /></div>}
-    {rows && next && <div className="mt-4 text-center"><button type="button" onClick={() => load(searched, next)} disabled={busy} className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#D8C8FF] bg-white px-5 text-sm font-semibold text-[#5A2BE6] transition hover:border-[#6C3BFF] disabled:opacity-60">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronDown className="h-4 w-4" />}Load more orders</button></div>}
+    {rows && next && <div className="mt-4 text-center"><button type="button" onClick={() => load(searched, next)} disabled={busy} className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#D8C8FF] bg-white px-5 text-sm font-semibold text-[#5A2BE6] transition hover:border-[#6C3BFF] disabled:opacity-60">{busy ? <Spinner /> : <ChevronDown className="h-4 w-4" />}Load more orders</button></div>}
   </div>
 }
 
@@ -222,7 +222,7 @@ function Customers({ currency, total }: { currency: string; total?: number | nul
     <SearchBar value={query} onChange={setQuery} onSubmit={() => load(query.trim())} placeholder="Search by name, email or phone" busy={busy && !rows?.length} />
     {rows && rows.length > 0 && <p className="mt-3 text-xs text-slate-500">Showing {rows.length.toLocaleString()}{searched ? ` matching "${searched}"` : total ? ` of ${total.toLocaleString()} customers` : ''}, most recently active first</p>}
     {error && <Failure text={error} />}
-    {!rows ? <div className="mt-4 space-y-2">{Array.from({ length: 5 }).map((_, index) => <Skeleton key={index} className="h-14" />)}</div>
+    {!rows ? <Loader variant="rows" count={5} label="Loading customers" className="mt-4" />
       : rows.length ? <ul className="mt-4 divide-y divide-[#F1EBFF] overflow-hidden rounded-2xl border border-[#E9DFFF]">{rows.map((customer) => <li key={customer.id} className="flex items-center gap-3 bg-white px-4 py-3">
         <Avatar name={customer.name || '?'} size="sm" />
         <div className="min-w-0 flex-1">
@@ -235,7 +235,7 @@ function Customers({ currency, total }: { currency: string; total?: number | nul
         </div>
       </li>)}</ul>
       : <div className="mt-4"><EmptyHint text={searched ? `No customer matches "${searched}".` : 'No customers yet.'} /></div>}
-    {rows && next && <div className="mt-4 text-center"><button type="button" onClick={() => load(searched, next)} disabled={busy} className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#D8C8FF] bg-white px-5 text-sm font-semibold text-[#5A2BE6] transition hover:border-[#6C3BFF] disabled:opacity-60">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronDown className="h-4 w-4" />}Load more customers</button></div>}
+    {rows && next && <div className="mt-4 text-center"><button type="button" onClick={() => load(searched, next)} disabled={busy} className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#D8C8FF] bg-white px-5 text-sm font-semibold text-[#5A2BE6] transition hover:border-[#6C3BFF] disabled:opacity-60">{busy ? <Spinner /> : <ChevronDown className="h-4 w-4" />}Load more customers</button></div>}
   </div>
 }
 
@@ -268,7 +268,7 @@ function CatalogueHealth() {
   }, [])
   useEffect(() => { load() }, [load])
   if (error) return <Failure text={error} />
-  if (!data) return <div className="space-y-2"><p className="text-sm text-slate-500">Checking every product… this takes a few seconds.</p>{Array.from({ length: 4 }).map((_, index) => <Skeleton key={index} className="h-14" />)}</div>
+  if (!data) return <div className="space-y-2"><p className="text-sm text-slate-500">Checking every product… this takes a few seconds.</p><Loader variant="rows" label="Checking every product" /></div>
   const rows = data.products.filter((row) => !filter || row.issues.includes(filter))
   const keys = Object.keys(data.labels).filter((key) => data.counts[key])
 
@@ -278,7 +278,7 @@ function CatalogueHealth() {
         <p className="text-sm font-semibold text-slate-900">{data.with_issues.toLocaleString()} of {data.checked.toLocaleString()} active products need attention</p>
         <p className="mt-0.5 text-xs text-slate-500">Fixing these in Shopify makes the AI's answers on calls complete. Changes show up on the next call: nothing to sync.</p>
       </div>
-      <button type="button" onClick={() => load(true)} disabled={busy} className="inline-flex h-9 items-center gap-2 rounded-xl border border-[#D8C8FF] bg-white px-3.5 text-sm font-semibold text-[#5A2BE6] transition hover:border-[#6C3BFF] disabled:opacity-60"><RefreshCw className={`h-4 w-4 ${busy ? 'animate-spin' : ''}`} />Check again</button>
+      <button type="button" onClick={() => load(true)} disabled={busy} className="inline-flex h-9 items-center gap-2 rounded-xl border border-[#D8C8FF] bg-white px-3.5 text-sm font-semibold text-[#5A2BE6] transition hover:border-[#6C3BFF] disabled:opacity-60">{busy ? <Spinner /> : <RefreshCw className="h-4 w-4" />}Check again</button>
     </div>
     <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">{keys.map((key) => { const active = filter === key; return <button key={key} type="button" onClick={() => { setFilter(active ? '' : key); setShown(30) }} aria-pressed={active}
       className={`rounded-xl border p-3 text-left transition ${active ? 'border-[#6C3BFF] bg-[#F1EBFF]' : 'border-[#E9DFFF] bg-white hover:border-[#D8C8FF]'}`}>
@@ -303,7 +303,7 @@ function Policies() {
   const [error, setError] = useState('')
   useEffect(() => { api<{ data: Policy[] }>('/api/platform/shopify/policies').then((result) => setRows(result.data || [])).catch((exception) => setError(exception instanceof Error ? exception.message : 'Could not load policies')) }, [])
   if (error) return <Failure text={error} />
-  if (!rows) return <div className="space-y-2">{Array.from({ length: 4 }).map((_, index) => <Skeleton key={index} className="h-14" />)}</div>
+  if (!rows) return <Loader variant="rows" label="Loading store policies" />
   if (!rows.length) return <EmptyHint text="No policies saved in Shopify (Settings → Policies)." />
   return <ul className="space-y-2">{rows.map((policy) => { const id = policy.type || policy.title || ''; const expanded = open === id; return <li key={id} className="overflow-hidden rounded-2xl border border-[#E9DFFF] bg-white">
     <button type="button" aria-expanded={expanded} onClick={() => setOpen(expanded ? '' : id)} className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-[#F8F5FF]">
@@ -345,7 +345,7 @@ function AskLikeACaller() {
       <form onSubmit={(event) => { event.preventDefault(); ask() }} className="space-y-2">
         <label className="block"><span className="field-label">What the caller says</span><textarea value={question} onChange={(event) => setQuestion(event.target.value)} rows={3} placeholder="e.g. Is the Lydia basin mixer in stock?" className="w-full rounded-xl border border-[#E9DFFF] px-3 py-2 text-sm outline-none focus:border-[#6C3BFF]" /></label>
         <label className="block"><span className="field-label">Caller's phone number (optional)</span><input value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+61 4…" /></label>
-        <button type="submit" disabled={busy || !question.trim()} className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#6C3BFF] px-4 text-sm font-semibold text-white transition hover:bg-[#5A2BE6] disabled:opacity-60">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}Ask the store</button>
+        <button type="submit" disabled={busy || !question.trim()} className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#6C3BFF] px-4 text-sm font-semibold text-white transition hover:bg-[#5A2BE6] disabled:opacity-60">{busy ? <Spinner /> : <Sparkles className="h-4 w-4" />}Ask the store</button>
       </form>
       {ideas.length > 0 && <div className="mt-4"><div className="text-[11px] font-bold uppercase tracking-[.1em] text-slate-500">Try</div><div className="mt-2 flex flex-wrap gap-1.5">{ideas.map((idea) => <button key={idea} type="button" onClick={() => ask(idea)} className="rounded-full border border-[#E9DFFF] bg-white px-3 py-1.5 text-left text-xs text-slate-600 transition hover:border-[#6C3BFF] hover:text-[#5A2BE6]">{idea}</button>)}</div></div>}
     </div>

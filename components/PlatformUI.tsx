@@ -2,7 +2,7 @@
 
 import { AlertTriangle, CalendarDays, Check, CheckCircle2, Download, Loader2, LucideIcon, PhoneIncoming, PhoneMissed, Search, SlidersHorizontal, Timer, Users, X } from 'lucide-react'
 import { ReactNode } from 'react'
-import { Stat } from './premium'
+import { Skeleton, Stat } from './premium'
 
 export const API_BASE = process.env.NEXT_PUBLIC_CALL_API_URL || 'http://127.0.0.1:8000'
 
@@ -118,7 +118,7 @@ export function MetricGrid({ items }: { items: { label: string; value: string | 
 
 export function Toolbar({ search, onSearch, onExport, children }: { search?: string; onSearch?: (value: string) => void; onExport?: () => void; children?: ReactNode }) {
   return <div className="product-toolbar surface-panel flex flex-col gap-2.5 lg:flex-row lg:items-center">
-    {onSearch && <div className="product-toolbar-search relative min-w-0 flex-1 lg:max-w-[440px]"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" /><input value={search} onChange={(e) => onSearch(e.target.value)} placeholder="Search records..." />{search ? <button type="button" onClick={() => onSearch('')} aria-label="Clear search" className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full transition"><X className="h-4 w-4" /></button> : null}</div>}
+    {onSearch && <div className="product-toolbar-search relative min-w-0 flex-1 lg:max-w-[440px]"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" /><input value={search} onChange={(e) => onSearch(e.target.value)} placeholder="Search records..." aria-label="Search records" />{search ? <button type="button" onClick={() => onSearch('')} aria-label="Clear search" className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full transition"><X className="h-4 w-4" /></button> : null}</div>}
     <div className="product-toolbar-controls flex min-w-0 flex-1 flex-wrap items-center gap-2">
       {children}
       {onExport && <div className="ml-auto flex shrink-0 items-center gap-2">{onExport && <ActionButton onClick={onExport} icon={<Download className="h-4 w-4" />}>Export CSV</ActionButton>}</div>}
@@ -132,8 +132,31 @@ export function ActionButton({ children, onClick, icon, primary = false, disable
   return <button type={type} title={accessibleTitle} aria-label={accessibleTitle} onClick={onClick} disabled={disabled} className={`action-button ${toneClass} inline-flex h-9 items-center justify-center gap-2 rounded-md px-3.5 text-sm font-semibold transition active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-40`}>{icon}{children}</button>
 }
 
+/** The one loading state for every page and panel: lavender shimmer blocks shaped like what is coming, announced to
+    screen readers. "page" = stat cards and a panel, "panel" = an open conversation or record, "rows" = a list,
+    "cards" = a row of stat or product cards, "line" = one small item (a recording, a count). `count` sets how many
+    rows or cards. Busy buttons use Spinner instead. */
+export function Loader({ label = 'Loading', variant = 'page', count, className = '' }: { label?: string; variant?: 'page' | 'panel' | 'rows' | 'cards' | 'line'; count?: number; className?: string }) {
+  const many = (fallback: number) => Array.from({ length: count || fallback }, (_, index) => index)
+  return <div role="status" aria-live="polite" aria-busy="true" className={className}>
+    <span className="sr-only">{label}…</span>
+    {variant === 'page' ? <div aria-hidden="true" className="space-y-4"><div className="keep-cols grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">{[0, 1, 2, 3].map((index) => <Skeleton key={index} className="h-[104px]" />)}</div><Skeleton className="h-72" /></div>
+      : variant === 'panel' ? <div aria-hidden="true" className="space-y-4 p-4"><div className="flex items-center gap-3"><Skeleton className="h-10 w-10 shrink-0 rounded-full" /><div className="flex-1 space-y-2"><Skeleton className="h-3.5 w-1/2" /><Skeleton className="h-3 w-1/3" /></div></div><Skeleton className="h-20" /><Skeleton className="h-14 w-4/5" /><Skeleton className="ml-auto h-14 w-3/5" /><Skeleton className="h-14 w-2/3" /></div>
+      : variant === 'cards' ? <div aria-hidden="true" className="keep-cols grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4">{many(4).map((index) => <Skeleton key={index} className="h-[104px]" />)}</div>
+      : variant === 'line' ? <Skeleton className="h-10" />
+      : <div aria-hidden="true" className="space-y-1">{many(4).map((index) => <div key={index} className="flex items-center gap-3 rounded-xl p-2"><Skeleton className="h-9 w-9 shrink-0 rounded-full" /><div className="flex-1 space-y-1.5"><Skeleton className="h-3 w-2/3" /><Skeleton className="h-2.5 w-1/2" /></div></div>)}</div>}
+  </div>
+}
+
+/** The one busy indicator for buttons and inline "working" states: the same icon, size and motion everywhere.
+    Decorative (the button's own text or label says what is happening); motion stops for reduced-motion users. */
+export function Spinner({ size = 'md', className = '' }: { size?: 'sm' | 'md' | 'lg'; className?: string }) {
+  const box = size === 'sm' ? 'h-3.5 w-3.5' : size === 'lg' ? 'h-7 w-7' : 'h-4 w-4'
+  return <Loader2 aria-hidden="true" className={`${box} shrink-0 animate-spin motion-reduce:animate-none ${className}`} />
+}
+
 export function DataState({ loading, error, empty, onRetry, children }: { loading: boolean; error?: string; empty?: boolean; onRetry?: () => void; children: ReactNode }) {
-  if (loading) return <div className="surface-panel flex min-h-48 items-center justify-center rounded-[24px] text-sm text-slate-500"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading live data...</div>
+  if (loading) return <Loader />
   if (error) return <div className="surface-panel flex min-h-48 flex-col items-center justify-center rounded-[24px] p-6 text-center"><AlertTriangle className="h-6 w-6 text-purple-600" /><div className="mt-3 text-sm text-slate-900">Unable to load this view</div><div className="mt-1 max-w-xl text-xs text-slate-500">{error}</div>{onRetry && <div className="mt-4"><ActionButton onClick={onRetry}>Retry</ActionButton></div>}</div>
   if (empty) return <div className="surface-panel flex min-h-48 flex-col items-center justify-center rounded-[24px] p-6 text-center"><SlidersHorizontal className="h-6 w-6 text-slate-400" /><div className="mt-3 text-sm text-slate-900">No matching records</div><div className="mt-1 text-xs text-slate-500">Try another filter or create the first record.</div></div>
   return <>{children}</>

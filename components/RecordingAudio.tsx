@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { authFetch } from './PlatformUI'
+import { Loader, authFetch } from './PlatformUI'
 
 type Props = {
   callId: string
@@ -44,8 +44,8 @@ export function RecordingAudio({ callId, source, recordingSid, part = 'full', au
     return () => { cancelled = true; if (objectUrl) URL.revokeObjectURL(objectUrl) }
   }, [callId, part, recordingSid, source, twilioRecording])
 
-  if (loading) return <p className="mt-3 text-sm text-slate-500">Loading recording...</p>
-  if (error) return <p role="alert" className="mt-3 text-sm text-red-700">{error}</p>
+  if (loading) return <Loader variant="line" label="Loading recording" className="mt-3" />
+  if (error) return <p role="alert" className="mt-3 text-sm text-[#5A2BE6]">{error}</p>
   if (!audioUrl) return <p className="mt-3 text-sm text-slate-500">No recording is available for this call.</p>
   return <>
     <audio className="mt-3 w-full" controls autoPlay={autoPlay} preload="metadata" src={audioUrl}>Your browser does not support audio playback.</audio>

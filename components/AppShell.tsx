@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import Sidebar from './Sidebar'
 import GlobalHeader from './GlobalHeader'
-import { apiWithRetry } from './PlatformUI'
+import { Loader, apiWithRetry } from './PlatformUI'
 import { pageInfo } from './omni-data'
 
 const publicRoutes = ['/login', '/signup', '/invite/accept']
@@ -30,15 +30,16 @@ function requiredPermission(pathname: string) {
   return null
 }
 
-function AccessState({ title, copy, action, href }: { title: string; copy: string; action: string; href: string }) {
-  return <div className="app-access-state"><section><span>RelayDesk</span><h1>{title}</h1><p>{copy}</p><a href={href}>{action}</a></section></div>
+function AccessState({ title, copy, action, href, onRetry }: { title: string; copy: string; action: string; href: string; onRetry?: () => void }) {
+  return <div className="app-access-state"><section><span>RelayDesk</span><h1>{title}</h1><p>{copy}</p>
+    {onRetry ? <><button type="button" onClick={onRetry}>Try again</button> <a href={href}>{action}</a></> : <a href={href}>{action}</a>}
+  </section></div>
 }
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const isPublic = publicRoutes.some((route) => pathname?.startsWith(route))
   const [user, setUser] = useState<any>(null)
-  const [checking, setChecking] = useState(!isPublic)
   const [authError, setAuthError] = useState('')
   const [authAttempt, setAuthAttempt] = useState(0)
 
@@ -48,23 +49,30 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }, [pathname])
 
   useEffect(() => {
-    if (isPublic) { setChecking(false); return }
+    // On the sign-in pages there is no user; signing in (possibly as someone else) loads one afresh.
+    if (isPublic) { setUser(null); return }
     if (!window.localStorage.getItem('agentflow_token')) { window.location.href = '/login'; return }
     let active = true
     // Match the backend's possible Render cold-start window so a sleeping
     // instance does not look like a broken or expired session.
-    const timeout = window.setTimeout(() => { if (active) { setAuthError('The workspace sign-in check took too long. Please try again in a moment.'); setChecking(false) } }, 65000)
+    const timeout = window.setTimeout(() => { if (active) setAuthError('The workspace sign-in check took too long. Please try again in a moment.') }, 65000)
     setAuthError('')
     apiWithRetry<any>('/api/auth/me', undefined, 1, 60000).then((result) => {
       if (result.data?.token) window.localStorage.setItem('agentflow_token', result.data.token)
       if (active) setUser(result.data)
-    }).catch(() => { if (active) setAuthError('The workspace service is unavailable or your session has expired.') }).finally(() => { window.clearTimeout(timeout); if (active) setChecking(false) })
+    }).catch(() => {
+      // An expired session never gets here: a 401 already sends the browser to /login (authFetch).
+      if (active) setAuthError('The workspace service is not answering right now. It may be starting up.')
+    }).finally(() => window.clearTimeout(timeout))
     return () => { active = false; window.clearTimeout(timeout) }
-  }, [isPublic, pathname, authAttempt])
+  // Once per visit, not on every page change: each check was a round trip before the shell could refresh.
+  }, [isPublic, authAttempt])
 
   if (isPublic) return <>{children}</>
-  if (checking) return <div className="app-loading-state"><i /> Connecting to your workspace…</div>
-  if (!user) return <AccessState title="Workspace unavailable" copy={authError || 'Please try again.'} action="Sign in again" href="/login" />
+  // No user yet and no error: still checking. Deciding from the user itself (not a separate "checking" flag) means
+  // arriving from the sign-in page shows the loader, never a "Workspace unavailable" screen before the check starts.
+  if (!user && !authError) return <div className="app-loading-state"><Loader label="Connecting to your workspace" className="w-full max-w-5xl" /></div>
+  if (!user) return <AccessState title="Workspace unavailable" copy={authError} action="Sign in again" href="/login" onRetry={() => setAuthAttempt((attempt) => attempt + 1)} />
   const permission = requiredPermission(pathname || '/')
   const permissions = ['owner', 'admin'].includes(String(user.role || '').toLowerCase()) ? ['*'] : (user.permissions || [])
   const allowed = !permission || permissions.includes('*') || permissions.includes(permission)

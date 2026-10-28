@@ -29,7 +29,7 @@ export default function VoiceOverview() {
     const [overviewResult, twilioResult, callsResult] = await Promise.allSettled([
       api<any>(`/api/overview?tz_offset=${-new Date().getTimezoneOffset()}`),
       apiWithRetry<any>('/api/twilio/config', undefined, 1, 8000),
-      apiWithRetry<any>('/api/calls?direction=inbound&limit=8', undefined, 1, 8000),
+      apiWithRetry<any>('/api/calls?direction=inbound&limit=8&view=list', undefined, 1, 8000),
     ])
     if (overviewResult.status === 'fulfilled') setOverview(overviewResult.value.data)
     if (twilioResult.status === 'fulfilled') setTwilio(twilioResult.value.data || {})

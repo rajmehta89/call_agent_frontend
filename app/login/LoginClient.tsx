@@ -4,7 +4,7 @@ import { FormEvent, ReactNode, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { ArrowRight, LockKeyhole, ShieldCheck, Sparkles } from 'lucide-react'
-import { apiWithRetry, userFacingError } from '@/components/PlatformUI'
+import { Spinner, apiWithRetry, userFacingError } from '@/components/PlatformUI'
 
 export default function LoginClient() {
   const router = useRouter()
@@ -59,7 +59,7 @@ export default function LoginClient() {
       {error && <div role="alert" className="flex items-start gap-3 rounded-xl border border-purple-200 bg-purple-50 px-4 py-3 text-sm leading-5 text-purple-800"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" /><span>{error}</span></div>}
       <label className="block"><span className="field-label">Email address</span><input autoFocus required type="email" autoComplete="email" value={form.email} onChange={(event) => { setForm({ ...form, email: event.target.value }); setError('') }} placeholder="you@company.com" aria-invalid={Boolean(error)} /></label>
       <label className="block"><span className="field-label">Password</span><input required type="password" autoComplete="current-password" value={form.password} onChange={(event) => { setForm({ ...form, password: event.target.value }); setError('') }} placeholder="Your password" aria-invalid={Boolean(error)} /></label>
-      <button disabled={loading} className="mt-2 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#6C3BFF] text-sm font-bold text-white shadow-[0_12px_24px_rgba(104,6,217,.2)] transition hover:bg-[#5A2BE6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6C3BFF] disabled:cursor-wait disabled:opacity-60">{loading ? 'Signing in...' : 'Sign in'}{!loading && <ArrowRight className="h-4 w-4" />}</button>
+      <button disabled={loading} className="mt-2 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#6C3BFF] text-sm font-bold text-white shadow-[0_12px_24px_rgba(104,6,217,.2)] transition hover:bg-[#5A2BE6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6C3BFF] disabled:cursor-wait disabled:opacity-60">{loading && <Spinner />}{loading ? 'Signing in…' : 'Sign in'}{!loading && <ArrowRight className="h-4 w-4" />}</button>
     </form>
     <div className="mt-6 flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-600"><LockKeyhole className="mt-0.5 h-4 w-4 shrink-0 text-[#6C3BFF]" /><span>Access is invitation-only. Ask your workspace Admin for an invitation if you do not have an account.</span></div>
   </AuthFrame>

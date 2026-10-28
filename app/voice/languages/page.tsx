@@ -1,10 +1,10 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { AlertCircle, CheckCircle2, Languages, Loader2 } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Languages } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { PageHeader } from '@/components/OmniPage'
-import { api, DataState } from '@/components/PlatformUI'
+import { api, DataState, Spinner } from '@/components/PlatformUI'
 import { LEAD_LANGUAGES, type LeadLanguage } from '@/components/lead-language'
 
 type VoiceLanguage = {
@@ -26,7 +26,7 @@ function LanguageSwitch({ checked, busy, disabled, label, onClick }: { checked: 
     className={`relative inline-flex h-8 w-14 shrink-0 items-center rounded-full p-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6C3BFF] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${checked ? 'bg-[#6C3BFF]' : 'bg-slate-300'}`}
   >
     <span className={`flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-sm transition-transform ${checked ? 'translate-x-6' : 'translate-x-0'}`}>
-      {busy && <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-500" />}
+      {busy && <Spinner size="sm" />}
     </span>
   </button>
 }
@@ -88,7 +88,7 @@ export default function VoiceLanguagesPage() {
               </div>
               <LanguageSwitch checked={language.enabled} busy={saving === language.code} disabled={language.enabled && enabledCount === 1} label={`${language.enabled ? 'Disable' : 'Enable'} ${language.label}`} onClick={() => toggle(language)} />
             </div>
-            <div className="mt-4 flex items-center gap-1.5 text-xs font-semibold"><CheckCircle2 className={`h-3.5 w-3.5 ${language.enabled ? 'text-emerald-600' : 'text-slate-300'}`} />{language.enabled ? 'Available for calls' : 'Not used for new calls'}</div>
+            <div className="mt-4 flex items-center gap-1.5 text-xs font-semibold"><CheckCircle2 className={`h-3.5 w-3.5 ${language.enabled ? 'text-[#5A2BE6]' : 'text-slate-300'}`} />{language.enabled ? 'Available for calls' : 'Not used for new calls'}</div>
           </article>)}
         </div>
         <div className="mt-5 flex items-start gap-2 rounded-xl bg-[#F8F5FF] px-3.5 py-3 text-xs leading-5 text-slate-600"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#6C3BFF]" /><span>English summaries remain enabled independently, so the call record stays easy for the whole team to read.</span></div>

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Headphones, Mail, Mic, Phone, PhoneCall, PhoneOff, ShieldCheck, UserRound } from 'lucide-react'
 import { PageHeader } from '@/components/OmniPage'
-import { ActionButton, api, StatusBadge } from '@/components/PlatformUI'
+import { ActionButton, Spinner, api, StatusBadge } from '@/components/PlatformUI'
 import { LEAD_LANGUAGES, type LeadLanguage } from '@/components/lead-language'
 
 type CallState = 'idle' | 'connecting' | 'connected' | 'error'
@@ -103,7 +103,7 @@ export default function BrowserVoiceTestPage() {
       </div>
 
       <div className="mt-6 flex flex-wrap gap-3">
-        <ActionButton primary disabled={active} onClick={startCall} icon={<PhoneCall className="h-4 w-4" />}>{state === 'connecting' ? 'Connecting…' : 'Start browser test'}</ActionButton>
+        <ActionButton primary disabled={active} onClick={startCall} icon={state === 'connecting' ? <Spinner /> : <PhoneCall className="h-4 w-4" />}>{state === 'connecting' ? 'Connecting…' : 'Start browser test'}</ActionButton>
         <ActionButton disabled={!active} onClick={endCall} tone="danger" icon={<PhoneOff className="h-4 w-4" />}>End call</ActionButton>
       </div>
     </section>
