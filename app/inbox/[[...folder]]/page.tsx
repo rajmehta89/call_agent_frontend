@@ -154,6 +154,8 @@ export default function InboxPage() {
   const linkedRef = useRef('')
   const [detailLoading, setDetailLoading] = useState(false)
   const clearSelection = () => { requestedRef.current = ''; setDetail(null); setSelectedId(''); setDetailLoading(false) }
+  // Conversations opened in this visit (the 30 most recent), shown instantly when opened again while a fresh copy loads.
+  const detailCacheRef = useRef(new Map<string, any>())
   // Contact panel open/closed and wide/narrow are remembered per browser.
   const [showContact, setShowContact] = useState(true)
   const [wideContact, setWideContact] = useState(false)
@@ -167,9 +169,19 @@ export default function InboxPage() {
 
   const openConversation = useCallback(async (id: string, quiet = false) => {
     if (quiet && id !== requestedRef.current) return  // a refresh for a conversation that is no longer open
-    if (!quiet) { log(`opening conversation ${id}`); requestedRef.current = id; setSelectedId(id); setDetailLoading(true) }
+    if (!quiet) {
+      log(`opening conversation ${id}`); requestedRef.current = id; setSelectedId(id)
+      // Seen before in this visit: show it at once and refresh it quietly, instead of a loader on every click.
+      const seen = detailCacheRef.current.get(id)
+      if (seen) { setDetail(seen); setDetailLoading(false) } else setDetailLoading(true)
+    }
     try {
       const data = (await api(`/api/inbox/conversations/${encodeKey(id)}`)).data
+      if (data) {
+        detailCacheRef.current.delete(id)
+        detailCacheRef.current.set(id, data)
+        if (detailCacheRef.current.size > 30) detailCacheRef.current.delete(detailCacheRef.current.keys().next().value as string)
+      }
       if (id !== requestedRef.current) return  // the user picked another conversation meanwhile
       setDetail(data)
       if (data?.key && data.key !== id) { requestedRef.current = data.key; setSelectedId(data.key) }  // links may use another form of the key
