@@ -12,6 +12,7 @@ type VoiceLanguage = {
   label: string
   native_label: string
   locale: string
+  understands?: string[]
   enabled: boolean
 }
 
@@ -43,7 +44,7 @@ export default function VoiceLanguagesPage() {
     try {
       const result = await api<{ data: { languages: VoiceLanguage[] } }>('/api/voice-providers/languages')
       const incoming = result.data?.languages || []
-      setLanguages(LEAD_LANGUAGES.map((fallback) => incoming.find((language) => language.code === fallback.code) || { ...fallback, native_label: fallback.nativeLabel, enabled: true }))
+      setLanguages(LEAD_LANGUAGES.map((fallback) => ({ ...fallback, native_label: fallback.nativeLabel, enabled: true, ...incoming.find((language) => language.code === fallback.code) })))
     } catch (exception) { setError(exception instanceof Error ? exception.message : 'Unable to load language settings') }
     finally { setLoading(false) }
   }
@@ -84,7 +85,7 @@ export default function VoiceLanguagesPage() {
             <div className="flex items-start justify-between gap-3">
               <div className="flex min-w-0 items-start gap-3">
                 <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xs font-bold ${language.enabled ? 'bg-[#F1EBFF] text-[#5A2BE6]' : 'bg-slate-200 text-slate-500'}`}>{language.code.toUpperCase()}</span>
-                <div className="min-w-0"><h3 className="text-sm font-bold text-slate-900">{language.label}</h3><p className="mt-0.5 text-sm text-slate-500">{language.native_label || language.label}</p><p className="mt-1 text-[11px] text-slate-400">{language.locale}</p></div>
+                <div className="min-w-0"><h3 className="text-sm font-bold text-slate-900">{language.label}</h3><p className="mt-0.5 text-sm text-slate-500">{language.native_label || language.label}</p><p className="mt-1 text-[11px] text-slate-400">{language.locale}</p>{!!language.understands?.length && <p className="mt-2 flex flex-wrap gap-1">{language.understands.map((name) => <span key={name} className="rounded-full bg-[#F1EBFF] px-2 py-0.5 text-[11px] font-semibold text-[#5A2BE6]">Also understands {name}</span>)}</p>}</div>
               </div>
               <LanguageSwitch checked={language.enabled} busy={saving === language.code} disabled={language.enabled && enabledCount === 1} label={`${language.enabled ? 'Disable' : 'Enable'} ${language.label}`} onClick={() => toggle(language)} />
             </div>
