@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { AlertCircle, ArrowDownUp, ArrowRightLeft, AtSign, Bot, Check, CheckCheck, ChevronDown, ChevronRight, ChevronUp, CalendarDays, Clock, Copy, Globe, Hash, PhoneIncoming, Mail, MapPin, Building2, Tag, Phone, UserCheck, Headphones, Lock, Maximize2, MessageSquare, Minimize2, MoreVertical, Paperclip, StickyNote, PanelRightOpen, Pencil, PhoneCall, PhoneMissed, Sparkles, Plus, Radio, RotateCcw, Search, Send, SlidersHorizontal, Trash2, UserMinus, UserPlus, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { API_BASE, Loader, api, roleLabel, userFacingError, Spinner } from '../../../components/PlatformUI'
+import { ListPaging, readListWindow } from '../../../components/ListPaging'
 import { RecordingAudio } from '../../../components/RecordingAudio'
 import { STAGES, stageInfo } from '../../../components/stages'
 import { ANY_TIME, DayRangeMenu, rangeLabel, rangeQuery, type DayRange } from '../../../components/day-range'
@@ -130,6 +131,13 @@ export default function InboxPage() {
   const [me, setMe] = useState('')
   const [canAssign, setCanAssign] = useState(false)
   const [rows, setRows] = useState<Conversation[]>([])
+  const [listTotal, setListTotal] = useState(0)
+  const [filterCounts, setFilterCounts] = useState<Record<string, number>>({})
+  const [hasMore, setHasMore] = useState(false)
+  const [moreLoading, setMoreLoading] = useState(false)
+  const pagesRef = useRef(1)
+  const listRequest = useRef(0)
+  const listAbort = useRef<AbortController | null>(null)
   const [mentions, setMentions] = useState<TeamMessage[]>([])
   const [search, setSearch] = useState('')
   const [closedTab, setClosedTab] = useState(false)
@@ -215,6 +223,11 @@ export default function InboxPage() {
 
   const loadFolder = useCallback(async (quiet = false) => {
     if (folder === 'channel') return
+    if (!quiet) pagesRef.current = 1
+    const request = ++listRequest.current
+    listAbort.current?.abort()
+    const controller = new AbortController()
+    listAbort.current = controller
     if (!quiet) { setLoading(true); log(`opening folder ${folder}`, { stage, search, closed: closedTab, day: rangeLabel(range) }) }
     try {
       if (folder === 'mentioned') {
@@ -228,8 +241,12 @@ export default function InboxPage() {
         countsChanged()
       } else {
         const state = folder === 'assigned' ? 'open' : closedTab ? 'closed' : 'open'
-        const result = await api(`/api/inbox/conversations?folder=${folder}&stage=${stage}&state=${state}&search=${encodeURIComponent(search)}${rangeQuery(range)}`)
+        const result = await readListWindow<Conversation>(`/api/inbox/conversations?folder=${folder}&stage=${stage}&state=${state}&search=${encodeURIComponent(search)}&order=${newestFirst ? 'desc' : 'asc'}&list_filter=${listFilter}&tz_offset=${-new Date().getTimezoneOffset()}${rangeQuery(range)}`, pagesRef.current, controller.signal)
+        if (request !== listRequest.current) return
         setRows(result.data || [])
+        setListTotal(result.total)
+        setFilterCounts(result.filter_counts || {})
+        setHasMore(Boolean(result.next_cursor))
         if (!quiet) log(`folder ${folder}${stage ? ` / status ${stage}` : ''} (${state}): ${result.data?.length || 0} conversations`)
         // Like Podium: the right side always shows a conversation from this list. With nothing open, or when the open
         // one is no longer in the list (another search, day or folder), open the first (newest).
@@ -241,10 +258,10 @@ export default function InboxPage() {
           if (keys[0]) { log(`opening first conversation ${keys[0]}`); openConversation(keys[0]) } else if (current) clearSelection()
         }
       }
-    } catch (error) { log(`folder ${folder} failed`, error); if (!quiet) toast.error(userFacingError(error)) } finally { setLoading(false) }
-  }, [folder, stage, search, closedTab, range, openConversation])
+    } catch (error) { if (controller.signal.aborted) return; log(`folder ${folder} failed`, error); toast.error(userFacingError(error)) } finally { if (request === listRequest.current) { setLoading(false); setMoreLoading(false) } }
+  }, [folder, stage, search, closedTab, range, openConversation, newestFirst, listFilter])
 
-  useEffect(() => { const timer = window.setTimeout(loadFolder, 250); return () => window.clearTimeout(timer) }, [loadFolder])
+  useEffect(() => { const timer = window.setTimeout(() => void loadFolder(), 250); return () => { window.clearTimeout(timer); listAbort.current?.abort() } }, [loadFolder])
   // Refresh the list too, so new calls, live badges and mentions appear without reloading.
   useEffect(() => { if (folder === 'channel') return; const timer = window.setInterval(() => loadFolder(true), 10000); return () => window.clearInterval(timer) }, [folder, loadFolder])
 
@@ -314,7 +331,7 @@ export default function InboxPage() {
   if (folder === 'channel') return <Team.Provider value={team}><TeamChannel onOpenConversation={(id) => router.push(`/inbox?open=${encodeKey(id)}`)} /></Team.Provider>
 
   const filtered = rows.filter(([...FILTERS, ...STAGE_FILTERS].find((item) => item.id === listFilter) || FILTERS[0]).test)
-  const shown = newestFirst ? filtered : [...filtered].reverse()
+  const shown = rows  // search, quick filters and ordering apply to the full server dataset
   const contactOpen = Boolean((detail || detailLoading) && showContact && folder !== 'assigned')
   // Podium layout: conversation list | conversation | contact sheet, joined into one surface.
   const columns = folder === 'assigned' ? 'lg:grid-cols-[420px_minmax(0,1fr)]'
@@ -346,7 +363,7 @@ export default function InboxPage() {
       <div className="border-b border-[#F1EBFF] px-3.5 pb-2.5 pt-3.5">
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
-            <h2 className="flex min-w-0 items-center gap-2 truncate text-[17px] font-extrabold tracking-tight text-slate-900">{stage && <StageIcon stage={stage} />}{title}{!loading && folder !== 'mentioned' && <span className="rounded-full bg-[#F1EBFF] px-2 py-0.5 text-[11px] font-bold text-[#5A2BE6]">{rows.length}</span>}</h2>
+            <h2 className="flex min-w-0 items-center gap-2 truncate text-[17px] font-extrabold tracking-tight text-slate-900">{stage && <StageIcon stage={stage} />}{title}{!loading && folder !== 'mentioned' && <span className="rounded-full bg-[#F1EBFF] px-2 py-0.5 text-[11px] font-bold text-[#5A2BE6]">{listTotal}</span>}</h2>
             {stage && <p className="mt-0.5 truncate text-[12px] text-slate-500" title={STAGE_HINTS[stage]}>{STAGE_HINTS[stage] || `Conversations in ${stageInfo(stage).label}.`}</p>}
           </div>
           <div className="flex shrink-0 items-center gap-1.5">
@@ -363,7 +380,7 @@ export default function InboxPage() {
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#E9DFFF] bg-white text-slate-500 transition hover:border-[#6C3BFF] hover:text-[#5A2BE6]"><ArrowDownUp className={`h-4 w-4 transition ${newestFirst ? '' : 'rotate-180'}`} /></button>}
           </div>
           {folder !== 'assigned' && <div className="mt-2 flex items-center gap-1.5">
-            <div className="-mx-1 flex min-w-0 flex-1 gap-1 overflow-x-auto px-1" role="tablist" aria-label="Quick filters">{(stage ? STAGE_FILTERS : FILTERS).map((item) => { const count = rows.filter(item.test).length; const active = listFilter === item.id; if (!count && item.id !== 'all' && !active && !stage) return null; return <button key={item.id} type="button" role="tab" aria-selected={active} onClick={() => { setListFilter(item.id); log(`filter ${item.id}`) }}
+            <div className="-mx-1 flex min-w-0 flex-1 gap-1 overflow-x-auto px-1" role="tablist" aria-label="Quick filters">{(stage ? STAGE_FILTERS : FILTERS).map((item) => { const count = filterCounts[item.id] || 0; const active = listFilter === item.id; if (!count && item.id !== 'all' && !active && !stage) return null; return <button key={item.id} type="button" role="tab" aria-selected={active} onClick={() => { setListFilter(item.id); log(`filter ${item.id}`) }}
               className={`inline-flex h-7 shrink-0 items-center gap-1 rounded-full px-2.5 text-[12px] font-semibold transition ${active ? 'bg-[#6C3BFF] text-white' : 'bg-[#F4F0FF] text-slate-600 hover:bg-[#EDE6FF] hover:text-[#5A2BE6]'}`}>{item.id === 'live' && count > 0 && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" />}{item.label}<span className={active ? 'text-white/75' : 'text-slate-400'}>{loading ? '' : count}</span></button> })}</div>
           </div>}
         </>}
@@ -385,6 +402,7 @@ export default function InboxPage() {
           </div>)
           : <Empty text={range.id !== 'any' ? `No ${closedTab ? 'closed' : 'open'} conversations ${stage ? `moved to ${stageInfo(stage).label}` : 'with activity'} ${range.id === 'date' ? `on ${rangeLabel(range)}` : rangeLabel(range).toLowerCase()}. Pick another day or clear the filter.` : closedTab ? 'No closed conversations here.' : stage ? `No open conversations in ${stageInfo(stage).label}. Change a conversation's status to move it here.` : listFilter !== 'all' ? 'Nothing matches this filter.' : EMPTY_TEXT[folder] || 'No conversations in this folder.'} />}
       </div>
+      {!loading && folder !== 'mentioned' && <ListPaging loaded={rows.length} total={listTotal} loading={moreLoading} hasMore={hasMore} noun="conversations" onMore={() => { pagesRef.current += 1; setMoreLoading(true); void loadFolder(true) }} />}
     </section>
 
     <section className={`${reading ? 'flex' : 'hidden lg:flex'} ${card} min-w-0 flex-col`}>
@@ -527,13 +545,25 @@ function UnassignedPicker({ memberName, onPick, onClose }: { memberName: string;
   const [items, setItems] = useState<Conversation[] | null>(null)
   const [query, setQuery] = useState('')
   const [sending, setSending] = useState('')
+  const [pageCount, setPageCount] = useState(1)
+  const [total, setTotal] = useState(0)
+  const [hasMore, setHasMore] = useState(false)
+  const [loading, setLoading] = useState(false)
   useEffect(() => {
+    const controller = new AbortController()
     log(`loading unassigned conversations to send to ${memberName}`)
-    api('/api/inbox/conversations?folder=unassigned').then((result) => setItems(result.data || [])).catch((error) => { log('unassigned load failed', error); toast.error(userFacingError(error)); setItems([]) })
-  }, [memberName])
-  const shown = (items || []).filter((item) => `${item.name} ${item.phone || ''} ${item.preview || ''}`.toLowerCase().includes(query.toLowerCase()))
+    setLoading(true)
+    const timer = setTimeout(() => {
+      readListWindow<Conversation>(`/api/inbox/conversations?folder=unassigned&search=${encodeURIComponent(query)}`, pageCount, controller.signal)
+        .then((result) => { if (!controller.signal.aborted) { setItems(result.data); setTotal(result.total); setHasMore(Boolean(result.next_cursor)) } })
+        .catch((error) => { if (!controller.signal.aborted) { log('unassigned load failed', error); toast.error(userFacingError(error)); setItems([]) } })
+        .finally(() => { if (!controller.signal.aborted) setLoading(false) })
+    }, 200)
+    return () => { clearTimeout(timer); controller.abort() }
+  }, [memberName, query, pageCount])
+  const shown = items || []
   return <div className="border-b border-[#E9DFFF] bg-[#F8F5FF] p-3">
-    <div className="flex items-center gap-2"><div className="relative flex-1"><Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" /><input autoFocus aria-label="Find a conversation to send" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`Send a conversation to ${memberName}…`} className="h-8 w-full rounded-lg border border-slate-200 bg-white pl-8 text-xs" /></div><button type="button" onClick={onClose} aria-label="Close" className="rounded-md p-1.5 text-slate-400 hover:bg-white"><X className="h-3.5 w-3.5" /></button></div>
+    <div className="flex items-center gap-2"><div className="relative flex-1"><Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" /><input autoFocus aria-label="Find a conversation to send" value={query} onChange={(event) => { setPageCount(1); setQuery(event.target.value) }} placeholder={`Send a conversation to ${memberName}…`} className="h-8 w-full rounded-lg border border-slate-200 bg-white pl-8 text-xs" /></div><button type="button" onClick={onClose} aria-label="Close" className="rounded-md p-1.5 text-slate-400 hover:bg-white"><X className="h-3.5 w-3.5" /></button></div>
     <div className="mt-2 max-h-56 space-y-1 overflow-y-auto">
       {items === null ? <Loader variant="rows" label="Loading unassigned conversations" />
         : shown.length ? shown.map((item) => <button key={item.key} type="button" disabled={Boolean(sending)} onClick={() => { setSending(item.key); onPick(item.key) }} className="flex w-full items-center gap-2.5 rounded-lg border border-transparent bg-white px-2.5 py-2 text-left transition hover:border-[#D8C8FF] disabled:opacity-60">
@@ -541,8 +571,9 @@ function UnassignedPicker({ memberName, onPick, onClose }: { memberName: string;
           <span className="min-w-0 flex-1"><span className="block truncate text-xs font-semibold text-slate-900">{item.name}</span><span className="block truncate text-[10px] text-slate-500">{item.preview || item.phone}</span></span>
           {sending === item.key ? <Spinner size="sm" /> : <span className="shrink-0 text-[11px] font-bold text-[#6C3BFF]">Send →</span>}
         </button>)
-        : <p className="py-3 text-xs text-slate-500">{items.length ? 'No match.' : 'Every conversation is already assigned.'}</p>}
+        : <p className="py-3 text-xs text-slate-500">{query ? 'No match.' : 'Every conversation is already assigned.'}</p>}
     </div>
+    {items !== null && <ListPaging loaded={items.length} total={total} hasMore={hasMore} loading={loading} onMore={() => setPageCount((count) => count + 1)} noun="conversations" />}
   </div>
 }
 

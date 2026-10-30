@@ -10,10 +10,11 @@ import {
 import toast from 'react-hot-toast'
 import Link from 'next/link'
 import { COUNTRY_CODE_OPTIONS } from './country-codes'
+import { ListPaging, readListWindow } from '@/components/ListPaging'
 import { Loader, authFetch, titleCase, Spinner } from '@/components/PlatformUI'
 import { PageHeader } from '@/components/OmniPage'
 import { Stat } from '@/components/premium'
-import { ANY_TIME, DayRangeMenu, inRange, type DayRange } from '@/components/day-range'
+import { ANY_TIME, DayRangeMenu, inRange, rangeQuery, type DayRange } from '@/components/day-range'
 import { LEAD_LANGUAGES, leadLanguageLabel, type LeadLanguage } from '@/components/lead-language'
 
 interface Lead {
@@ -87,6 +88,12 @@ const toInternationalPhone = (countryCode: string, value: string) => {
 
 export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([])
+  const [listTotal, setListTotal] = useState(0)
+  const [hasMore, setHasMore] = useState(false)
+  const [moreLoading, setMoreLoading] = useState(false)
+  const pagesRef = useRef(1)
+  const loadRequest = useRef(0)
+  const loadAbort = useRef<AbortController | null>(null)
   const [view, setView] = useState<'table' | 'board'>('table')
   // Owners: admins pick who owns each lead; team members only see their own (filtered by the backend).
   const [owners, setOwners] = useState<{ id: string; name: string }[]>([])
@@ -139,22 +146,29 @@ export default function LeadsPage() {
   })
 
   useEffect(() => {
-    loadLeads()
-  }, [searchTerm, statusFilter])
+    pagesRef.current = 1
+    const timer = window.setTimeout(() => void loadLeads(), 250)
+    return () => { window.clearTimeout(timer); loadAbort.current?.abort() }
+  }, [searchTerm, statusFilter, range])
 
   useEffect(() => {
     loadStats()
   }, [])
 
   const loadLeads = async () => {
+    const request = ++loadRequest.current
+    loadAbort.current?.abort()
+    const controller = new AbortController()
+    loadAbort.current = controller
     try {
-      const params = new URLSearchParams({ limit: '200' })
+      const params = new URLSearchParams()
       if (searchTerm.trim()) params.set('search', searchTerm.trim())
       if (statusFilter !== 'all') params.set('status', statusFilter)
-      const response = await authFetch(`${API_BASE}/api/leads/?${params.toString()}`)
-      const data = await response.json()
-
-      if (data.success) {
+      const data = await readListWindow<Lead>(`/api/leads/?${params.toString()}${rangeQuery(range)}`, pagesRef.current, controller.signal)
+      if (request !== loadRequest.current) return
+      setListTotal(data.total)
+      setHasMore(Boolean(data.next_cursor))
+      if (data.data) {
         // Transform MongoDB _id to id for frontend compatibility
         const transformedLeads = data.data.map((lead: any) => ({
           ...lead,
@@ -165,10 +179,11 @@ export default function LeadsPage() {
         toast.error('Failed to load leads')
       }
     } catch (error) {
-      toast.error('Error connecting to backend')
+      if (controller.signal.aborted) return
+      toast.error('Could not load leads. Try again.')
       console.error('Error loading leads:', error)
     } finally {
-      setLoading(false)
+      if (request === loadRequest.current) { setLoading(false); setMoreLoading(false) }
     }
   }
 
@@ -376,14 +391,14 @@ export default function LeadsPage() {
           <Stat icon={Phone} label="Calls" value={stats.total_calls} hint="from these leads" />
           <Stat icon={CheckCircle} label="Contacted" value={stats.contacted} hint="had a conversation" />
           <Stat icon={Trophy} label="Converted" value={stats.converted} hint={stats.total ? `${Math.round((stats.converted / stats.total) * 100)}% conversion` : 'no leads yet'} />
-          <Stat icon={UserCheck} label="With an owner" value={leads.filter((lead) => lead.assigned_to).length} hint={`${leads.filter((lead) => !lead.assigned_to).length} unassigned`} />
+          <Stat icon={UserCheck} label="Loaded with an owner" value={leads.filter((lead) => lead.assigned_to).length} hint="among loaded leads" />
         </div>
 
         {/* Filters */}
         <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-[#E9DFFF] bg-white p-3 shadow-[0_18px_40px_-34px_rgba(73,35,117,.55)] lg:flex-row lg:items-center">
           <DayRangeMenu value={range} onChange={setRange} className="shrink-0 lg:w-44" />
           <div className="relative min-w-0 lg:w-80"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input type="text" aria-label="Search leads" placeholder="Search name, number, email, company" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="h-10 w-full rounded-xl border border-slate-200 bg-[#F8F5FF] pl-9 text-sm" /></div>
-          <div className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto pb-0.5">{['all', ...LEAD_STATUSES.map((item) => item.id)].map((id) => { const count = id === 'all' ? leads.length : leads.filter((lead) => lead.status === id).length; if (id !== 'all' && !count && statusFilter !== id) return null; const active = statusFilter === id; return <button key={id} type="button" onClick={() => setStatusFilter(id)} className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition ${active ? 'bg-[#6C3BFF] text-white' : 'bg-[#F1EBFF] text-slate-600 hover:bg-[#E9DFFF]'}`}>{id === 'all' ? 'All' : statusLabel(id)}<span className={active ? 'text-white/70' : 'text-slate-400'}>{count}</span></button> })}</div>
+          <div className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto pb-0.5">{['all', ...LEAD_STATUSES.map((item) => item.id)].map((id) => { const count = id === 'all' ? listTotal : undefined; const active = statusFilter === id; return <button key={id} type="button" onClick={() => setStatusFilter(id)} className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition ${active ? 'bg-[#6C3BFF] text-white' : 'bg-[#F1EBFF] text-slate-600 hover:bg-[#E9DFFF]'}`}>{id === 'all' ? 'All' : statusLabel(id)}<span className={active ? 'text-white/70' : 'text-slate-400'}>{count}</span></button> })}</div>
           <div className="flex shrink-0 rounded-xl bg-[#F1EBFF] p-1">{(['table', 'board'] as const).map((mode) => <button key={mode} type="button" onClick={() => setView(mode)} className={`inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold capitalize transition ${view === mode ? 'bg-white text-[#5A2BE6] shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>{mode === 'table' ? <List className="h-3.5 w-3.5" /> : <KanbanSquare className="h-3.5 w-3.5" />}{mode}</button>)}</div>
         </div>
 
@@ -479,6 +494,8 @@ export default function LeadsPage() {
             )}
           </div>
         </div>}
+
+        <ListPaging loaded={leads.length} total={listTotal} hasMore={hasMore} loading={moreLoading} noun="leads" onMore={() => { pagesRef.current += 1; setMoreLoading(true); void loadLeads() }} />
 
         {/* Add Lead Modal */}
         {showAddForm && (
