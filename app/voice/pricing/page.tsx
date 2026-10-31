@@ -8,9 +8,13 @@ import { api } from '@/components/PlatformUI'
 // US list prices, checked October 2026.
 const TWILIO_NUMBER_MONTHLY = { local: 1.15, tollfree: 2.15 }
 const TWILIO_INBOUND = { local: 0.0085, tollfree: 0.022 }
-// gpt-4.1-mini answers questions, Llama 3.1 8B the short turns: ~3 replies a minute at ~3.5K prompt tokens each,
-// plus replies started early and dropped when the caller keeps talking (estimate).
-const AI_MODEL = 0.0035
+// DeepSeek V4.1 Flash answers every turn on Together ($0.30 / $1.20 per million tokens in / out, OpenRouter, October
+// 2026): ~3 replies a minute at ~3.5K prompt tokens and ~60 spoken tokens each, plus ~10% for replies started early and
+// dropped when the caller keeps talking. Llama 3.1 8B words the waiting lines and Hindi/Urdu turns get a short
+// translation (both well under $0.0001/min). Gemini 3.1 Flash-Lite is only the backup when DeepSeek fails.
+const AI_TOKENS_IN_PER_MIN = 3 * 3500 * 1.1
+const AI_TOKENS_OUT_PER_MIN = 3 * 60 * 1.1
+const AI_MODEL = (AI_TOKENS_IN_PER_MIN * 0.30 + AI_TOKENS_OUT_PER_MIN * 1.20) / 1_000_000 + 0.0001
 // After each call one gpt-4.1-mini request writes the summary and files the conversation status (~2K tokens).
 const AI_SUMMARY_PER_CALL = 0.001
 // Deepgram Flux (speech to text with turn detection), streaming pay-as-you-go. Promotional rate; normally $0.0077.
@@ -43,7 +47,7 @@ const customLines = (number: NumberType, minutesPerCall: number): Line[] => [
   { vendor: 'Twilio', label: 'Incoming call', perMinute: TWILIO_INBOUND[number] },
   { vendor: 'Twilio', label: 'Media Streams (audio to your server)', perMinute: 0.0044 },
   { vendor: 'Deepgram', label: 'Flux speech to text with turn detection (promotional rate)', perMinute: FLUX_PER_MIN },
-  { vendor: 'OpenRouter', label: 'AI models (gpt-4.1-mini + Llama 3.1 8B, incl. early starts)', perMinute: AI_MODEL },
+  { vendor: 'OpenRouter', label: 'AI models (DeepSeek V4.1 Flash + Llama 3.1 8B waiting lines, incl. early starts)', perMinute: AI_MODEL },
   summaryLine(minutesPerCall),
 ]
 
@@ -190,7 +194,7 @@ export default function VoicePricingPage() {
       <a className="underline hover:text-slate-800" href="https://deepgram.com/pricing" target="_blank" rel="noreferrer">Deepgram</a>,{' '}
       <a className="underline hover:text-slate-800" href="https://elevenlabs.io/pricing/api" target="_blank" rel="noreferrer">ElevenLabs</a>,{' '}
       <a className="underline hover:text-slate-800" href="https://www.retellai.com/pricing" target="_blank" rel="noreferrer">Retell</a>,{' '}
-      <a className="underline hover:text-slate-800" href="https://openrouter.ai/openai/gpt-4.1-mini" target="_blank" rel="noreferrer">OpenRouter</a>.
+      <a className="underline hover:text-slate-800" href="https://openrouter.ai/deepseek/deepseek-v4.1-flash" target="_blank" rel="noreferrer">OpenRouter</a> (DeepSeek V4.1 Flash on Together).
       Agent call rates are this Twilio account&apos;s outbound prices (23 October 2026). Not included: tax, call recording ($0.0025/min),
       Retell’s extra concurrency beyond 20 calls, and the few seconds an agent&apos;s phone is connected while hearing &quot;press 1 to accept&quot;.
     </p>
