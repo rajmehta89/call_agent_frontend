@@ -253,7 +253,10 @@ export default function InboxPage() {
         // one is no longer in the list (another search, day or folder), open the first (newest).
         const keys: string[] = (result.data || []).map((row: Conversation) => row.key)
         const current = requestedRef.current
-        const stale = !current || (current !== linkedRef.current && !keys.includes(current))
+        // A status link can carry an old `open` query while navigating from a selected conversation. In a status
+        // view, prefer that stage's first result when the linked conversation is not part of the stage.
+        const linkedOutsideStatus = Boolean(stage && current && current === linkedRef.current && !keys.includes(current))
+        const stale = !current || linkedOutsideStatus || (current !== linkedRef.current && !keys.includes(current))
         // Desktop only: on a phone the list comes first and a tap opens the conversation full screen.
         if (!quiet && stale && window.matchMedia('(min-width: 1024px)').matches) {
           if (keys[0]) { log(`opening first conversation ${keys[0]}`); openConversation(keys[0]) } else if (current) clearSelection()
