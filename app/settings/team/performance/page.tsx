@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, BarChart3, CheckCircle2, Clock3, ListChecks, PhoneCall, RefreshCw, SlidersHorizontal, Users, UserRound } from 'lucide-react'
+import { ArrowLeft, BarChart3, CheckCircle2, ChevronDown, Clock3, ListChecks, PhoneCall, RefreshCw, SlidersHorizontal, Users, UserRound } from 'lucide-react'
 import { PageHeader } from '../../../../components/OmniPage'
 import { api, DataState, roleLabel, userFacingError } from '../../../../components/PlatformUI'
 import { titleCase } from '../../../../components/PlatformUI'
@@ -42,14 +42,25 @@ export default function TeamPerformancePage() {
 
     <DataState loading={loading} error={error} onRetry={load}>
       <section className="surface-panel rounded-2xl p-4 sm:p-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-center gap-2"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#F1EBFF] text-[#5A2BE6]"><SlidersHorizontal className="h-4 w-4" /></span><div><h2 className="text-sm font-bold text-slate-900">Performance filters</h2><p className="text-xs text-slate-500">Choose the reporting period and teammate to review.</p></div></div>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="flex flex-wrap gap-1 rounded-xl bg-[#F8F6FF] p-1" role="group" aria-label="Performance date range">
-              {rangeOptions.map((option) => <button key={option.value} type="button" onClick={() => setDays(option.value)} aria-pressed={days === option.value} className={`rounded-lg px-3 py-2 text-xs font-bold transition ${days === option.value ? 'bg-white text-[#5A2BE6] shadow-sm ring-1 ring-[#E9DFFF]' : 'text-slate-500 hover:bg-white/70 hover:text-slate-700'}`}>{option.label}</button>)}
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#F1EBFF] text-[#5A2BE6]"><SlidersHorizontal className="h-4 w-4" /></span>
+          <div className="min-w-0"><h2 className="text-sm font-bold text-slate-900">Performance filters</h2><p className="mt-0.5 text-xs text-slate-500">Choose the reporting period and teammate to review.</p></div>
+        </div>
+        <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_260px]">
+          <fieldset className="min-w-0">
+            <legend className="mb-1.5 text-xs font-semibold text-slate-600">Reporting period</legend>
+            <div className="grid grid-cols-4 gap-1 rounded-xl border border-[#E9DFFF] bg-[#F8F6FF] p-1" role="group" aria-label="Performance date range">
+              {rangeOptions.map((option) => <button key={option.value} type="button" onClick={() => setDays(option.value)} aria-pressed={days === option.value} className={`h-9 min-w-0 rounded-lg px-1.5 text-[11px] font-bold transition sm:px-2.5 sm:text-xs ${days === option.value ? 'bg-white text-[#5A2BE6] shadow-sm ring-1 ring-[#E9DFFF]' : 'text-slate-500 hover:bg-white/70 hover:text-slate-700'}`}>{option.label}</button>)}
             </div>
-            <select value={memberId} onChange={(event) => setMemberId(event.target.value)} aria-label="Filter by teammate" className="h-10 min-w-[170px] rounded-xl border border-[#E9DFFF] bg-white px-3 text-sm font-semibold text-slate-700"><option value="all">All teammates</option>{(data?.members || []).map((member) => <option key={member.id} value={member.id}>{titleCase(member.name)}</option>)}</select>
-          </div>
+          </fieldset>
+          <label className="block min-w-0">
+            <span className="mb-1.5 block text-xs font-semibold text-slate-600">Team member</span>
+            <span className="relative block">
+              <Users aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <select value={memberId} onChange={(event) => setMemberId(event.target.value)} aria-label="Filter by teammate" className="h-11 w-full appearance-none rounded-xl border border-[#E9DFFF] bg-white pl-10 pr-9 text-sm font-semibold text-slate-700 outline-none transition hover:border-[#D8C8FF] focus:border-[#6C3BFF] focus:ring-2 focus:ring-[#E9DFFF]"><option value="all">All teammates</option>{(data?.members || []).map((member) => <option key={member.id} value={member.id}>{titleCase(member.name)}</option>)}</select>
+              <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            </span>
+          </label>
         </div>
       </section>
 
