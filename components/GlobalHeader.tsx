@@ -1,6 +1,6 @@
 'use client'
 
-import { AtSign, Bell, BellRing, CheckCheck, ChevronRight, Hash, PhoneCall, PhoneForwarded, UserRoundCheck, Volume2, VolumeX } from 'lucide-react'
+import { AtSign, AudioLines, Bell, BellRing, CheckCheck, ChevronRight, ClipboardCheck, Hash, Headphones, Volume2, VolumeX } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { api, roleLabel } from './PlatformUI'
@@ -18,12 +18,12 @@ function initials(user: User) {
 
 const titleCase = (value: string) => value.replace(/\b\w/g, (letter) => letter.toUpperCase())
 
-/** An icon for what the notification is about: an assignment, a mention, the team channel or a call. */
+/** An icon for what the notification is about: an assignment, a mention, the team channel or voice activity. */
 function notificationIcon(notification: Notification) {
   const kind = `${notification.type || ''} ${notification.title || ''}`.toLowerCase()
-  if (kind.includes('handoff')) return PhoneForwarded
-  if (notification.channel === 'voice' || kind.includes('voice') || kind.includes('call')) return PhoneCall
-  if (kind.includes('assign')) return UserRoundCheck
+  if (kind.includes('handoff')) return Headphones
+  if (notification.channel === 'voice' || kind.includes('voice') || kind.includes('call')) return AudioLines
+  if (kind.includes('assign')) return ClipboardCheck
   if (kind.includes('mention')) return AtSign
   if (notification.channel === 'inbox' && !notification.conversation_id) return Hash
   return BellRing
