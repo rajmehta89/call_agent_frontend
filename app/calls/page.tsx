@@ -19,7 +19,10 @@ type Call = { _id: string; updated_at?: string; messages?: { role?: string; text
 type CallStats = { total_calls?: number; calls_today?: number; average_duration?: number; status_counts?: { completed?: number; failed?: number; missed?: number } }
 
 const emptyStats: CallStats = { total_calls: 0, calls_today: 0, average_duration: 0, status_counts: {} }
-const formatDuration = (seconds = 0) => `${Math.floor(seconds / 60)}:${Math.floor(seconds % 60).toString().padStart(2, '0')}`
+const formatDuration = (seconds = 0) => {
+  const roundedSeconds = Math.max(0, Math.round(Number.isFinite(seconds) ? seconds : 0))
+  return `${Math.floor(roundedSeconds / 60)}:${String(roundedSeconds % 60).padStart(2, '0')}`
+}
 const formatDate = (value?: string) => { if (!value) return '—'; const date = new Date(value); if (Number.isNaN(date.getTime())) return '—'; return `${String(date.getDate()).padStart(2, '0')}-${String(date.getMonth() + 1).padStart(2, '0')}-${date.getFullYear()} ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` }
 const formatDay = (value?: string) => { if (!value) return 'Unknown day'; const date = new Date(value); return Number.isNaN(date.getTime()) ? 'Unknown day' : date.toLocaleDateString([], { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric' }) }
 const inTimeWindow = (call: Call, from: string, to: string) => {
@@ -156,7 +159,9 @@ export default function CallsPage() {
   // are fetched here, again only when the call changes (a live call's status, length or update time moves).
   const [details, setDetails] = useState<Record<string, Call & { detailKey: string }>>({})
   const detailKey = (call: Call) => `${call._id}:${call.updated_at || ''}:${call.status || ''}:${call.duration || ''}`
-  const withDetail = (call: Call) => details[call._id] ? { ...call, ...details[call._id] } : call
+  const hasDetail = (call: Call | null | undefined) => Boolean(call && details[call._id]?.detailKey === detailKey(call))
+  const withDetail = (call: Call) => hasDetail(call) ? { ...call, ...details[call._id] } : call
+  const detailCall = currentCall ? withDetail(currentCall) : null
   useEffect(() => {
     for (const call of [currentCall, conversationCall]) {
       if (!call || details[call._id]?.detailKey === detailKey(call)) continue
@@ -181,10 +186,10 @@ export default function CallsPage() {
       <div className="mt-5 grid items-start gap-4 lg:grid-cols-[290px_minmax(0,1fr)] xl:grid-cols-[290px_minmax(0,1fr)_310px]">
         <aside className="surface-panel flex h-[720px] min-h-0 flex-col overflow-hidden rounded-[22px]"><div className="border-b border-slate-200 px-4 py-4"><div className="flex items-center justify-between"><div><div className="text-sm font-bold text-slate-900">Callers</div><div className="mt-1 text-xs text-slate-500">{filteredLeads.length} with matching calls</div></div><Users className="h-4 w-4 text-[#6C3BFF]" /></div><div className="relative mt-4"><Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" /><input aria-label="Find a lead" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Find a lead..." className="h-9 w-full rounded-lg border-slate-200 bg-slate-50 pl-9 text-xs" /></div></div><div className="min-h-0 flex-1 overflow-y-auto p-2">{filteredLeads.map((lead) => { const id = leadId(lead); const leadCalls = visibleCalls.filter((call) => String(call.lead_id || '') === id || (!call.lead_id && String(call.phone_number) === String(lead.phone || ''))); return <button key={id} type="button" onClick={() => setSelectedLeadId(id)} className={`mb-1 w-full rounded-xl border p-3 text-left transition ${selectedLeadId === id ? 'border-[#D8C8FF] bg-[#F1EBFF] shadow-sm' : 'border-transparent hover:border-slate-200 hover:bg-slate-50'}`}><div className="flex items-center gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#6C3BFF] text-xs font-bold text-white">{initials(lead.name)}</span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold text-slate-900">{lead.name || 'Unnamed lead'}</span><span className="mt-0.5 block truncate text-xs text-slate-500">{lead.company || contactLabel(String(lead.phone || '')) || 'No contact details'}</span></span>{leadCalls.length > 0 && <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-[#5A2BE6] shadow-sm" title={`${leadCalls.length} ${leadCalls.length === 1 ? 'call' : 'calls'}`}>{leadCalls.length}</span>}</div><div className="mt-2 pl-12 text-[11px] text-slate-500">{leadCalls.length ? `Last call ${formatDate(leadCalls.map((call) => call.call_date || call.created_at || '').sort().slice(-1)[0])}` : 'No calls yet'}</div></button> })}{!filteredLeads.length && <div className="px-3 py-12 text-center"><Users className="mx-auto h-7 w-7 text-slate-300" /><p className="mt-3 text-sm font-medium text-slate-700">No matching calls</p><p className="mt-1 text-xs text-slate-500">Try another date, time, or caller.</p></div>}</div></aside>
         <main className="surface-panel flex h-[720px] min-h-0 min-w-0 flex-col overflow-hidden rounded-[22px]">{selectedLead ? <><div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-5 py-4"><div className="flex min-w-0 items-center gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#F1EBFF] text-sm font-bold text-[#5A2BE6]">{initials(selectedLead.name)}</span><div className="min-w-0"><div className="truncate text-base font-bold text-slate-900">{selectedLead.name}</div><div className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-slate-500"><span>{selectedLead.phone ? contactLabel(String(selectedLead.phone)) : 'No phone'}</span>{selectedLead.company && <><span>·</span><span>{selectedLead.company}</span></>}</div></div></div><Link href={`/leads/${leadId(selectedLead)}`} className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50">Open lead <ArrowUpRight className="h-3.5 w-3.5" /></Link></div><div className="flex items-center justify-between border-b border-slate-200 bg-slate-50/70 px-5 py-3"><div><div className="text-xs font-semibold uppercase tracking-[.14em] text-slate-500">Call conversation</div><div className="mt-1 text-xs text-slate-500">{activeLeadCalls.length} call{activeLeadCalls.length === 1 ? '' : 's'} · click a call to open its chat</div></div><span className="text-xs text-slate-400">Customer left · agent right</span></div><div className="min-h-0 flex-1 overflow-y-auto p-5"><RecordingTimeline groups={historyGroups} selectedCallId={currentCall?._id} selectedLeadName={selectedLead.name} onSelect={setSelectedCall} onOpen={openConversation} /></div></> : <div className="flex flex-1 flex-col items-center justify-center p-8 text-center"><Users className="h-8 w-8 text-slate-300" /><p className="mt-3 text-sm font-semibold text-slate-700">Select a lead</p><p className="mt-1 max-w-xs text-sm text-slate-500">Choose a lead to see their call conversation.</p></div>}</main>
-        <aside className="space-y-4 xl:max-h-[720px] xl:overflow-y-auto">{currentCall ? <><section className="surface-panel rounded-[22px] p-5"><div className="flex items-center justify-between gap-3"><div><div className="text-xs font-semibold uppercase tracking-[.14em] text-slate-500">Selected call</div><div className="mt-2 text-sm font-bold text-slate-900">Call details</div></div><PhoneCall className="h-5 w-5 text-[#6C3BFF]" /></div><div className="mt-5 grid grid-cols-2 gap-3"><div className="rounded-xl border border-slate-200 bg-slate-50 p-3"><div className="text-[10px] uppercase tracking-wider text-slate-400">Duration</div><div className="mt-1 text-sm font-bold text-slate-800">{formatDuration(currentCall.duration)}</div></div><div className="rounded-xl border border-slate-200 bg-slate-50 p-3"><div className="text-[10px] uppercase tracking-wider text-slate-400">Direction</div><div className="mt-1 text-sm font-bold capitalize text-slate-800">{currentCall.direction || 'outbound'}</div></div></div><div className="mt-4 flex flex-wrap items-center gap-2"><StatusBadge value={currentCall.status || 'unknown'} />{currentCall.interest_analysis?.interest_status && <StatusBadge value={currentCall.interest_analysis.interest_status} />}</div></section><RecordingPlayer call={currentCall} /><HumanCallDetails call={currentCall} /><section className="surface-panel rounded-[22px] p-5"><div className="flex items-center gap-2 text-sm font-bold text-slate-900"><FileText className="h-4 w-4 text-[#6C3BFF]" />Call messages and transcript</div><div className="mt-3 max-h-72 overflow-y-auto">{details[currentCall._id] ? <ConversationChat conversation={getConversation(withDetail(currentCall))} view="transcript" /> : <Loader variant="rows" label="Loading transcript" />}</div>{currentCall.transfer_succeeded && !currentCall.human_transcript?.length && <p className="mt-3 text-xs text-slate-500">The human segment has audio. Its transcript will appear here when processing finishes.</p>}</section><section className="surface-panel rounded-[22px] p-5"><div className="flex items-center gap-2 text-sm font-bold text-slate-900"><FileText className="h-4 w-4 text-[#6C3BFF]" />{currentCall.transfer_succeeded ? 'AI conversation summary' : 'Call summary'}</div><p className="mt-3 text-sm leading-6 text-slate-600">{currentCall.call_summary || 'No AI summary available for this recording.'}</p>{currentCall.human_summary && <div className="mt-4 border-t border-slate-200 pt-4"><div className="text-sm font-bold text-slate-900">Human agent summary</div><p className="mt-2 text-sm leading-6 text-slate-600">{currentCall.human_summary}</p></div>}{currentCall.next_action && <div className="mt-4 rounded-xl bg-[#F1EBFF] p-3"><div className="text-[10px] font-semibold uppercase tracking-wider text-[#5A2BE6]">Next action</div><div className="mt-1 text-xs leading-5 text-slate-700">{currentCall.next_action}</div></div>}</section></> : <section className="surface-panel flex min-h-48 items-center justify-center rounded-[22px] p-6 text-center text-sm text-slate-500">Select a call to view details.</section>}</aside>
+        <CallDetailRail call={detailCall} leadName={selectedLead?.name || ""} detailLoading={Boolean(currentCall && !hasDetail(currentCall))} onOpenConversation={openConversation} />
       </div>
     </DataState>
-    {conversationCall && <ConversationModal call={withDetail(conversationCall)} loading={!details[conversationCall._id]} leadName={conversationCall.lead?.name || selectedLead?.name || 'Customer'} view={conversationView} onViewChange={setConversationView} onClose={() => setConversationCall(null)} />}
+    {conversationCall && <ConversationModal call={withDetail(conversationCall)} loading={!hasDetail(conversationCall)} leadName={conversationCall.lead?.name || selectedLead?.name || 'Customer'} view={conversationView} onViewChange={setConversationView} onClose={() => setConversationCall(null)} />}
   </div>
 }
 
@@ -193,6 +198,81 @@ function getCallHandler(call: Call) {
   if (human) return { label: human, type: 'Human' }
   if (call.human_callback_requested || call.transfer_requested || ['requested', 'dialing', 'ringing', 'connected', 'accepted', 'completed'].includes(String(call.transfer_status || '').toLowerCase())) return { label: call.transfer_destination || 'Human callback requested', type: 'Human' }
   return { label: 'AI agent', type: 'AI' }
+}
+
+function CallDetailRail({ call, leadName, detailLoading, onOpenConversation }: { call: Call | null; leadName: string; detailLoading: boolean; onOpenConversation: (call: Call, view: 'messages' | 'transcript') => void }) {
+  if (!call) return <aside aria-label="Selected call details" className="min-w-0"><section className="surface-panel flex min-h-48 items-center justify-center rounded-2xl p-6 text-center text-sm text-slate-500">Select a call to view its details.</section></aside>
+
+  const handler = getCallHandler(call)
+  const conversation = getConversation(call)
+  const caller = call.lead?.name || leadName || contactLabel(String(call.phone_number || '')) || 'Unknown caller'
+  const phone = contactLabel(String(call.phone_number || '')) || 'No number recorded'
+  const provider = call.provider || call.channel_type
+  const providerLabel = provider ? titleCase(provider.replace(/[_-]+/g, ' ')) : 'Not recorded'
+  const direction = call.direction === 'inbound' ? 'Inbound' : call.direction === 'outbound' ? 'Outbound' : 'Unknown'
+  const facts = [
+    { label: 'Duration', value: formatDuration(call.duration) },
+    { label: 'Direction', value: direction },
+    { label: 'Handled by', value: handler.label },
+    { label: 'Provider', value: providerLabel },
+  ]
+
+  return <aside aria-label="Selected call details" className="min-w-0 space-y-3 xl:sticky xl:top-20 xl:max-h-[calc(100dvh-6rem)] xl:overflow-y-auto xl:overscroll-contain xl:pr-1">
+    <section className="surface-panel overflow-hidden rounded-2xl">
+      <div className="border-b border-[#E9DFFF] bg-gradient-to-br from-[#F7F2FF] to-white p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-[10px] font-bold uppercase tracking-[.14em] text-[#5A2BE6]">Call details</div>
+            <h2 className="mt-2 truncate text-base font-bold text-slate-900">{caller}</h2>
+            <p className="mt-0.5 truncate text-xs text-slate-600">{phone}</p>
+          </div>
+          <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#F1EBFF] text-[#5A2BE6]"><PhoneCall className="h-4 w-4" /></span>
+        </div>
+        <p className="mt-3 flex items-center gap-1.5 text-xs font-medium text-slate-600"><Clock3 className="h-3.5 w-3.5 text-[#6C3BFF]" />{formatDate(call.call_date || call.created_at)}</p>
+      </div>
+      <div className="p-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <StatusBadge value={call.status || 'unknown'} />
+          {call.interest_analysis?.interest_status && <StatusBadge value={call.interest_analysis.interest_status} />}
+        </div>
+        <dl className="mt-3 grid grid-cols-2 gap-2">{facts.map((fact) => <div key={fact.label} className="min-w-0 rounded-xl bg-slate-50 px-2.5 py-2">
+          <dt className="text-[9px] font-semibold uppercase tracking-[.1em] text-slate-500">{fact.label}</dt>
+          <dd title={fact.value} className="mt-1 truncate text-xs font-semibold text-slate-800">{fact.value}</dd>
+        </div>)}</dl>
+      </div>
+    </section>
+
+    <section className="surface-panel rounded-2xl p-4">
+      <div className="flex items-center gap-2 text-sm font-bold text-slate-900"><FileText className="h-4 w-4 text-[#6C3BFF]" />{call.transfer_succeeded ? 'AI conversation summary' : 'Call summary'}</div>
+      <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">{call.call_summary || 'No summary was saved for this call.'}</p>
+      {call.human_summary && <div className="mt-4 border-t border-slate-100 pt-3">
+        <div className="text-xs font-bold text-slate-800">Human agent summary</div>
+        <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-5 text-slate-600">{call.human_summary}</p>
+      </div>}
+      {call.next_action && <div className="mt-4 rounded-xl bg-[#F1EBFF] p-3">
+        <div className="text-[10px] font-semibold uppercase tracking-wider text-[#5A2BE6]">Next action</div>
+        <div className="mt-1 break-words text-xs leading-5 text-slate-700">{call.next_action}</div>
+      </div>}
+    </section>
+
+    <RecordingPlayer call={call} />
+    <HumanCallDetails call={call} />
+
+    <section className="surface-panel rounded-2xl p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <MessageSquare className="h-4 w-4 shrink-0 text-[#6C3BFF]" />
+          <div className="min-w-0">
+            <h3 className="truncate text-sm font-bold text-slate-900">Conversation preview</h3>
+            <p className="mt-0.5 text-[11px] text-slate-500">{detailLoading ? 'Loading call details' : conversation.length > 2 ? `Last 2 of ${conversation.length} lines` : `${conversation.length} ${conversation.length === 1 ? 'line' : 'lines'}`}</p>
+          </div>
+        </div>
+        {conversation.length > 0 && <button type="button" onClick={() => onOpenConversation(call, 'transcript')} className="shrink-0 rounded-lg px-2.5 py-2 text-xs font-semibold text-[#5A2BE6] hover:bg-[#F1EBFF] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#6C3BFF]">Open transcript</button>}
+      </div>
+      {detailLoading ? <Loader variant="rows" label="Loading transcript" /> : conversation.length ? <div className="mt-3"><ConversationChat conversation={conversation.slice(-2)} view="messages" /></div> : <p className="mt-3 rounded-xl border border-dashed border-slate-200 bg-slate-50/60 p-3 text-sm text-slate-600">No transcript text was saved for this call.</p>}
+      {call.transfer_succeeded && !call.human_transcript?.length && <p className="mt-3 text-xs leading-5 text-slate-500">The human segment has audio. Its transcript is still processing or unavailable.</p>}
+    </section>
+  </aside>
 }
 
 function CallActivityTable({ calls, selectedCallId, onOpen }: { calls: Call[]; selectedCallId?: string; onOpen: (call: Call) => void }) {
@@ -229,13 +309,16 @@ function RecordingPlayer({ call }: { call: Call }) {
 }
 
 function HumanCallDetails({ call }: { call: Call }) {
-  if (!call.transfer_requested) return null
-  const agent = call.accepted_by || call.handled_by || call.transfer_destination || 'Human team'
-  return <section aria-label="Human agent call" className="surface-panel rounded-[22px] p-5">
-    <div className="flex items-center gap-2 text-sm font-bold text-slate-900"><User className="h-4 w-4 text-[#6C3BFF]" />Human agent call</div>
+  const transferStatus = String(call.transfer_status || '').toLowerCase()
+  const connected = Boolean(call.transfer_succeeded || call.accepted_by || ['connected', 'completed', 'accepted'].includes(transferStatus))
+  const hasFollowUp = Boolean(call.transfer_requested || call.transfer_succeeded || call.human_callback_requested || call.accepted_by || call.handled_by || call.transfer_status)
+  if (!hasFollowUp) return null
+  const agent = call.accepted_by || (connected ? call.handled_by : '') || call.transfer_destination || 'Human team'
+  return <section aria-label={connected ? 'Human handoff' : 'Human follow-up'} className="surface-panel rounded-2xl p-4">
+    <div className="flex items-center gap-2 text-sm font-bold text-slate-900"><User className="h-4 w-4 text-[#6C3BFF]" />{connected ? 'Human handoff' : 'Human follow-up'}</div>
     {!!call.transfer_targets?.length && <div className="mt-4"><div className="text-xs font-semibold text-slate-700">Team phones called</div><ul className="mt-2 divide-y divide-slate-100 rounded-xl border border-slate-200">{call.transfer_targets.map((target) => <li key={target.phone} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-xs"><span className="font-medium text-slate-800">{target.name} <span className="font-normal text-slate-500">{target.phone}</span></span><span className="capitalize text-slate-600">{target.status.replace(/-/g, ' ')}</span></li>)}</ul></div>}
     {call.human_summary && <div className="mt-4 rounded-xl bg-violet-50 p-3"><div className="text-xs font-semibold text-violet-800">Human agent summary</div><p className="mt-1 text-sm leading-6 text-violet-950">{call.human_summary}</p></div>}
-    {call.transfer_succeeded ? <><dl className="mt-4 grid grid-cols-2 gap-3 text-xs"><div><dt className="text-slate-500">Connected to</dt><dd className="mt-1 font-semibold text-slate-800">{agent}</dd></div><div><dt className="text-slate-500">Human leg</dt><dd className="mt-1 font-semibold text-slate-800">{call.human_call_duration != null ? formatDuration(call.human_call_duration) : 'Duration unavailable'}</dd></div></dl><p className="mt-4 rounded-xl bg-slate-50 p-3 text-xs leading-5 text-slate-600">{call.recording_sid ? 'The human audio recording is available above.' : 'No human audio recording was saved for this call.'} {call.human_transcript?.length ? 'Human conversation text is included in the call transcript.' : 'Human conversation transcription is pending or unavailable.'}</p></>
+    {connected ? <><dl className="mt-4 grid grid-cols-2 gap-3 text-xs"><div><dt className="text-slate-500">Connected to</dt><dd className="mt-1 font-semibold text-slate-800">{agent}</dd></div><div><dt className="text-slate-500">Human leg</dt><dd className="mt-1 font-semibold text-slate-800">{call.human_call_duration != null ? formatDuration(call.human_call_duration) : 'Duration unavailable'}</dd></div></dl><p className="mt-4 rounded-xl bg-slate-50 p-3 text-xs leading-5 text-slate-600">{call.recording_sid ? 'The human audio recording is available above.' : 'No human audio recording was saved for this call.'} {call.human_transcript?.length ? 'Human conversation text is included in the call transcript.' : 'Human conversation transcription is pending or unavailable.'}</p></>
       : <p className="mt-4 rounded-xl bg-slate-50 p-3 text-xs leading-5 text-slate-600">{call.transfer_status === 'no-answer' ? 'The team was called, but nobody answered. No human conversation took place, so there is no human recording or transcript.' : call.transfer_error || 'The human transfer did not connect.'} {call.human_callback_requested ? 'A callback was requested.' : ''}</p>}
   </section>
 }
