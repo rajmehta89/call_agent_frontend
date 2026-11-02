@@ -10,6 +10,7 @@ import { ListPaging, readListWindow } from '../../../components/ListPaging'
 import { RecordingAudio } from '../../../components/RecordingAudio'
 import { STAGES, stageInfo } from '../../../components/stages'
 import { ANY_TIME, DayRangeMenu, rangeLabel, rangeQuery, type DayRange } from '../../../components/day-range'
+import { DropdownSelect } from '../../../components/DropdownSelect'
 import { LEAD_LANGUAGES, leadLanguageLabel, type LeadLanguage } from '../../../components/lead-language'
 
 type Folder = 'all' | 'unassigned' | 'mine' | 'assigned' | 'mentioned' | 'failed' | 'channel'
@@ -683,7 +684,7 @@ function ConversationDetail({ detail, canAssign, canWork, onAssign, onStage, onC
   const latestDay = items.length ? items[items.length - 1].at.toDateString() : ''
   const [whyOpen, setWhyOpen] = useState(false)
   const iconButton = 'flex h-9 w-9 items-center justify-center rounded-xl border border-[#E9DFFF] bg-white text-[#6C3BFF] transition hover:border-[#6C3BFF] hover:bg-[#F8F5FF]'
-  const chip = 'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full bg-[#F4F0FF] px-2.5 text-[12px] font-medium text-slate-600'
+  const chip = 'inline-flex h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg border border-[#E9DFFF] bg-[#F8F5FF] px-3 text-[13px] font-medium text-slate-600'
   return <>
     <div className="border-b border-[#F1EBFF] px-4 pb-2.5 pt-3 sm:px-5">
       <div className="flex items-center justify-between gap-3">
@@ -710,17 +711,24 @@ function ConversationDetail({ detail, canAssign, canWork, onAssign, onStage, onC
           </>}
         </div>
       </div>
-      {/* Owner, status and the latest call's facts on one slim row (scrolls sideways on a phone). */}
-      <div className="-mx-1 mt-2.5 flex items-center gap-1.5 overflow-x-auto px-1 pb-0.5">
-        {canAssign ? <AssignChip detail={detail} members={members} onAssign={onAssign} />
-          : detail.assigned_to ? <span className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-[#E9DFFF] px-2.5 text-[13px] text-slate-600"><UserPlus className="h-3.5 w-3.5 text-[#8B5CF6]" />{detail.assigned_to === me ? 'Assigned to you' : detail.assigned_to_name || 'Assigned'}</span>
-          : <button type="button" onClick={() => onAssign(me)} disabled={!me} title={me ? undefined : 'Still loading your account'} className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-[#6C3BFF] px-2.5 text-[13px] font-bold text-white shadow-sm transition hover:bg-[#5A2BE6] disabled:opacity-50"><UserCheck className="h-3.5 w-3.5" />Assign to me</button>}
-        <StagePicker stage={detail.stage} editable={canWork} onChange={onStage} compact />
-        <span className="mx-0.5 h-5 w-px shrink-0 bg-[#E9DFFF]" aria-hidden="true" />
-        {last && <span className={chip} title="Latest call"><Clock className="h-3.5 w-3.5 text-[#8B5CF6]" />{last.live ? 'In progress' : last.duration ? duration(last.duration) : '—'} · {agoText(last.at)}</span>}
-        {detail.calls.length > 1 && <span className={chip} title={`First call ${fullDate(detail.calls[0].at)}`}><PhoneIncoming className="h-3.5 w-3.5 text-[#8B5CF6]" />{detail.calls.length} calls</span>}
-        {last && <span className={chip} title="Answered by"><Bot className="h-3.5 w-3.5 text-[#8B5CF6]" />{providerLabel(last.provider)}</span>}
+      {/* Ownership and status stay easy to scan; call facts wrap below them when space is tight. */}
+      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <div className="min-w-0">
+          <span className="mb-1 block text-[10.5px] font-bold uppercase tracking-[.1em] text-slate-500">Owner</span>
+          {canAssign ? <AssignChip detail={detail} members={members} onAssign={onAssign} />
+            : detail.assigned_to ? <span className="inline-flex h-10 min-w-0 w-full items-center gap-2 rounded-lg border border-[#E9DFFF] bg-white px-3 text-sm text-slate-600"><UserPlus className="h-4 w-4 shrink-0 text-slate-500" /><span className="truncate">{detail.assigned_to === me ? 'Assigned to you' : detail.assigned_to_name || 'Assigned'}</span></span>
+            : <button type="button" onClick={() => onAssign(me)} disabled={!me} title={me ? undefined : 'Still loading your account'} className="inline-flex h-10 min-w-0 w-full items-center gap-2 rounded-lg border border-[#E9DFFF] bg-white px-3 text-sm font-semibold text-slate-700 transition hover:border-[#6C3BFF] hover:bg-[#F8F5FF] disabled:opacity-50"><UserCheck className="h-4 w-4 shrink-0 text-slate-500" /><span className="truncate">Assign to me</span></button>}
+        </div>
+        <div className="min-w-0">
+          <span className="mb-1 block text-[10.5px] font-bold uppercase tracking-[.1em] text-slate-500">Lead status</span>
+          <StagePicker stage={detail.stage} editable={canWork} onChange={onStage} compact size="regular" />
+        </div>
       </div>
+      {(last || detail.calls.length > 1) && <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        {last && <span className={chip} title="Latest call"><Clock className="h-4 w-4 shrink-0 text-[#6C3BFF]" /><span className="text-slate-500">Last call</span><span className="font-semibold text-slate-800">{last.live ? 'In progress' : last.duration ? duration(last.duration) : '—'}</span><span className="text-slate-500">· {agoText(last.at)}</span></span>}
+        {detail.calls.length > 1 && <span className={chip} title={`First call ${fullDate(detail.calls[0].at)}`}><PhoneIncoming className="h-4 w-4 shrink-0 text-[#6C3BFF]" />{detail.calls.length} calls</span>}
+        {last && <span className={chip} title="Call provider"><Bot className="h-4 w-4 shrink-0 text-[#6C3BFF]" /><span className="text-slate-500">Via</span><span className="font-semibold text-slate-800">{providerLabel(last.provider)}</span></span>}
+      </div>}
       {/* Why the AI filed it in this status: one line, the whole reason on tap. */}
       {detail.stage_reason && <button type="button" onClick={() => setWhyOpen(!whyOpen)} aria-expanded={whyOpen}
         className="mt-2 flex w-full items-start gap-2 rounded-lg bg-gradient-to-r from-[#F8F5FF] to-transparent px-2.5 py-1.5 text-left text-[12.5px] leading-5 text-slate-600 transition hover:from-[#F1EBFF]">
@@ -874,12 +882,15 @@ function EventLine({ event }: { event: ThreadEvent }) {
 /** Admin control: hand the thread to a teammate. Owners and admins are not offered; they assign rather than receive. */
 function AssignChip({ detail, members, onAssign }: { detail: Detail; members: Member[]; onAssign: (userId: string | null) => void }) {
   const teammates = members.filter((member) => member.assignable)
-  if (!teammates.length) return <span className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-dashed border-slate-300 px-2.5 text-[12px] text-slate-500"><UserPlus className="h-3.5 w-3.5" />Invite a teammate to assign</span>
-  return <label className="relative inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white pl-2.5 pr-1 text-[13px] text-slate-700 transition hover:border-[#6C3BFF]">
-    <UserPlus className="h-3.5 w-3.5 text-slate-400" />
-    <select value={detail.assigned_to || ''} onChange={(event) => onAssign(event.target.value || null)} aria-label="Assign conversation" className="h-7 min-h-0 w-auto appearance-none border-0 bg-transparent bg-none p-0 pr-6 font-semibold shadow-none outline-none focus:shadow-none"><option value="">Unassigned</option>{teammates.map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}</select>
-    <ChevronDown className="pointer-events-none absolute right-1.5 h-3.5 w-3.5 text-slate-400" />
-  </label>
+  if (!teammates.length) return <span className="inline-flex h-10 min-w-0 items-center gap-2 rounded-lg border border-dashed border-slate-300 px-3 text-sm text-slate-500"><UserPlus className="h-4 w-4 shrink-0" />Invite a teammate to assign</span>
+  const ownerMissing = Boolean(detail.assigned_to && !teammates.some((member) => member.id === detail.assigned_to))
+  const options = [
+    { value: '', label: 'Unassigned' },
+    ...(ownerMissing ? [{ value: detail.assigned_to!, label: detail.assigned_to_name || 'Former member', disabled: true }] : []),
+    ...teammates.map((member) => ({ value: member.id, label: member.name })),
+  ]
+  return <DropdownSelect value={detail.assigned_to || ''} options={options} onChange={(ownerId) => onAssign(ownerId || null)} ariaLabel="Assign conversation"
+    icon={<UserCheck className="h-4 w-4 text-slate-500" />} size="regular" className="w-full" menuMinWidth={240} />
 }
 
 /** Status icon (Lucide line icon — the design system does not use emoji as icons). */
@@ -889,23 +900,17 @@ function StageIcon({ stage, small, light }: { stage?: string; small?: boolean; l
 }
 
 /** Podium-style status: a dropdown of the pipeline stages; the full version adds the progress steps underneath. */
-function StagePicker({ stage, byName, editable, onChange, compact }: { stage?: string; byName?: string; editable: boolean; onChange: (stage: string) => void; compact?: boolean }) {
-  const [open, setOpen] = useState(false)
+function StagePicker({ stage, byName, editable, onChange, compact, size }: { stage?: string; byName?: string; editable: boolean; onChange: (stage: string) => void; compact?: boolean; size?: 'compact' | 'regular' }) {
   const current = stageInfo(stage)
   const position = STAGES.findIndex((item) => item.id === current.id)
-  return <div className={`relative ${compact ? '' : 'w-full'}`}>
-    <button type="button" disabled={!editable} onClick={() => setOpen(!open)} aria-expanded={open} aria-label="Conversation status" title={editable ? 'Change status' : 'Only an admin or the assigned team member can change the status'}
-      className={`flex items-center gap-2 rounded-lg border font-semibold transition enabled:hover:border-[#6C3BFF] disabled:cursor-default ${compact ? 'h-8 border-[#E9DFFF] bg-white px-2.5 text-[13px] text-slate-800' : 'h-10 w-full border-transparent bg-[#F1EBFF] px-3 text-sm text-[#5A2BE6]'}`}>
-      <StageIcon stage={current.id} /><span className="flex-1 text-left">{current.label}</span>{editable && <ChevronDown className={`h-4 w-4 text-slate-400 transition ${open ? 'rotate-180' : ''}`} />}
-    </button>
+  const options = STAGES.map((item) => ({ value: item.id, label: item.label, icon: <StageIcon stage={item.id} /> }))
+  const controlSize = size || (compact ? 'compact' : 'regular')
+  return <div className={controlSize === 'regular' ? 'min-w-0' : 'shrink-0'}>
+    <DropdownSelect value={current.id} options={options} onChange={onChange} ariaLabel="Conversation status" disabled={!editable}
+      icon={<StageIcon stage={current.id} />} size={controlSize} tone={compact ? 'neutral' : 'brand'}
+      className={controlSize === 'regular' ? 'w-full' : 'shrink-0'} menuMinWidth={240} />
     {!compact && <div className="mt-3 flex gap-1" aria-hidden="true">{STAGES.map((item, index) => <span key={item.id} title={item.label} className={`h-1.5 flex-1 rounded-full ${index <= position ? 'bg-gradient-to-r from-[#8B5CF6] to-[#6C3BFF]' : 'bg-[#E9DFFF]'}`} />)}</div>}
     {!compact && <div className="mt-1.5 flex justify-between gap-2 text-[11px] text-slate-400"><span>Step {position + 1} of {STAGES.length}</span>{byName && <span className="truncate">Set by {byName}</span>}</div>}
-    {open && <>
-      <button type="button" aria-label="Close" className="fixed inset-0 z-10 cursor-default" onClick={() => setOpen(false)} />
-      <div className={`absolute z-20 w-60 overflow-hidden rounded-xl border border-[#E9DFFF] bg-white py-1 shadow-lg ${compact ? 'left-0 top-9' : 'left-0 right-0 top-11 w-auto'}`}>{STAGES.map((item) => <button key={item.id} type="button" onClick={() => { setOpen(false); onChange(item.id) }}
-        className={`flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition hover:bg-[#F8F5FF] ${item.id === current.id ? 'font-semibold text-[#5A2BE6]' : 'text-slate-700'}`}>
-        <StageIcon stage={item.id} /><span className="flex-1">{item.label}</span>{item.id === current.id && <Check className="h-4 w-4 text-[#6C3BFF]" />}</button>)}</div>
-    </>}
   </div>
 }
 
@@ -930,7 +935,7 @@ function ContactPanel({ detail, editable, wide, onWide, onStage, onClose, onSave
   const talk = answered.reduce((total, call) => total + (call.duration || 0), 0)
   const lastCall = detail.calls.reduce<string | undefined>((latest, call) => (!latest || (asDate(call.at)?.getTime() || 0) > (asDate(latest)?.getTime() || 0) ? call.at : latest), undefined)
   const phone = isPhoneNumber(profile.phone || detail.phone) ? (profile.phone || detail.phone) : undefined
-  return <aside className="hidden min-h-0 flex-col overflow-hidden rounded-2xl border border-[#E9DFFF] bg-white shadow-[0_18px_40px_-34px_rgba(70,35,117,.55)] 2xl:flex">
+  return <aside className="hidden min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-[#E9DFFF] bg-white shadow-[0_18px_40px_-34px_rgba(70,35,117,.55)] 2xl:flex">
     <div className="flex items-center justify-between border-b border-[#F1EBFF] px-4 py-2.5">
       <span className="truncate text-[14px] font-bold text-slate-900">Contact</span>
       <span className="flex gap-0.5">
@@ -968,7 +973,7 @@ function ContactPanel({ detail, editable, wide, onWide, onStage, onClose, onSave
           <StagePicker stage={detail.stage} byName={detail.stage_by_name} editable={editable} onChange={onStage} />
         </div>
       </div>
-      <div className="mx-4 mt-3 grid grid-cols-3 rounded-xl bg-[#F4F0FF] p-0.5" role="tablist">{(['details', 'activity', 'overview'] as const).map((name) => <button key={name} type="button" role="tab" aria-selected={tab === name} onClick={() => setTab(name)} className={`h-7 rounded-[10px] text-[12px] font-semibold capitalize transition ${tab === name ? 'bg-white text-[#5A2BE6] shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>{name === 'overview' ? 'Summaries' : name}</button>)}</div>
+      <div className="sticky top-0 z-10 mx-4 mt-3 grid grid-cols-3 rounded-xl bg-[#F4F0FF] p-0.5" role="tablist" aria-label="Contact information">{(['details', 'activity', 'overview'] as const).map((name) => <button key={name} type="button" role="tab" aria-selected={tab === name} onClick={() => setTab(name)} className={`h-7 rounded-[10px] text-[12px] font-semibold capitalize transition ${tab === name ? 'bg-white text-[#5A2BE6] shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>{name === 'overview' ? 'Summaries' : name}</button>)}</div>
       <div className="px-4 pb-5 pt-2">
         {tab === 'details' ? <div>
           <div className="flex items-center justify-between pt-1">

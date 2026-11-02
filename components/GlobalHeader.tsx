@@ -28,12 +28,12 @@ function notificationIcon(notification: Notification) {
   return BellRing
 }
 
-/** "now", "5m", "3h", "2d" since the notification arrived. */
+/** A compact, human-readable age for the notification. */
 function since(value?: string) {
   const time = value ? new Date(value.endsWith('Z') || value.includes('+') ? value : `${value}Z`).getTime() : NaN
   if (Number.isNaN(time)) return ''
   const minutes = Math.max(0, Math.round((Date.now() - time) / 60000))
-  return minutes < 1 ? 'now' : minutes < 60 ? `${minutes}m` : minutes < 1440 ? `${Math.round(minutes / 60)}h` : `${Math.round(minutes / 1440)}d`
+  return minutes < 1 ? 'Just now' : minutes < 60 ? `${minutes}m ago` : minutes < 1440 ? `${Math.round(minutes / 60)}h ago` : `${Math.round(minutes / 1440)}d ago`
 }
 
 export default function GlobalHeader({ user }: { user?: User }) {
@@ -109,11 +109,20 @@ export default function GlobalHeader({ user }: { user?: User }) {
           {notifications.length > 0 && <b>{notifications.length > 9 ? '9+' : notifications.length}</b>}
         </button>
         {showNotifications && <div className="app-notifications" role="dialog" aria-label="Notifications">
-          <header><span><strong>Notifications</strong>{notifications.length > 0 && <em>{notifications.length}</em>}</span>{notifications.length > 0 && <button type="button" className="app-notifications-clear" onClick={markAllRead}><CheckCheck aria-hidden />Mark all read</button>}</header>
-          {notifications.length ? <div className="app-notifications-list">{notifications.slice(0, 12).map((notification) => { const Icon = notificationIcon(notification); return <button type="button" key={notification._id} onClick={() => openNotification(notification)} className="app-notification-item">
-            <span className="app-notification-icon"><Icon aria-hidden /></span>
-            <span className="app-notification-text"><span className="app-notification-top"><strong>{notification.title || 'Workspace update'}</strong><time>{since(notification.created_at)}</time></span><span>{notification.message || 'New activity needs your attention.'}</span></span>
-          </button> })}</div>
+          <header>
+            <div className="app-notifications-heading">
+              <div className="app-notifications-title"><strong>Notifications</strong>{notifications.length > 0 && <em aria-label={`${notifications.length} unread`}>{notifications.length > 99 ? '99+' : notifications.length}</em>}</div>
+              <span className="app-notifications-summary">{notifications.length ? 'Unread activity' : 'All caught up'}</span>
+            </div>
+            {notifications.length > 0 && <button type="button" className="app-notifications-clear" onClick={markAllRead}><CheckCheck aria-hidden />Mark all read</button>}
+          </header>
+          {notifications.length ? <>
+            <div className="app-notifications-list">{notifications.slice(0, 12).map((notification) => { const Icon = notificationIcon(notification); return <button type="button" key={notification._id} onClick={() => openNotification(notification)} className="app-notification-item">
+              <span className="app-notification-icon"><Icon aria-hidden /><i aria-hidden="true" /></span>
+              <span className="app-notification-text"><span className="app-notification-top"><strong>{notification.title || 'Workspace update'}</strong><time>{since(notification.created_at)}</time></span><span>{notification.message || 'New activity needs your attention.'}</span></span>
+            </button> })}</div>
+            {notifications.length > 12 && <footer className="app-notifications-footer">Showing 12 of {notifications.length} unread</footer>}
+          </>
             : <p className="app-notifications-empty"><CheckCheck aria-hidden /><b>You’re all caught up</b><small>Assignments, status changes, closes, mentions and team messages show up here.</small></p>}
         </div>}
       </div>

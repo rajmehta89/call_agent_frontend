@@ -11,6 +11,7 @@ import toast from 'react-hot-toast'
 import Link from 'next/link'
 import { COUNTRY_CODE_OPTIONS } from './country-codes'
 import { ListPaging, readListWindow } from '@/components/ListPaging'
+import { DropdownSelect } from '@/components/DropdownSelect'
 import { Loader, authFetch, titleCase, Spinner } from '@/components/PlatformUI'
 import { PageHeader } from '@/components/OmniPage'
 import { Stat } from '@/components/premium'
@@ -59,7 +60,7 @@ function LeadBoard({ leads, ownerName, onMove }: { leads: Lead[]; ownerName: (id
       <div className="mt-0.5 truncate text-xs text-slate-500">{contactLabel(lead.phone)}{lead.company ? ` · ${lead.company}` : ''}</div>
       <span className="mt-2 inline-flex rounded-full bg-[#F1EBFF] px-2 py-0.5 text-[10px] font-semibold text-[#5A2BE6]">{leadLanguageLabel(lead.preferred_language)}</span>
       <div className="mt-2.5 flex items-center justify-between gap-2"><span className="truncate text-[11px] text-slate-400">{ownerName(lead.assigned_to)}{lead.last_call ? ` · ${new Date(lead.last_call).toLocaleDateString([], { month: 'short', day: 'numeric' })}` : ''}</span>
-        <select value={lead.status} onChange={(event) => onMove(lead, event.target.value)} aria-label={`Move ${lead.name}`} className="h-7 min-h-0 w-auto rounded-md py-0 pl-2 pr-7 text-[11px]">{LEAD_STATUSES.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></div>
+        <DropdownSelect value={lead.status} options={LEAD_STATUSES.map((item) => ({ value: item.id, label: item.label }))} onChange={(status) => onMove(lead, status)} ariaLabel={`Move ${lead.name}`} className="w-[124px] shrink-0" menuMinWidth={200} /></div>
     </article>) : <p className="rounded-xl border border-dashed border-[#E9DFFF] px-3 py-6 text-center text-xs text-slate-400">No leads</p>}</div>
   </section> })}</div>
 }
@@ -107,6 +108,11 @@ export default function LeadsPage() {
     }).catch(() => {})
   }, [])
   const ownerName = (id?: string) => owners.find((owner) => owner.id === id)?.name || (id ? 'Former member' : 'Unassigned')
+  const ownerOptions = (currentId?: string) => [
+    { value: '', label: 'Unassigned' },
+    ...(currentId && !owners.some((owner) => owner.id === currentId) ? [{ value: currentId, label: ownerName(currentId), disabled: true }] : []),
+    ...owners.map((owner) => ({ value: owner.id, label: owner.name })),
+  ]
   const setOwner = async (lead: Lead, ownerId: string) => {
     const id = lead._id || lead.id
     try {
@@ -450,7 +456,7 @@ export default function LeadsPage() {
                     </td>
                     <td className="px-4 py-2 text-[13px] text-slate-700">{leadLanguageLabel(lead.preferred_language)}</td>
                     <td className="px-4 py-2 text-[13px]">
-                      {isAdmin ? <select value={lead.assigned_to || ''} onChange={(event) => setOwner(lead, event.target.value)} aria-label={`Owner of ${lead.name}`} className="h-8 min-h-0 w-auto rounded-md py-0 pl-2 pr-8 text-xs"><option value="">Unassigned</option>{owners.map((owner) => <option key={owner.id} value={owner.id}>{owner.name}</option>)}</select>
+                      {isAdmin ? <DropdownSelect value={lead.assigned_to || ''} options={ownerOptions(lead.assigned_to)} onChange={(ownerId) => setOwner(lead, ownerId)} ariaLabel={`Owner of ${lead.name}`} icon={<UserCheck className="h-3.5 w-3.5 text-slate-400" />} className="w-[156px] max-w-full" menuMinWidth={220} />
                         : <span className="text-slate-500">{ownerName(lead.assigned_to)}</span>}
                     </td>
                     <td className="px-4 py-2">

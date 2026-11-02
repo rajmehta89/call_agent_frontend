@@ -386,29 +386,35 @@ main .text-\[9px\], main .text-\[10px\], main .text-\[10\.5px\] { font-size:11px
 .app-header-initials { width:30px; height:30px; border-radius:999px; color:#fff; background:var(--rd-gradient); font-size:.68rem; }
 .app-header-identity strong { font-size:.78rem; }
 .app-header-identity small { font-size:.66rem; color:var(--rd-muted); }
-.app-notifications { width:360px; max-width:calc(100vw - 24px); border:1px solid var(--rd-border); border-radius:14px; box-shadow:var(--rd-shadow-lg); animation:rd-fade-up 160ms var(--rd-ease); }
-.app-notifications > header { padding:.7rem .85rem; border-bottom:1px solid var(--rd-border); }
-.app-notifications > header > span { display:flex; align-items:center; gap:.4rem; }
-.app-notifications > header strong { font-size:.88rem; color:var(--rd-ink); }
-.app-notifications > header em { min-width:1.3rem; padding:.05rem .4rem; border-radius:999px; color:var(--rd-primary); background:var(--rd-lavender); font-size:.68rem; font-style:normal; font-weight:700; text-align:center; }
-.app-notifications .app-notifications-clear { display:inline-flex; align-items:center; gap:.3rem; width:auto; padding:.3rem .5rem; border:0; border-radius:8px; color:var(--rd-primary); background:transparent; font-size:.74rem; font-weight:700; }
-.app-notifications .app-notifications-clear:hover { background:var(--rd-surface); }
+.app-notifications { display:flex; flex-direction:column; width:min(360px, calc(100vw - 24px)); max-width:none; max-height:min(448px, calc(100dvh - 88px)); border:1px solid var(--rd-border); border-radius:16px; box-shadow:var(--rd-shadow-lg); animation:rd-fade-up 160ms var(--rd-ease); }
+.app-notifications > header { display:flex; align-items:center; justify-content:space-between; gap:.65rem; flex:0 0 auto; padding:.85rem .9rem .78rem; border-bottom:1px solid var(--rd-border); background:#fff; }
+.app-notifications-heading { min-width:0; }
+.app-notifications-title { display:flex; align-items:center; gap:.45rem; }
+.app-notifications > header strong { color:var(--rd-ink); font-size:.9rem; letter-spacing:-.02em; }
+.app-notifications > header em { min-width:1.35rem; padding:.08rem .4rem; border-radius:999px; color:var(--rd-primary); background:var(--rd-lavender); font-size:.67rem; font-style:normal; font-weight:750; text-align:center; }
+.app-notifications-summary { display:block; margin-top:.12rem; color:var(--rd-muted); font-size:.68rem; }
+.app-notifications .app-notifications-clear { display:inline-flex; align-items:center; justify-content:center; gap:.32rem; width:auto; min-height:32px; flex:0 0 auto; padding:.35rem .52rem; border:1px solid var(--rd-border); border-radius:9px; color:var(--rd-primary); background:var(--rd-surface); font-size:.69rem; font-weight:750; white-space:nowrap; }
+.app-notifications .app-notifications-clear:hover { border-color:var(--rd-border-strong); background:var(--rd-lavender); }
+.app-notifications .app-notifications-clear:focus-visible,.app-notifications .app-notification-item:focus-visible { outline:2px solid var(--rd-primary); outline-offset:2px; }
 .app-notifications .app-notifications-clear svg { width:.9rem; height:.9rem; }
-.app-notifications-list { max-height:min(420px, calc(100vh - 120px)); overflow-y:auto; padding:.3rem; }
-.app-notifications .app-notification-item { display:flex; gap:.6rem; width:100%; padding:.55rem .55rem; border:0; border-radius:10px; text-align:left; background:#fff; }
+.app-notifications-list { min-height:0; max-height:min(340px, calc(100dvh - 205px)); flex:1 1 auto; overflow-y:auto; overscroll-behavior:contain; padding:.32rem; }
+.app-notifications .app-notification-item { display:flex; align-items:flex-start; gap:.65rem; width:100%; padding:.66rem .62rem; border:0; border-bottom:1px solid var(--rd-border); border-radius:10px; text-align:left; background:#fff; transition:background-color 140ms ease; }
+.app-notifications .app-notification-item:last-child { border-bottom-color:transparent; }
 .app-notifications .app-notification-item:hover { background:var(--rd-surface); }
-.app-notification-icon { display:grid; place-items:center; flex:0 0 auto; width:30px; height:30px; border-radius:999px; color:var(--rd-primary); background:var(--rd-lavender); }
-.app-notification-icon svg { width:.9rem; height:.9rem; }
+.app-notification-icon { position:relative; display:grid; place-items:center; flex:0 0 auto; width:34px; height:34px; border-radius:11px; color:var(--rd-primary); background:var(--rd-lavender); }
+.app-notification-icon svg { width:.95rem; height:.95rem; }
+.app-notification-icon i { position:absolute; top:-2px; right:-2px; width:9px; height:9px; border:2px solid #fff; border-radius:50%; background:var(--rd-primary); }
 .app-notification-text { display:block; min-width:0; flex:1; }
 .app-notification-top { display:flex !important; align-items:baseline; justify-content:space-between; gap:.5rem; margin:0 !important; }
-.app-notification-top strong { overflow:hidden; color:var(--rd-ink); font-size:.8rem; text-overflow:ellipsis; white-space:nowrap; }
-.app-notification-top time { flex:0 0 auto; color:var(--rd-subtle); font-size:.68rem; }
-.app-notification-text > span:last-child { display:-webkit-box; overflow:hidden; margin-top:.1rem; color:var(--rd-muted); font-size:.74rem; line-height:1.4; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
-.app-notifications .app-notifications-empty { display:grid; justify-items:center; gap:.2rem; padding:1.6rem 1rem; text-align:center; }
-.app-notifications-empty svg { width:1.4rem; height:1.4rem; color:var(--rd-primary); }
+.app-notification-top strong { overflow:hidden; color:var(--rd-ink); font-size:.79rem; line-height:1.35; text-overflow:ellipsis; white-space:nowrap; }
+.app-notification-top time { flex:0 0 auto; color:var(--rd-subtle); font-size:.65rem; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.app-notification-text > span:last-child { display:-webkit-box; overflow:hidden; margin-top:.2rem; color:var(--rd-muted); font-size:.72rem; line-height:1.45; overflow-wrap:anywhere; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
+.app-notifications-footer { flex:0 0 auto; padding:.5rem .85rem; border-top:1px solid var(--rd-border); color:var(--rd-subtle); background:var(--rd-surface); font-size:.65rem; font-weight:650; text-align:center; }
+.app-notifications .app-notifications-empty { display:grid; justify-items:center; gap:.25rem; padding:1.6rem 1rem; text-align:center; }
+.app-notifications-empty svg { width:1.4rem; height:1.4rem; margin-bottom:.15rem; color:var(--rd-primary); }
 .app-notifications-empty b { color:var(--rd-ink); font-size:.82rem; }
-.app-notifications-empty small { color:var(--rd-muted); font-size:.72rem; }
-@media (max-width:640px) { .app-notifications { position:fixed; top:62px; left:12px; right:12px; width:auto; max-width:none; } }
+.app-notifications-empty small { max-width:28ch; color:var(--rd-muted); font-size:.72rem; line-height:1.5; }
+@media (max-width:640px) { .app-notifications { position:fixed; top:62px; left:12px; right:12px; width:auto; max-width:none; max-height:calc(100dvh - 74px); } .app-notifications-list { max-height:none; } }
 
 /* ===== Done-checklist pass (2026-10-27) =====
    Touch screens: every control is at least 44px (WCAG 2.5.5) so it can be tapped reliably; desktop density is unchanged.
