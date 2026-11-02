@@ -208,7 +208,7 @@ function CallDetailRail({ call, leadName, detailLoading, onOpenConversation }: {
   const caller = call.lead?.name || leadName || contactLabel(String(call.phone_number || '')) || 'Unknown caller'
   const phone = contactLabel(String(call.phone_number || '')) || 'No number recorded'
   const provider = call.provider || call.channel_type
-  const providerLabel = provider ? titleCase(provider.replace(/[_-]+/g, ' ')) : 'Not recorded'
+  const providerLabel = provider ? provider.replace(/[_-]+/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase()) : 'Not recorded'
   const direction = call.direction === 'inbound' ? 'Inbound' : call.direction === 'outbound' ? 'Outbound' : 'Unknown'
   const facts = [
     { label: 'Duration', value: formatDuration(call.duration) },
