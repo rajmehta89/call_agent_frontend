@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, BarChart3, CheckCircle2, ChevronDown, Clock3, ListChecks, PhoneCall, RefreshCw, SlidersHorizontal, Users, UserRound } from 'lucide-react'
+import { ArrowLeft, BarChart3, CheckCircle2, ChevronDown, Clock3, ListChecks, PhoneCall, SlidersHorizontal, Users, UserRound } from 'lucide-react'
 import { PageHeader } from '../../../../components/OmniPage'
 import { api, DataState, roleLabel, userFacingError } from '../../../../components/PlatformUI'
 import { titleCase } from '../../../../components/PlatformUI'
@@ -38,7 +38,7 @@ export default function TeamPerformancePage() {
 
   return <div className="space-y-6">
     <PageHeader title="Team performance" description={`See workload, completed calls, and follow-up coverage for ${rangeLabel.toLowerCase()}.`} icon={BarChart3}
-      actions={<div className="flex flex-wrap items-center gap-2"><Link href="/settings/team" className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#E9DFFF] bg-white px-4 text-sm font-semibold text-slate-700 hover:border-[#6C3BFF]"><ArrowLeft className="h-4 w-4" />Team</Link><button type="button" onClick={load} className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#E9DFFF] bg-white px-3 text-sm font-semibold text-slate-700 hover:border-[#6C3BFF]"><RefreshCw className="h-4 w-4" />Refresh</button></div>} />
+      actions={<Link href="/settings/team" className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#E9DFFF] bg-white px-4 text-sm font-semibold text-slate-700 hover:border-[#6C3BFF]"><ArrowLeft className="h-4 w-4" />Team</Link>} />
 
     <DataState loading={loading} error={error} onRetry={load}>
       <section className="surface-panel rounded-2xl p-4 sm:p-5">
@@ -56,9 +56,9 @@ export default function TeamPerformancePage() {
           <label className="block min-w-0">
             <span className="mb-1.5 block text-xs font-semibold text-slate-600">Team member</span>
             <span className="relative block">
-              <Users aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <select value={memberId} onChange={(event) => setMemberId(event.target.value)} aria-label="Filter by teammate" className="h-11 w-full appearance-none rounded-xl border border-[#E9DFFF] bg-white pl-10 pr-9 text-sm font-semibold text-slate-700 outline-none transition hover:border-[#D8C8FF] focus:border-[#6C3BFF] focus:ring-2 focus:ring-[#E9DFFF]"><option value="all">All teammates</option>{(data?.members || []).map((member) => <option key={member.id} value={member.id}>{titleCase(member.name)}</option>)}</select>
-              <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Users aria-hidden="true" className={`pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 ${memberId === 'all' ? 'text-slate-400' : 'text-[#5A2BE6]'}`} />
+              <select value={memberId} onChange={(event) => setMemberId(event.target.value)} aria-label="Filter by teammate" className={`h-10 w-full appearance-none rounded-xl border pl-10 pr-9 text-sm font-semibold outline-none transition focus:ring-2 focus:ring-[#E9DFFF] ${memberId === 'all' ? 'border-[#E9DFFF] bg-white text-slate-600 hover:border-[#D8C8FF] focus:border-[#6C3BFF]' : 'border-[#6C3BFF] bg-[#F1EBFF] text-[#5A2BE6] focus:border-[#6C3BFF]'}`}><option value="all">All teammates</option>{(data?.members || []).map((member) => <option key={member.id} value={member.id}>{titleCase(member.name)}</option>)}</select>
+              <ChevronDown aria-hidden="true" className={`pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 ${memberId === 'all' ? 'text-slate-400' : 'text-[#5A2BE6]'}`} />
             </span>
           </label>
         </div>

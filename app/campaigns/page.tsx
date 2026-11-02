@@ -38,7 +38,6 @@ export default function CampaignsPage() {
   const [senderVerified, setSenderVerified] = useState(false)
   const [verifyingSender, setVerifyingSender] = useState(false)
   const [inbox, setInbox] = useState<InboxMessage[]>([])
-  const [inboxLoading, setInboxLoading] = useState(false)
   const [inboxError, setInboxError] = useState('')
   const [summary, setSummary] = useState<Summary | null>(null)
   const [index, setIndex] = useState(0)
@@ -223,12 +222,11 @@ export default function CampaignsPage() {
   }
 
   async function loadInbox() {
-    setInboxLoading(true)
     try {
       const result = await api<{ data: InboxMessage[] }>('/api/platform/private-email/inbox')
       setInbox(result.data)
       setInboxError('')
-    } catch (cause) { setInboxError(userFacingError(cause, 'Could not load inbox.')) } finally { setInboxLoading(false) }
+    } catch (cause) { setInboxError(userFacingError(cause, 'Could not load inbox.')) }
   }
 
   const source = draft?.verification_url || draft?.website
@@ -287,7 +285,7 @@ export default function CampaignsPage() {
       </section>}
 
     <section className="rounded-2xl border border-[#E9DFFF] bg-white p-5 sm:p-6" aria-label="Dubai email delivery history">
-      <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-lg font-bold text-[#32136B]">Dubai email activity</h2><p className="mt-1 text-sm text-slate-600">{queuedDrafts.length} approved and queued · {sentDrafts.length} sent from this campaign</p></div><button type="button" onClick={load} className="rounded-lg border border-[#D8C8FF] px-3 py-1.5 text-xs font-semibold text-[#32136B] hover:bg-[#F8F5FF] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6C3BFF]">Refresh activity</button></div>
+      <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-lg font-bold text-[#32136B]">Dubai email activity</h2><p className="mt-1 text-sm text-slate-600">{queuedDrafts.length} approved and queued · {sentDrafts.length} sent from this campaign</p></div></div>
       {queuedDrafts.length > 0 && <div className="mt-4 rounded-xl bg-[#F8F5FF] p-4"><h3 className="text-sm font-bold text-[#32136B]">Approved and waiting to send</h3><p className="mt-1 text-xs text-slate-600">These messages send automatically as campaign capacity becomes available.</p><div className="mt-2 divide-y divide-[#E9DFFF]">{queuedDrafts.map((item) => <div key={item._id} className="flex flex-wrap justify-between gap-2 py-2 text-sm"><span className="font-medium text-slate-900">{item.company_name}</span><span className="break-all text-slate-600">{item.recipient_email}</span></div>)}</div></div>}
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3"><h3 className="text-sm font-bold text-[#32136B]">Sent messages</h3><input type="search" value={historySearch} onChange={(event) => { setHistorySearch(event.target.value); setHistoryPage(0) }} placeholder="Search company or email" aria-label="Search sent Dubai emails" className="w-full rounded-lg border border-[#D8C8FF] px-3 py-2 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6C3BFF] sm:w-64" /></div>
       {matchingSent.length === 0 ? <p className="mt-3 text-sm text-slate-600">{sentDrafts.length ? 'No sent messages match your search.' : 'No sent emails recorded for this campaign.'}</p> : <div className="mt-2 divide-y divide-[#E9DFFF]">{visibleSent.map((item) => <div key={item._id} className="flex flex-wrap justify-between gap-2 py-3 text-sm"><div className="min-w-0"><p className="font-semibold text-slate-900">{item.company_name}</p><p className="break-all text-slate-600">{item.recipient_email}</p><p className="text-xs text-slate-500">From {item.delivery?.from || 'previous sender'}</p></div><p className="shrink-0 text-xs tabular-nums text-slate-500">{item.sent_at ? new Date(item.sent_at).toLocaleString() : 'Sent'}</p></div>)}</div>}
@@ -295,10 +293,10 @@ export default function CampaignsPage() {
     </section>
 
     <section className="rounded-2xl border border-[#E9DFFF] bg-white p-5 sm:p-6" aria-label="Business email inbox">
-      <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-lg font-bold text-[#32136B]">Business email inbox</h2><div className="flex gap-2"><button type="button" disabled={!sender?.connected || inboxLoading} title={!sender?.connected ? 'Connect a sender mailbox first' : undefined} onClick={loadInbox} className="inline-flex items-center gap-1.5 rounded-lg border border-[#D8C8FF] px-3 py-1.5 text-xs font-semibold text-[#32136B] disabled:opacity-40">{inboxLoading ? <><Spinner size="sm" />Loading…</> : 'Refresh inbox'}</button><a href="https://privateemail.com" target="_blank" rel="noopener noreferrer" className="rounded-lg border border-[#D8C8FF] px-3 py-1.5 text-xs font-semibold text-[#32136B]">Open Webmail</a></div></div>
+      <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-lg font-bold text-[#32136B]">Business email inbox</h2><a href="https://privateemail.com" target="_blank" rel="noopener noreferrer" className="rounded-lg border border-[#D8C8FF] px-3 py-1.5 text-xs font-semibold text-[#32136B]">Open Webmail</a></div>
       <p className="mt-1 text-xs text-slate-600">Recent messages received by {sender?.address || 'raj@buildwithraj.com'}. Open Webmail to read and reply.</p>
       {inboxError && <p role="alert" className="mt-3 text-xs text-[#5A2BE6]">{inboxError}</p>}
-      {inbox.length > 0 ? <div className="mt-3 divide-y divide-[#E9DFFF]">{inbox.map((item, position) => <div key={`${item.date}-${position}`} className="flex flex-wrap justify-between gap-2 py-3 text-sm"><div><p className={`text-slate-900 ${item.unread ? 'font-bold' : 'font-medium'}`}>{item.subject || '(No subject)'}</p><p className="text-slate-600">{item.from}</p></div><p className="text-xs text-slate-500">{item.date}</p></div>)}</div> : <p className="mt-3 text-sm text-slate-600">{sender?.connected ? 'Click Refresh inbox to load recent messages.' : 'Connect the mailbox on the backend to see replies here.'}</p>}
+      {inbox.length > 0 ? <div className="mt-3 divide-y divide-[#E9DFFF]">{inbox.map((item, position) => <div key={`${item.date}-${position}`} className="flex flex-wrap justify-between gap-2 py-3 text-sm"><div><p className={`text-slate-900 ${item.unread ? 'font-bold' : 'font-medium'}`}>{item.subject || '(No subject)'}</p><p className="text-slate-600">{item.from}</p></div><p className="text-xs text-slate-500">{item.date}</p></div>)}</div> : !inboxError && <p className="mt-3 text-sm text-slate-600">{sender?.connected ? 'No recent messages.' : 'Connect the mailbox on the backend to see replies here.'}</p>}
     </section>
 
     <section className="rounded-2xl border border-[#E9DFFF] bg-white p-5 sm:p-6" aria-label="Dubai prospect discovery and verification">

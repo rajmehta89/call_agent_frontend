@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import {
   Users, Plus, Upload, Phone, Edit, Trash,
-  RefreshCw, Download, Filter, Search,
+  ChevronDown, Download, Filter, Search,
   PhoneCall, CheckCircle, AlertCircle,
   FileText, User, Mail, Building, X, Sparkle, Trophy, UserCheck, List, KanbanSquare
 } from 'lucide-react'
@@ -402,9 +402,18 @@ export default function LeadsPage() {
 
         {/* Filters */}
         <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-[#E9DFFF] bg-white p-3 shadow-[0_18px_40px_-34px_rgba(73,35,117,.55)] lg:flex-row lg:items-center">
-          <DayRangeMenu value={range} onChange={setRange} className="shrink-0 lg:w-44" />
-          <div className="relative min-w-0 lg:w-80"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input type="text" aria-label="Search leads" placeholder="Search name, number, email, company" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="h-10 w-full rounded-xl border border-slate-200 bg-[#F8F5FF] pl-9 text-sm" /></div>
-          <div className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto pb-0.5">{['all', ...LEAD_STATUSES.map((item) => item.id)].map((id) => { const count = id === 'all' ? listTotal : undefined; const active = statusFilter === id; return <button key={id} type="button" onClick={() => setStatusFilter(id)} className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition ${active ? 'bg-[#6C3BFF] text-white' : 'bg-[#F1EBFF] text-slate-600 hover:bg-[#E9DFFF]'}`}>{id === 'all' ? 'All' : statusLabel(id)}<span className={active ? 'text-white/70' : 'text-slate-400'}>{count}</span></button> })}</div>
+          <DayRangeMenu value={range} onChange={setRange} className="w-full shrink-0 lg:w-44" />
+          <div className="relative min-w-0 lg:w-80"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input type="text" aria-label="Search leads" placeholder="Search name, number, email, company" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="h-10 w-full rounded-xl border border-[#E9DFFF] bg-white pl-9 pr-3 text-sm outline-none transition hover:border-[#D8C8FF] focus:border-[#6C3BFF] focus:ring-2 focus:ring-[#E9DFFF]" /></div>
+          <label className="block w-full min-w-0 lg:w-52">
+            <span className="sr-only">Filter leads by status</span>
+            <span className="relative block">
+              <Filter className={`pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 ${statusFilter === 'all' ? 'text-slate-400' : 'text-[#5A2BE6]'}`} />
+              <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Filter leads by status" className={`h-10 w-full appearance-none rounded-xl border pl-9 pr-9 text-sm font-semibold outline-none transition focus:ring-2 focus:ring-[#E9DFFF] ${statusFilter === 'all' ? 'border-[#E9DFFF] bg-white text-slate-600 hover:border-[#D8C8FF] focus:border-[#6C3BFF]' : 'border-[#6C3BFF] bg-[#F1EBFF] text-[#5A2BE6] focus:border-[#6C3BFF]'}`}>
+                <option value="all">All ({listTotal})</option>{LEAD_STATUSES.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+              </select>
+              <ChevronDown aria-hidden="true" className={`pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 ${statusFilter === 'all' ? 'text-slate-400' : 'text-[#5A2BE6]'}`} />
+            </span>
+          </label>
           <div className="flex shrink-0 rounded-xl bg-[#F1EBFF] p-1">{(['table', 'board'] as const).map((mode) => <button key={mode} type="button" onClick={() => setView(mode)} className={`inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold capitalize transition ${view === mode ? 'bg-white text-[#5A2BE6] shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>{mode === 'table' ? <List className="h-3.5 w-3.5" /> : <KanbanSquare className="h-3.5 w-3.5" />}{mode}</button>)}</div>
         </div>
 

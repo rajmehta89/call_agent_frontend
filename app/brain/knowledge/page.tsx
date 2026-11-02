@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { BrainCircuit, FileText, Globe, Plus, RefreshCw, Save, ShoppingBag, Trash2, Upload } from 'lucide-react'
+import { BrainCircuit, FileText, Globe, Plus, Save, ShoppingBag, Trash2, Upload } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { PageHeader } from '@/components/OmniPage'
 import { ActionButton, api, DataState, Spinner } from '@/components/PlatformUI'
@@ -85,8 +85,6 @@ export default function KnowledgePage() {
     if (!window.confirm(`Remove "${source.source_name}" from the knowledge? Calls and chats will stop using it right away.`)) return
     run(source.source_id, () => api(`/api/platform/brain/sources/${encodeURIComponent(source.source_id)}`, { method: 'DELETE' }), 'Source removed')
   }
-  const refresh = (source: Source) => run(source.source_id, () => api(`/api/platform/brain/resync/${encodeURIComponent(source.source_id)}`, { method: 'POST' }), 'Source refreshed')
-
   const chunks = sources.reduce((total, source) => total + (source.chunks || 0), 0)
   return <div className="space-y-4">
     <PageHeader title="Knowledge" description="The business facts the AI uses to answer callers and chats. Store data such as products, stock and orders comes live from Shopify." />
@@ -134,7 +132,6 @@ export default function KnowledgePage() {
                 <span className="block truncate text-xs text-slate-500">{settings ? 'The form above' : source.metadata?.url || source.metadata?.filename || source.source_type} · {source.chunks || 0} chunks{updated(source.updated_at) ? ` · updated ${updated(source.updated_at)}` : ''}</span>
               </span>
               {settings ? <span className="text-xs text-slate-500">Edit with the form above</span> : <span className="flex shrink-0 gap-2">
-                {source.source_type !== 'shopify' && <ActionButton disabled={working} onClick={() => refresh(source)} title={`Refresh ${source.source_name}`} icon={working ? <Spinner /> : <RefreshCw className="h-4 w-4" />}>Refresh</ActionButton>}
                 <ActionButton tone="danger" disabled={working} onClick={() => remove(source)} title={`Remove ${source.source_name}`} icon={<Trash2 className="h-4 w-4" />}>Remove</ActionButton>
               </span>}
             </li>

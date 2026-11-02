@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { FormEvent, useCallback, useEffect, useState } from 'react'
-import { ArrowUpRight, Boxes, HeartPulse, RefreshCw, ChevronDown, FileText, Info, MessageSquareText, Package, Search, Settings2, ShoppingBag, Sparkles, Truck, Users } from 'lucide-react'
+import { ArrowUpRight, Boxes, HeartPulse, ChevronDown, FileText, Info, MessageSquareText, Package, Search, Settings2, ShoppingBag, Sparkles, Truck, Users } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { PageHeader } from '@/components/OmniPage'
 import { Loader, api, Spinner } from '@/components/PlatformUI'
@@ -258,13 +258,11 @@ function CatalogueHealth() {
   const [data, setData] = useState<Health | null>(null)
   const [filter, setFilter] = useState('')
   const [shown, setShown] = useState(30)
-  const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const load = useCallback(async (refresh = false) => {
-    setBusy(true); setError('')
-    try { const result = await api<{ data: Health }>(`/api/platform/shopify/health${refresh ? '?refresh=true' : ''}`); setData(result.data); log(`catalogue health: ${result.data.with_issues} of ${result.data.checked} need attention`) }
+  const load = useCallback(async () => {
+    setError('')
+    try { const result = await api<{ data: Health }>('/api/platform/shopify/health'); setData(result.data); log(`catalogue health: ${result.data.with_issues} of ${result.data.checked} need attention`) }
     catch (exception) { setError(exception instanceof Error ? exception.message : 'Could not check the catalogue') }
-    finally { setBusy(false) }
   }, [])
   useEffect(() => { load() }, [load])
   if (error) return <Failure text={error} />
@@ -278,7 +276,6 @@ function CatalogueHealth() {
         <p className="text-sm font-semibold text-slate-900">{data.with_issues.toLocaleString()} of {data.checked.toLocaleString()} active products need attention</p>
         <p className="mt-0.5 text-xs text-slate-500">Fixing these in Shopify makes the AI's answers on calls complete. Changes show up on the next call: nothing to sync.</p>
       </div>
-      <button type="button" onClick={() => load(true)} disabled={busy} className="inline-flex h-9 items-center gap-2 rounded-xl border border-[#D8C8FF] bg-white px-3.5 text-sm font-semibold text-[#5A2BE6] transition hover:border-[#6C3BFF] disabled:opacity-60">{busy ? <Spinner /> : <RefreshCw className="h-4 w-4" />}Check again</button>
     </div>
     <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">{keys.map((key) => { const active = filter === key; return <button key={key} type="button" onClick={() => { setFilter(active ? '' : key); setShown(30) }} aria-pressed={active}
       className={`rounded-xl border p-3 text-left transition ${active ? 'border-[#6C3BFF] bg-[#F1EBFF]' : 'border-[#E9DFFF] bg-white hover:border-[#D8C8FF]'}`}>

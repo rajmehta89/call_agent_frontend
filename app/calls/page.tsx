@@ -4,10 +4,10 @@ import { orderedTranscript } from '../../components/transcript'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
-import { ArrowUpRight, Bot, CalendarDays, ChevronDown, Clock3, FileText, Headphones, MessageSquare, Phone, PhoneCall, RefreshCw, Search, Trash2, User, Users, X } from 'lucide-react'
+import { ArrowUpRight, Bot, CalendarDays, ChevronDown, Clock3, FileText, Headphones, MessageSquare, Phone, PhoneCall, Search, Trash2, User, Users, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { PageHeader } from '../../components/OmniPage'
-import { API_BASE, DataState, Loader, MetricGrid, StatusBadge, authFetch, Spinner } from '../../components/PlatformUI'
+import { API_BASE, DataState, Loader, MetricGrid, StatusBadge, authFetch } from '../../components/PlatformUI'
 import { ListPaging, readListWindow } from '../../components/ListPaging'
 import { RecordingAudio } from '../../components/RecordingAudio'
 import { ANY_TIME, DayRangeMenu, rangeBounds, rangeLabel, type DayRange } from '../../components/day-range'
@@ -78,7 +78,7 @@ export default function CallsPage() {
   const [timeFrom, setTimeFrom] = useState('')
   const [timeTo, setTimeTo] = useState('')
 
-  const load = async (selectNewest = false, quiet = false) => {
+  const load = async (quiet = false) => {
     const request = ++listRequest.current
     listAbort.current?.abort()
     const controller = new AbortController()
@@ -120,7 +120,7 @@ export default function CallsPage() {
       }
       nextLeads.sort((a, b) => latestCall(b) - latestCall(a))
       setLeads(nextLeads)
-      setSelectedLeadId((current) => !selectNewest && current && nextLeads.some((lead) => String(lead._id || lead.id) === current) ? current : String(nextLeads[0]?._id || nextLeads[0]?.id || ''))
+      setSelectedLeadId((current) => current && nextLeads.some((lead) => String(lead._id || lead.id) === current) ? current : String(nextLeads[0]?._id || nextLeads[0]?.id || ''))
     } catch (err) { if (!controller.signal.aborted) { const message = err instanceof Error ? err.message : 'Unable to load calls'; setError(message); if (!quiet) toast.error(message) } } finally { if (request === listRequest.current) { setLoading(false); setMoreLoading(false) } }
   }
 
@@ -129,7 +129,7 @@ export default function CallsPage() {
     const timer = window.setTimeout(() => void load(), 250)
     return () => { window.clearTimeout(timer); listAbort.current?.abort() }
   }, [range, searchTerm, statusFilter, interestFilter, directionFilter, handlingFilter, timeFrom, timeTo])
-  useEffect(() => { const timer = window.setInterval(() => { if (!document.hidden) void load(false, true) }, 10000); return () => window.clearInterval(timer) }, [range, searchTerm, statusFilter, interestFilter, directionFilter, handlingFilter, timeFrom, timeTo])
+  useEffect(() => { const timer = window.setInterval(() => { if (!document.hidden) void load(true) }, 10000); return () => window.clearInterval(timer) }, [range, searchTerm, statusFilter, interestFilter, directionFilter, handlingFilter, timeFrom, timeTo])
   const leadId = (lead: Lead) => String(lead._id || lead.id || '')
   const initials = (name = '') => name.split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'L'
   const timeFilteredCalls = useMemo(() => calls.filter((call) => inTimeWindow(call, timeFrom, timeTo)), [calls, timeFrom, timeTo])
@@ -174,7 +174,7 @@ export default function CallsPage() {
 
   return <div className="space-y-6">
     <PageHeader title="Call history" description="Every call by caller: listen to the recording, read the conversation and the AI summary." />
-    <div className="flex justify-end gap-2"><button type="button" onClick={() => void load(true)} disabled={loading} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 hover:border-[#D8C8FF] hover:text-[#5A2BE6] disabled:opacity-50">{loading ? <Spinner /> : <RefreshCw className="h-4 w-4" />}Refresh calls</button><Link href="/settings/account#call-data" className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 hover:border-[#D8C8FF] hover:text-[#5A2BE6]"><Trash2 className="h-4 w-4" />Clear call data</Link></div>
+    <div className="flex justify-end gap-2"><Link href="/settings/account#call-data" className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 hover:border-[#D8C8FF] hover:text-[#5A2BE6]"><Trash2 className="h-4 w-4" />Clear call data</Link></div>
     <section aria-label="Search and filter call history" className="surface-panel rounded-2xl border border-[#E9DFFF] p-4 sm:p-5">
       <div className="relative">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -197,7 +197,7 @@ export default function CallsPage() {
     </section>
     <DataState loading={loading} error={error} onRetry={load}>
       <MetricGrid items={[{ label: 'Matching calls', value: matchingSummary.total }, { label: 'Completed', value: matchingSummary.completed }, { label: 'Missed', value: matchingSummary.missed }, { label: 'Average duration', value: formatDuration(matchingSummary.average_duration || 0) }]} />
-      <ListPaging loaded={calls.length} total={listTotal} hasMore={hasMore} loading={moreLoading} noun="calls" onMore={() => { pagesRef.current += 1; setMoreLoading(true); void load(false, true) }} />
+      <ListPaging loaded={calls.length} total={listTotal} hasMore={hasMore} loading={moreLoading} noun="calls" onMore={() => { pagesRef.current += 1; setMoreLoading(true); void load(true) }} />
       <div className="mt-5 grid items-start gap-4 lg:grid-cols-[290px_minmax(0,1fr)] xl:grid-cols-[290px_minmax(0,1fr)_310px]">
         <aside className="surface-panel flex h-[720px] min-h-0 flex-col overflow-hidden rounded-[22px]"><div className="border-b border-slate-200 px-4 py-4"><div className="flex items-center justify-between"><div><div className="text-sm font-bold text-slate-900">Callers</div><div className="mt-1 text-xs text-slate-500">{filteredLeads.length} with matching calls</div></div><Users className="h-4 w-4 text-[#6C3BFF]" /></div><div className="relative mt-4"><Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" /><input aria-label="Find a lead" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Find a lead..." className="h-9 w-full rounded-lg border-slate-200 bg-slate-50 pl-9 text-xs" /></div></div><div className="min-h-0 flex-1 overflow-y-auto p-2">{filteredLeads.map((lead) => { const id = leadId(lead); const leadCalls = visibleCalls.filter((call) => String(call.lead_id || '') === id || (!call.lead_id && String(call.phone_number) === String(lead.phone || ''))); return <button key={id} type="button" onClick={() => setSelectedLeadId(id)} className={`mb-1 w-full rounded-xl border p-3 text-left transition ${selectedLeadId === id ? 'border-[#D8C8FF] bg-[#F1EBFF] shadow-sm' : 'border-transparent hover:border-slate-200 hover:bg-slate-50'}`}><div className="flex items-center gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#6C3BFF] text-xs font-bold text-white">{initials(lead.name)}</span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold text-slate-900">{lead.name || 'Unnamed lead'}</span><span className="mt-0.5 block truncate text-xs text-slate-500">{lead.company || contactLabel(String(lead.phone || '')) || 'No contact details'}</span></span>{leadCalls.length > 0 && <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-[#5A2BE6] shadow-sm" title={`${leadCalls.length} ${leadCalls.length === 1 ? 'call' : 'calls'}`}>{leadCalls.length}</span>}</div><div className="mt-2 pl-12 text-[11px] text-slate-500">{leadCalls.length ? `Last call ${formatDate(leadCalls.map((call) => call.call_date || call.created_at || '').sort().slice(-1)[0])}` : 'No calls yet'}</div></button> })}{!filteredLeads.length && <div className="px-3 py-12 text-center"><Users className="mx-auto h-7 w-7 text-slate-300" /><p className="mt-3 text-sm font-medium text-slate-700">No matching calls</p><p className="mt-1 text-xs text-slate-500">Try another date, time, or caller.</p></div>}</div></aside>
         <main className="surface-panel flex h-[720px] min-h-0 min-w-0 flex-col overflow-hidden rounded-[22px]">{selectedLead ? <><div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-5 py-4"><div className="flex min-w-0 items-center gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#F1EBFF] text-sm font-bold text-[#5A2BE6]">{initials(selectedLead.name)}</span><div className="min-w-0"><div className="truncate text-base font-bold text-slate-900">{selectedLead.name}</div><div className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-slate-500"><span>{selectedLead.phone ? contactLabel(String(selectedLead.phone)) : 'No phone'}</span>{selectedLead.company && <><span>·</span><span>{selectedLead.company}</span></>}</div></div></div><Link href={`/leads/${leadId(selectedLead)}`} className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50">Open lead <ArrowUpRight className="h-3.5 w-3.5" /></Link></div><div className="flex items-center justify-between border-b border-slate-200 bg-slate-50/70 px-5 py-3"><div><div className="text-xs font-semibold uppercase tracking-[.14em] text-slate-500">Call conversation</div><div className="mt-1 text-xs text-slate-500">{activeLeadCalls.length} call{activeLeadCalls.length === 1 ? '' : 's'} · click a call to open its chat</div></div><span className="text-xs text-slate-400">Customer left · agent right</span></div><div className="min-h-0 flex-1 overflow-y-auto p-5"><RecordingTimeline groups={historyGroups} selectedCallId={currentCall?._id} selectedLeadName={selectedLead.name} onSelect={setSelectedCall} onOpen={openConversation} /></div></> : <div className="flex flex-1 flex-col items-center justify-center p-8 text-center"><Users className="h-8 w-8 text-slate-300" /><p className="mt-3 text-sm font-semibold text-slate-700">Select a lead</p><p className="mt-1 max-w-xs text-sm text-slate-500">Choose a lead to see their call conversation.</p></div>}</main>
