@@ -130,7 +130,7 @@ export function DropdownSelect({
 
   const sizeClass = size === 'regular' ? 'h-10 px-3 text-sm' : 'h-8 px-2.5 text-[13px]'
   const toneClass = tone === 'brand'
-    ? 'border-transparent bg-[#F1EBFF] text-[#5A2BE6] enabled:hover:bg-[#EDE6FF]'
+    ? 'border-[#6C3BFF] bg-[#F1EBFF] text-[#5A2BE6] enabled:hover:bg-[#EDE6FF]'
     : 'border-[#E9DFFF] bg-white text-slate-700 enabled:hover:border-[#6C3BFF] enabled:hover:text-[#5A2BE6]'
 
   return <>
@@ -148,7 +148,7 @@ export function DropdownSelect({
           setOpen(true)
         }
       }}
-      className={`inline-flex min-w-0 items-center gap-2 rounded-lg border font-semibold text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6C3BFF]/25 disabled:cursor-not-allowed disabled:opacity-50 ${sizeClass} ${toneClass} ${className}`}
+      className={`inline-flex min-w-0 items-center gap-2 rounded-xl border font-semibold text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6C3BFF]/25 disabled:cursor-not-allowed disabled:opacity-50 ${sizeClass} ${toneClass} ${className}`}
     >
       {icon && <span className="shrink-0">{icon}</span>}
       <span className="min-w-0 flex-1 truncate whitespace-nowrap">{selected?.label || 'Select'}</span>

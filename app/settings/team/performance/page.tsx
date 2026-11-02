@@ -2,8 +2,9 @@
 
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, BarChart3, CheckCircle2, ChevronDown, Clock3, ListChecks, PhoneCall, SlidersHorizontal, Users, UserRound } from 'lucide-react'
+import { ArrowLeft, BarChart3, CheckCircle2, Clock3, ListChecks, PhoneCall, SlidersHorizontal, Users, UserRound } from 'lucide-react'
 import { PageHeader } from '../../../../components/OmniPage'
+import { DropdownSelect } from '../../../../components/DropdownSelect'
 import { api, DataState, roleLabel, userFacingError } from '../../../../components/PlatformUI'
 import { titleCase } from '../../../../components/PlatformUI'
 
@@ -55,11 +56,7 @@ export default function TeamPerformancePage() {
           </fieldset>
           <label className="block min-w-0">
             <span className="mb-1.5 block text-xs font-semibold text-slate-600">Team member</span>
-            <span className="relative block">
-              <Users aria-hidden="true" className={`pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 ${memberId === 'all' ? 'text-slate-400' : 'text-[#5A2BE6]'}`} />
-              <select value={memberId} onChange={(event) => setMemberId(event.target.value)} aria-label="Filter by teammate" className={`h-10 w-full appearance-none rounded-xl border pl-10 pr-9 text-sm font-semibold outline-none transition focus:ring-2 focus:ring-[#E9DFFF] ${memberId === 'all' ? 'border-[#E9DFFF] bg-white text-slate-600 hover:border-[#D8C8FF] focus:border-[#6C3BFF]' : 'border-[#6C3BFF] bg-[#F1EBFF] text-[#5A2BE6] focus:border-[#6C3BFF]'}`}><option value="all">All teammates</option>{(data?.members || []).map((member) => <option key={member.id} value={member.id}>{titleCase(member.name)}</option>)}</select>
-              <ChevronDown aria-hidden="true" className={`pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 ${memberId === 'all' ? 'text-slate-400' : 'text-[#5A2BE6]'}`} />
-            </span>
+            <DropdownSelect value={memberId} options={[{ value: 'all', label: 'All teammates' }, ...(data?.members || []).map((member) => ({ value: member.id, label: titleCase(member.name) }))]} onChange={setMemberId} ariaLabel="Filter by teammate" icon={<Users className={`h-4 w-4 ${memberId === 'all' ? 'text-slate-400' : 'text-[#5A2BE6]'}`} />} size="regular" tone={memberId === 'all' ? 'neutral' : 'brand'} className="w-full rounded-xl" menuMinWidth={220} menuMaxWidth={320} />
           </label>
         </div>
       </section>

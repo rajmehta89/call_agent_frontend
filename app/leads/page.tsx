@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import {
   Users, Plus, Upload, Phone, Edit, Trash,
-  ChevronDown, Download, Filter, Search,
+  Download, Filter, Search,
   PhoneCall, CheckCircle, AlertCircle,
   FileText, User, Mail, Building, X, Sparkle, Trophy, UserCheck, List, KanbanSquare
 } from 'lucide-react'
@@ -406,13 +406,7 @@ export default function LeadsPage() {
           <div className="relative min-w-0 lg:w-80"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input type="text" aria-label="Search leads" placeholder="Search name, number, email, company" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="h-10 w-full rounded-xl border border-[#E9DFFF] bg-white pl-9 pr-3 text-sm outline-none transition hover:border-[#D8C8FF] focus:border-[#6C3BFF] focus:ring-2 focus:ring-[#E9DFFF]" /></div>
           <label className="block w-full min-w-0 lg:w-52">
             <span className="sr-only">Filter leads by status</span>
-            <span className="relative block">
-              <Filter className={`pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 ${statusFilter === 'all' ? 'text-slate-400' : 'text-[#5A2BE6]'}`} />
-              <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Filter leads by status" className={`h-10 w-full appearance-none rounded-xl border pl-9 pr-9 text-sm font-semibold outline-none transition focus:ring-2 focus:ring-[#E9DFFF] ${statusFilter === 'all' ? 'border-[#E9DFFF] bg-white text-slate-600 hover:border-[#D8C8FF] focus:border-[#6C3BFF]' : 'border-[#6C3BFF] bg-[#F1EBFF] text-[#5A2BE6] focus:border-[#6C3BFF]'}`}>
-                <option value="all">All ({listTotal})</option>{LEAD_STATUSES.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
-              </select>
-              <ChevronDown aria-hidden="true" className={`pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 ${statusFilter === 'all' ? 'text-slate-400' : 'text-[#5A2BE6]'}`} />
-            </span>
+            <DropdownSelect value={statusFilter} options={[{ value: 'all', label: `All (${listTotal})` }, ...LEAD_STATUSES.map((item) => ({ value: item.id, label: item.label }))]} onChange={setStatusFilter} ariaLabel="Filter leads by status" icon={<Filter className={`h-4 w-4 ${statusFilter === 'all' ? 'text-slate-400' : 'text-[#5A2BE6]'}`} />} size="regular" tone={statusFilter === 'all' ? 'neutral' : 'brand'} className="w-full rounded-xl" menuMinWidth={208} menuMaxWidth={280} />
           </label>
           <div className="flex shrink-0 rounded-xl bg-[#F1EBFF] p-1">{(['table', 'board'] as const).map((mode) => <button key={mode} type="button" onClick={() => setView(mode)} className={`inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold capitalize transition ${view === mode ? 'bg-white text-[#5A2BE6] shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>{mode === 'table' ? <List className="h-3.5 w-3.5" /> : <KanbanSquare className="h-3.5 w-3.5" />}{mode}</button>)}</div>
         </div>

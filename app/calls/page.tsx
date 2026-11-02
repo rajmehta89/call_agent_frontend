@@ -9,6 +9,7 @@ import toast from 'react-hot-toast'
 import { PageHeader } from '../../components/OmniPage'
 import { API_BASE, DataState, Loader, MetricGrid, StatusBadge, authFetch } from '../../components/PlatformUI'
 import { ListPaging, readListWindow } from '../../components/ListPaging'
+import { DropdownSelect } from '../../components/DropdownSelect'
 import { RecordingAudio } from '../../components/RecordingAudio'
 import { ANY_TIME, DayRangeMenu, rangeBounds, rangeLabel, type DayRange } from '../../components/day-range'
 import { type LeadLanguage } from '../../components/lead-language'
@@ -209,7 +210,7 @@ export default function CallsPage() {
 }
 
 function FilterSelect({ label, ariaLabel, value, onChange, options }: { label: string; ariaLabel: string; value: string; onChange: (value: string) => void; options: { value: string; label: string }[] }) {
-  return <label className="min-w-0"><span className="mb-1.5 block text-xs font-semibold text-slate-600">{label}</span><span className="relative block"><select value={value} onChange={(event) => onChange(event.target.value)} aria-label={ariaLabel} className="h-10 w-full appearance-none rounded-xl border border-[#E9DFFF] bg-white pl-3 pr-9 text-[13px] font-semibold text-slate-700 outline-none transition hover:border-[#D8C8FF] focus:border-[#6C3BFF] focus:ring-2 focus:ring-[#E9DFFF]">{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select><ChevronDown aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /></span></label>
+  return <label className="min-w-0"><span className="mb-1.5 block text-xs font-semibold text-slate-600">{label}</span><DropdownSelect value={value} options={options} onChange={onChange} ariaLabel={ariaLabel} size="regular" tone={value === 'all' ? 'neutral' : 'brand'} className="w-full rounded-xl" menuMinWidth={208} menuMaxWidth={280} /></label>
 }
 
 function getCallHandler(call: Call) {
