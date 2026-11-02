@@ -1,9 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { AudioLines, ChevronDown, PhoneForwarded, Zap } from 'lucide-react'
+import { AudioLines, ChevronDown, Phone, PhoneForwarded, Zap } from 'lucide-react'
 import { PageHeader } from '@/components/OmniPage'
 import { api } from '@/components/PlatformUI'
+import { DropdownSelect } from '@/components/DropdownSelect'
 
 // US list prices, checked October 2026.
 const TWILIO_NUMBER_MONTHLY = { local: 1.15, tollfree: 2.15 }
@@ -139,10 +140,8 @@ export default function VoicePricingPage() {
         <div className="grid gap-4 sm:grid-cols-3">
           <label className="block"><span className="field-label">Calls forwarded to an agent (%)</span><input type="number" min="0" max="100" step="5" inputMode="numeric" value={forwardPercent} onChange={(event) => setForwardPercent(Number(event.target.value))} /></label>
           <label className="block"><span className="field-label">Agent talk minutes</span><input type="number" min="0" step="0.5" inputMode="decimal" value={agentMinutes} onChange={(event) => setAgentMinutes(Number(event.target.value))} /></label>
-          <label className="block"><span className="field-label">Agents&apos; phones</span>
-            <select value={agentPhone} onChange={(event) => setAgentPhone(event.target.value as AgentPhone)}>
-              {(Object.keys(AGENT_PHONES) as AgentPhone[]).map((key) => <option key={key} value={key}>{AGENT_PHONES[key].label} ({rate(AGENT_PHONES[key].perMinute)}/min)</option>)}
-            </select></label>
+          <label className="block min-w-0"><span className="field-label">Agents&apos; phones</span>
+            <DropdownSelect value={agentPhone} options={(Object.keys(AGENT_PHONES) as AgentPhone[]).map((key) => ({ value: key, label: `${AGENT_PHONES[key].label} (${rate(AGENT_PHONES[key].perMinute)}/min)` }))} onChange={(value) => setAgentPhone(value as AgentPhone)} ariaLabel="Agent phone destination" icon={<Phone className="h-4 w-4 text-[#5A2BE6]" />} size="regular" tone="brand" className="w-full rounded-xl" menuMinWidth={260} menuMaxWidth={340} /></label>
         </div>
       </div>
       {/* The month in one sentence, and one forwarded call in dollars. */}

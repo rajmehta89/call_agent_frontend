@@ -5,6 +5,7 @@ import { FormEvent, useCallback, useEffect, useState } from 'react'
 import { BarChart3, Check, Copy, Link2, MailPlus, UserMinus, UserPlus, Users, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { PageHeader } from '../../../components/OmniPage'
+import { DropdownSelect } from '../../../components/DropdownSelect'
 import { ActionButton, DataState, StatusBadge, api, roleLabel, userFacingError, Spinner } from '../../../components/PlatformUI'
 
 // The two roles a team needs (auth_service.DEFAULT_ROLES). "agent" is the team member role's internal name.
@@ -77,7 +78,7 @@ export default function TeamSettingsPage() {
       <form onSubmit={sendInvite} className="mt-4 grid gap-3 md:grid-cols-[1fr_1.3fr_180px_auto]">
         <input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Full name" aria-label="Full name" className="h-10 rounded-lg border border-slate-200 px-3 text-sm" />
         <input required type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} placeholder="name@company.com" aria-label="Email" className="h-10 rounded-lg border border-slate-200 px-3 text-sm" />
-        <select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value })} aria-label="Role" className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm">{TEAM_ROLES.map((role) => <option key={role.name} value={role.name}>{role.label}</option>)}</select>
+        <DropdownSelect value={form.role} options={TEAM_ROLES.map((role) => ({ value: role.name, label: role.label }))} onChange={(role) => setForm({ ...form, role })} ariaLabel="Invite role" icon={<Users className="h-4 w-4 text-slate-400" />} size="regular" className="w-full rounded-xl" menuMinWidth={200} menuMaxWidth={260} />
         <button type="submit" disabled={sending} className="action-button action-button-primary inline-flex h-10 items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold disabled:opacity-50">{sending ? <Spinner /> : <UserPlus className="h-4 w-4" />}Send invite</button>
       </form>
       <p className="mt-2 text-xs text-slate-500">{TEAM_ROLES.find((role) => role.name === form.role)?.description}</p>
@@ -93,7 +94,7 @@ export default function TeamSettingsPage() {
           <thead className="border-b border-slate-200 bg-slate-50/70 text-[10px] font-bold uppercase tracking-[.12em] text-slate-400"><tr><th className="px-5 py-3">Person</th><th className="px-3 py-3">Role</th><th className="px-3 py-3">Status</th><th className="px-3 py-3">Joined</th><th className="px-5 py-3 text-right">Access</th></tr></thead>
           <tbody className="divide-y divide-slate-100">{members.map((row) => { const self = row._id === me; const owner = row.role === 'owner'; const locked = self || owner; return <tr key={row._id} className={busy === row._id ? 'opacity-50' : ''}>
             <td className="px-5 py-3.5"><div className="font-semibold text-slate-800">{row.name}{self && <span className="ml-2 text-xs font-normal text-slate-400">(you)</span>}</div><div className="mt-0.5 text-xs text-slate-500">{row.email}</div></td>
-            <td className="px-3 py-3.5">{locked || !canManage ? <span className="text-xs font-semibold text-slate-600">{roleLabel(row.role)}</span> : <select value={row.role} onChange={(event) => changeRole(row, event.target.value)} aria-label={`Role for ${row.name}`} className="h-8 rounded-md border border-slate-200 bg-white px-2 text-xs">{TEAM_ROLES.map((role) => <option key={role.name} value={role.name}>{role.label}</option>)}</select>}</td>
+            <td className="px-3 py-3.5">{locked || !canManage ? <span className="text-xs font-semibold text-slate-600">{roleLabel(row.role)}</span> : <DropdownSelect value={row.role} options={TEAM_ROLES.map((role) => ({ value: role.name, label: role.label }))} onChange={(role) => changeRole(row, role)} ariaLabel={`Role for ${row.name}`} size="compact" className="w-[132px] max-w-full rounded-xl" menuMinWidth={200} menuMaxWidth={240} />}</td>
             <td className="px-3 py-3.5"><StatusBadge value={row.active === false ? 'disabled' : 'active'} /></td>
             <td className="px-3 py-3.5 text-xs text-slate-500">{shortDate(row.created_at)}</td>
             <td className="px-5 py-3.5 text-right">{!canManage ? <span className="text-xs text-slate-400">View only</span> : locked ? <span className="text-xs text-slate-400">{owner ? 'Owner' : 'Your account'}</span> : row.active === false ? <ActionButton onClick={() => setActive(row, true)} icon={<Check className="h-4 w-4" />}>Reactivate</ActionButton> : <ActionButton tone="danger" onClick={() => { if (window.confirm(`Remove access for ${row.name}? They are signed out straight away.`)) setActive(row, false) }} icon={<UserMinus className="h-4 w-4" />}>Deactivate</ActionButton>}</td>

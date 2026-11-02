@@ -401,9 +401,9 @@ export default function LeadsPage() {
         </div>
 
         {/* Filters */}
-        <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-[#E9DFFF] bg-white p-3 shadow-[0_18px_40px_-34px_rgba(73,35,117,.55)] lg:flex-row lg:items-center">
+        <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-[#E9DFFF] bg-white p-3 shadow-[0_18px_40px_-34px_rgba(73,35,117,.55)] lg:flex-row lg:items-center lg:gap-2">
           <DayRangeMenu value={range} onChange={setRange} className="w-full shrink-0 lg:w-44" />
-          <div className="relative min-w-0 lg:w-80"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input type="text" aria-label="Search leads" placeholder="Search name, number, email, company" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="h-10 w-full rounded-xl border border-[#E9DFFF] bg-white pl-9 pr-3 text-sm outline-none transition hover:border-[#D8C8FF] focus:border-[#6C3BFF] focus:ring-2 focus:ring-[#E9DFFF]" /></div>
+          <div className="relative min-w-0 lg:w-auto lg:flex-1"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input type="text" aria-label="Search leads" placeholder="Search name, number, email, company" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="h-10 w-full rounded-xl border border-[#E9DFFF] bg-white pl-9 pr-3 text-sm outline-none transition hover:border-[#D8C8FF] focus:border-[#6C3BFF] focus:ring-2 focus:ring-[#E9DFFF]" /></div>
           <label className="block w-full min-w-0 lg:w-52">
             <span className="sr-only">Filter leads by status</span>
             <DropdownSelect value={statusFilter} options={[{ value: 'all', label: `All (${listTotal})` }, ...LEAD_STATUSES.map((item) => ({ value: item.id, label: item.label }))]} onChange={setStatusFilter} ariaLabel="Filter leads by status" icon={<Filter className={`h-4 w-4 ${statusFilter === 'all' ? 'text-slate-400' : 'text-[#5A2BE6]'}`} />} size="regular" tone={statusFilter === 'all' ? 'neutral' : 'brand'} className="w-full rounded-xl" menuMinWidth={208} menuMaxWidth={280} />
