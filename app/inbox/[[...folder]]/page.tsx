@@ -688,6 +688,8 @@ function ConversationDetail({ detail, canAssign, canWork, onAssign, onStage, onC
   const last = detail.calls[detail.calls.length - 1]
   const latestDay = items.length ? items[items.length - 1].at.toDateString() : ''
   const [whyOpen, setWhyOpen] = useState(false)
+  const [detailsOpen, setDetailsOpen] = useState(false)
+  useEffect(() => { setDetailsOpen(false); setWhyOpen(false) }, [detail.key])
   const iconButton = 'flex h-9 w-9 items-center justify-center rounded-xl border border-[#E9DFFF] bg-white text-[#6C3BFF] transition hover:border-[#6C3BFF] hover:bg-[#F8F5FF]'
   const chip = 'inline-flex h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg border border-[#E9DFFF] bg-[#F8F5FF] px-3 text-[13px] font-medium text-slate-600'
   return <>
@@ -716,31 +718,38 @@ function ConversationDetail({ detail, canAssign, canWork, onAssign, onStage, onC
           </>}
         </div>
       </div>
-      {/* Ownership and status stay easy to scan; call facts wrap below them when space is tight. */}
-      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <div className="min-w-0">
-          <span className="mb-1 block text-[10.5px] font-bold uppercase tracking-[.1em] text-slate-500">Owner</span>
-          {canAssign ? <AssignChip detail={detail} members={members} onAssign={onAssign} />
-            : detail.assigned_to ? <span className="inline-flex h-10 min-w-0 w-full items-center gap-2 rounded-lg border border-[#E9DFFF] bg-white px-3 text-sm text-slate-600"><UserPlus className="h-4 w-4 shrink-0 text-slate-500" /><span className="truncate">{detail.assigned_to === me ? 'Assigned to you' : detail.assigned_to_name || 'Assigned'}</span></span>
-            : <button type="button" onClick={() => onAssign(me)} disabled={!me} title={me ? undefined : 'Still loading your account'} className="inline-flex h-10 min-w-0 w-full items-center gap-2 rounded-lg border border-[#E9DFFF] bg-white px-3 text-sm font-semibold text-slate-700 transition hover:border-[#6C3BFF] hover:bg-[#F8F5FF] disabled:opacity-50"><UserCheck className="h-4 w-4 shrink-0 text-slate-500" /><span className="truncate">Assign to me</span></button>}
+      <button type="button" onClick={() => setDetailsOpen(!detailsOpen)} aria-expanded={detailsOpen} aria-controls={detailsOpen ? 'conversation-details-panel' : undefined}
+        className="mt-3 flex w-full items-center gap-2 rounded-lg border border-[#E9DFFF] bg-white px-3 py-2 text-left text-xs font-semibold text-slate-700 transition hover:border-[#C9B4FF] hover:bg-[#FBFAFF]">
+        <SlidersHorizontal className="h-3.5 w-3.5 shrink-0 text-[#6C3BFF]" />
+        <span className="flex-1">Conversation details</span>
+        <span className="text-[10px] font-medium text-slate-400">{detailsOpen ? 'Hide' : 'Show'}</span>
+        {detailsOpen ? <ChevronUp className="h-4 w-4 shrink-0 text-slate-400" /> : <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />}
+      </button>
+      {detailsOpen && <div id="conversation-details-panel" className="mt-2 space-y-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <div className="min-w-0">
+            <span className="mb-1 block text-[10.5px] font-bold uppercase tracking-[.1em] text-slate-500">Owner</span>
+            {canAssign ? <AssignChip detail={detail} members={members} onAssign={onAssign} />
+              : detail.assigned_to ? <span className="inline-flex h-10 min-w-0 w-full items-center gap-2 rounded-lg border border-[#E9DFFF] bg-white px-3 text-sm text-slate-600"><UserPlus className="h-4 w-4 shrink-0 text-slate-500" /><span className="truncate">{detail.assigned_to === me ? 'Assigned to you' : detail.assigned_to_name || 'Assigned'}</span></span>
+              : <button type="button" onClick={() => onAssign(me)} disabled={!me} title={me ? undefined : 'Still loading your account'} className="inline-flex h-10 min-w-0 w-full items-center gap-2 rounded-lg border border-[#E9DFFF] bg-white px-3 text-sm font-semibold text-slate-700 transition hover:border-[#6C3BFF] hover:bg-[#F8F5FF] disabled:opacity-50"><UserCheck className="h-4 w-4 shrink-0 text-slate-500" /><span className="truncate">Assign to me</span></button>}
+          </div>
+          <div className="min-w-0">
+            <span className="mb-1 block text-[10.5px] font-bold uppercase tracking-[.1em] text-slate-500">Lead status</span>
+            <StagePicker stage={detail.stage} editable={canWork} onChange={onStage} compact size="regular" />
+          </div>
         </div>
-        <div className="min-w-0">
-          <span className="mb-1 block text-[10.5px] font-bold uppercase tracking-[.1em] text-slate-500">Lead status</span>
-          <StagePicker stage={detail.stage} editable={canWork} onChange={onStage} compact size="regular" />
-        </div>
-      </div>
-      {(last || detail.calls.length > 1) && <div className="mt-2 flex flex-wrap items-center gap-1.5">
-        {last && <span className={chip} title="Latest call"><Clock className="h-4 w-4 shrink-0 text-[#6C3BFF]" /><span className="text-slate-500">Last call</span><span className="font-semibold text-slate-800">{last.live ? 'In progress' : last.duration ? duration(last.duration) : '—'}</span><span className="text-slate-500">· {agoText(last.at)}</span></span>}
-        {detail.calls.length > 1 && <span className={chip} title={`First call ${fullDate(detail.calls[0].at)}`}><PhoneIncoming className="h-4 w-4 shrink-0 text-[#6C3BFF]" />{detail.calls.length} calls</span>}
-        {last && <span className={chip} title="Call provider"><Bot className="h-4 w-4 shrink-0 text-[#6C3BFF]" /><span className="text-slate-500">Via</span><span className="font-semibold text-slate-800">{providerLabel(last.provider)}</span></span>}
+        {(last || detail.calls.length > 1) && <div className="flex flex-wrap items-center gap-1.5">
+          {last && <span className={chip} title="Latest call"><Clock className="h-4 w-4 shrink-0 text-[#6C3BFF]" /><span className="text-slate-500">Last call</span><span className="font-semibold text-slate-800">{last.live ? 'In progress' : last.duration ? duration(last.duration) : '—'}</span><span className="text-slate-500">· {agoText(last.at)}</span></span>}
+          {detail.calls.length > 1 && <span className={chip} title={`First call ${fullDate(detail.calls[0].at)}`}><PhoneIncoming className="h-4 w-4 shrink-0 text-[#6C3BFF]" />{detail.calls.length} calls</span>}
+          {last && <span className={chip} title="Call provider"><Bot className="h-4 w-4 shrink-0 text-[#6C3BFF]" /><span className="text-slate-500">Via</span><span className="font-semibold text-slate-800">{providerLabel(last.provider)}</span></span>}
+        </div>}
+        {detail.stage_reason && <button type="button" onClick={() => setWhyOpen(!whyOpen)} aria-expanded={whyOpen}
+          className="flex w-full items-start gap-2 rounded-lg bg-gradient-to-r from-[#F8F5FF] to-transparent px-2.5 py-1.5 text-left text-[12.5px] leading-5 text-slate-600 transition hover:from-[#F1EBFF]">
+          <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#8B5CF6]" />
+          <span className={`min-w-0 flex-1 ${whyOpen ? '' : 'truncate'}`}><span className="font-semibold text-[#5A2BE6]">Why {stageInfo(detail.stage).label}: </span>{detail.stage_reason}{whyOpen && <span className="text-slate-400"> · {detail.stage_by_name || 'AI assistant'}{detail.stage_at ? `, ${agoText(detail.stage_at)}` : ''}</span>}</span>
+          {whyOpen ? <ChevronUp className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" /> : <ChevronDown className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />}
+        </button>}
       </div>}
-      {/* Why the AI filed it in this status: one line, the whole reason on tap. */}
-      {detail.stage_reason && <button type="button" onClick={() => setWhyOpen(!whyOpen)} aria-expanded={whyOpen}
-        className="mt-2 flex w-full items-start gap-2 rounded-lg bg-gradient-to-r from-[#F8F5FF] to-transparent px-2.5 py-1.5 text-left text-[12.5px] leading-5 text-slate-600 transition hover:from-[#F1EBFF]">
-        <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#8B5CF6]" />
-        <span className={`min-w-0 flex-1 ${whyOpen ? '' : 'truncate'}`}><span className="font-semibold text-[#5A2BE6]">Why {stageInfo(detail.stage).label}: </span>{detail.stage_reason}{whyOpen && <span className="text-slate-400"> · {detail.stage_by_name || 'AI assistant'}{detail.stage_at ? `, ${agoText(detail.stage_at)}` : ''}</span>}</span>
-        {whyOpen ? <ChevronUp className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" /> : <ChevronDown className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />}
-      </button>}
     </div>
 
     <div className="min-h-0 flex-1 overflow-y-auto bg-[#FBFAFF] px-3 py-4 sm:px-5">
