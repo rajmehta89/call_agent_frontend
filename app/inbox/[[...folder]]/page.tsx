@@ -374,11 +374,13 @@ export default function InboxPage() {
           </div>
         </div>
         {folder !== 'mentioned' && <>
-          <div className="mt-2.5 flex gap-1.5">
-            <div className="relative min-w-0 flex-1"><Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input id="inbox-search" type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search…" className="h-9 w-full rounded-xl border border-[#E9DFFF] bg-white pl-8 pr-2 text-[13px] outline-none transition focus:border-[#6C3BFF]" /></div>
-            <DayRangeMenu value={range} onChange={setRange} compact className="w-[128px] shrink-0" />
-            {folder !== 'assigned' && <button type="button" onClick={() => setNewestFirst(!newestFirst)} title={newestFirst ? 'Newest first (tap for oldest first)' : 'Oldest first (tap for newest first)'} aria-label={newestFirst ? 'Sorted newest first' : 'Sorted oldest first'}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#E9DFFF] bg-white text-slate-500 transition hover:border-[#6C3BFF] hover:text-[#5A2BE6]"><ArrowDownUp className={`h-4 w-4 transition ${newestFirst ? '' : 'rotate-180'}`} /></button>}
+          <div className="mt-2.5 space-y-1.5">
+            <div className="relative min-w-0"><Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input id="inbox-search" type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search conversations..." className="h-9 w-full rounded-xl border border-[#E9DFFF] bg-white pl-8 pr-2 text-[13px] outline-none transition focus:border-[#6C3BFF]" /></div>
+            <div className="flex min-w-0 items-center gap-1.5">
+              <DayRangeMenu value={range} onChange={setRange} compact className="min-w-0 flex-1" />
+              {folder !== 'assigned' && <button type="button" onClick={() => setNewestFirst(!newestFirst)} title={newestFirst ? 'Newest first (tap for oldest first)' : 'Oldest first (tap for newest first)'} aria-label={newestFirst ? 'Sorted newest first' : 'Sorted oldest first'}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#E9DFFF] bg-white text-slate-500 transition hover:border-[#6C3BFF] hover:text-[#5A2BE6]"><ArrowDownUp className={`h-4 w-4 transition ${newestFirst ? '' : 'rotate-180'}`} /></button>}
+            </div>
           </div>
           {folder !== 'assigned' && <div className="mt-2 flex items-center gap-1.5">
             <div className="-mx-1 flex min-w-0 flex-1 gap-1 overflow-x-auto px-1" role="tablist" aria-label="Quick filters">{(stage ? STAGE_FILTERS : FILTERS).map((item) => { const count = filterCounts[item.id] || 0; const active = listFilter === item.id; if (!count && item.id !== 'all' && !active && !stage) return null; return <button key={item.id} type="button" role="tab" aria-selected={active} onClick={() => { setListFilter(item.id); log(`filter ${item.id}`) }}
