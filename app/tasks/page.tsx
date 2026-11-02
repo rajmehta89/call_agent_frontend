@@ -24,7 +24,7 @@ export default function TasksPage() {
   const [me, setMe] = useState('')
   const [onlyMine, setOnlyMine] = useState(false)
   const [range, setRange] = useState<DayRange>(ANY_TIME)  // when the conversation moved into its status
-  const [view, setView] = useState<'cards' | 'table'>('cards')
+  const [view, setView] = useState<'cards' | 'table'>('table')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
