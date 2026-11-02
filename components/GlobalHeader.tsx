@@ -1,6 +1,6 @@
 'use client'
 
-import { AtSign, Bell, BellRing, CheckCheck, ChevronRight, Hash, PhoneCall, PhoneForwarded, UserPlus, Volume2, VolumeX } from 'lucide-react'
+import { AtSign, Bell, BellRing, CheckCheck, ChevronRight, Hash, PhoneCall, PhoneForwarded, UserRoundCheck, Volume2, VolumeX } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { api, roleLabel } from './PlatformUI'
@@ -23,7 +23,7 @@ function notificationIcon(notification: Notification) {
   const kind = `${notification.type || ''} ${notification.title || ''}`.toLowerCase()
   if (kind.includes('handoff')) return PhoneForwarded
   if (notification.channel === 'voice' || kind.includes('voice') || kind.includes('call')) return PhoneCall
-  if (kind.includes('assign')) return UserPlus
+  if (kind.includes('assign')) return UserRoundCheck
   if (kind.includes('mention')) return AtSign
   if (notification.channel === 'inbox' && !notification.conversation_id) return Hash
   return BellRing
@@ -119,7 +119,7 @@ export default function GlobalHeader({ user }: { user?: User }) {
           </header>
           {notifications.length ? <>
             <div className="app-notifications-list">{notifications.slice(0, 12).map((notification) => { const Icon = notificationIcon(notification); return <button type="button" key={notification._id} onClick={() => openNotification(notification)} className="app-notification-item">
-              <span className="app-notification-icon"><Icon aria-hidden /><i aria-hidden="true" /></span>
+              <span className="app-notification-icon"><Icon aria-hidden /></span>
               <span className="app-notification-text"><span className="app-notification-top"><strong>{notification.title || 'Workspace update'}</strong><time>{since(notification.created_at)}</time></span><span>{notification.message || 'New activity needs your attention.'}</span></span>
             </button> })}</div>
             {notifications.length > 12 && <footer className="app-notifications-footer">Showing 12 of {notifications.length} unread</footer>}
