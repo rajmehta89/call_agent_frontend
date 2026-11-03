@@ -68,8 +68,9 @@ export default function DashboardPage() {
     // Live: calls, assignments and status changes arrive over the realtime stream; refresh at most every 2s, plus a 30s backup.
     const onChange = () => { window.clearTimeout(timer.current); timer.current = window.setTimeout(() => load(true), 2000) }
     window.addEventListener('inbox:refresh', onChange)
+    window.addEventListener('call:changed', onChange)
     const backup = window.setInterval(() => load(true), 30000)
-    return () => { window.removeEventListener('inbox:refresh', onChange); window.clearInterval(backup); window.clearTimeout(timer.current) }
+    return () => { window.removeEventListener('inbox:refresh', onChange); window.removeEventListener('call:changed', onChange); window.clearInterval(backup); window.clearTimeout(timer.current) }
   }, [load])
 
   if (error) return <div className="rounded-2xl border border-[#E9DFFF] bg-white p-8 text-center"><p className="text-sm text-slate-600">{error}</p><button type="button" onClick={() => load()} className="mt-4 rounded-lg bg-[#6C3BFF] px-4 py-2 text-sm font-semibold text-white">Try again</button></div>

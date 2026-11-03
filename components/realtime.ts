@@ -3,9 +3,8 @@
 import { API_BASE } from './PlatformUI'
 
 /** One live connection per browser tab to the backend's event stream (backend realtime.py).
- *  Every event fires two window events:
- *    inbox:changed  sidebar counts and the notification bell reload
- *    inbox:refresh  the open inbox view reloads (detail: { kind, key })
+ *  Call transcript events refresh call dashboards without reloading inbox counts or notifications.
+ *  Thread summaries refresh the open inbox view and its counts; inbox actions refresh badges and notifications.
  *  Read with fetch() rather than EventSource so it can send the ngrok-skip-browser-warning header (a backend behind
  *  free ngrok otherwise answers with a warning page). It reconnects after a drop; the "hello" on reconnect refreshes everything once. */
 
@@ -21,6 +20,23 @@ function dispatch(data: string) {
     // After a reconnect it does refresh, since updates may have been missed while disconnected.
     if (!connectedBefore) { connectedBefore = true; return }
   } else console.info('[realtime]', event.kind, event.key || '')
+
+  if (event.kind === 'call') {
+    window.dispatchEvent(new CustomEvent('call:changed', { detail: event }))
+    return
+  }
+  if (event.kind === 'thread') {
+    window.dispatchEvent(new Event('inbox:counts-changed'))
+    window.dispatchEvent(new CustomEvent('inbox:refresh', { detail: event }))
+    return
+  }
+  if (event.kind === 'profile') {
+    window.dispatchEvent(new CustomEvent('inbox:refresh', { detail: event }))
+    return
+  }
+
+  // Assignment, status, close, message, SMS and reconnect events can affect badges or unread counts.
+  // Keep the conversation view current too. Thread/call traffic is intentionally excluded above.
   window.dispatchEvent(new Event('inbox:changed'))
   window.dispatchEvent(new CustomEvent('inbox:refresh', { detail: event }))
 }

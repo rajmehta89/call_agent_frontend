@@ -105,9 +105,20 @@ export default function Sidebar() {
       setInboxCounts({ ...next, tasks: TASK_STAGES.reduce((total, stage) => total + (next[`stage:${stage}`] || 0), 0) })
     }).catch((error) => console.warn('[inbox] sidebar counts failed', error))
     load()
-    const timer = window.setInterval(load, 10000)
+    const timer = window.setInterval(load, 30000)
+    let refreshTimer = 0
+    const refresh = () => {
+      window.clearTimeout(refreshTimer)
+      refreshTimer = window.setTimeout(load, 250)
+    }
     window.addEventListener('inbox:changed', load)  // fired by the inbox page after assign / post / read
-    return () => { window.clearInterval(timer); window.removeEventListener('inbox:changed', load) }
+    window.addEventListener('inbox:counts-changed', refresh)
+    return () => {
+      window.clearInterval(timer)
+      window.clearTimeout(refreshTimer)
+      window.removeEventListener('inbox:changed', load)
+      window.removeEventListener('inbox:counts-changed', refresh)
+    }
   }, [me.permissions])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Owners and admins hand out conversations; they never receive one (matches inbox_api._can_assign).

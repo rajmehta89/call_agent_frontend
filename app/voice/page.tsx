@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowRight, BrainCircuit, CheckCircle2, AlertCircle, Headphones, Inbox, PhoneCall, PhoneIncoming, PhoneMissed, Radio, Settings2, Timer, Workflow } from 'lucide-react'
 import { api, apiWithRetry, DataState, userFacingError } from '@/components/PlatformUI'
 import { Avatar, EmptyHint, Panel, PanelLink, Stat, duration, timeAgo } from '@/components/premium'
@@ -23,6 +23,7 @@ export default function VoiceOverview() {
   const [canEditAgent, setCanEditAgent] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const refreshTimer = useRef<number>()
 
   const load = useCallback(async (quiet = false) => {
     if (!quiet) { setLoading(true); setError(''); log('loading') }
@@ -41,9 +42,12 @@ export default function VoiceOverview() {
   useEffect(() => {
     load()
     api<any>('/api/auth/me').then((result) => { const permissions = ['owner', 'admin'].includes(String(result.data?.role || '').toLowerCase()) ? ['*'] : (result.data?.permissions || []); setCanEditAgent(permissions.includes('*') || permissions.includes('manage_agents')) }).catch(() => {})
-    const onChange = (event: Event) => { if ((event as CustomEvent<{ kind?: string }>).detail?.kind === 'call') load(true) }  // new or finished calls
-    window.addEventListener('inbox:refresh', onChange)
-    return () => window.removeEventListener('inbox:refresh', onChange)
+    const onChange = () => {
+      window.clearTimeout(refreshTimer.current)
+      refreshTimer.current = window.setTimeout(() => load(true), 1500)
+    }
+    window.addEventListener('call:changed', onChange)
+    return () => { window.removeEventListener('call:changed', onChange); window.clearTimeout(refreshTimer.current) }
   }, [load])
 
   const k = overview?.kpis
