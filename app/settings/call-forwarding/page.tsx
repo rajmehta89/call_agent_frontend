@@ -20,6 +20,7 @@ const DEFAULT_LANGUAGES: LanguageOption[] = [
   { code: 'en', label: 'English', native_label: 'English', enabled: true },
   { code: 'ar', label: 'Arabic', native_label: 'العربية', enabled: true },
   { code: 'ur', label: 'Urdu', native_label: 'اردو', enabled: true },
+  { code: 'pa', label: 'Punjabi', native_label: 'ਪੰਜਾਬੀ', enabled: false },
 ]
 
 /** Settings > Call forwarding: when a caller asks for a person, ring the human team live (on), or keep it with the AI
