@@ -154,7 +154,9 @@ export default function LeadsPage() {
   useEffect(() => {
     pagesRef.current = 1
     const timer = window.setTimeout(() => void loadLeads(), 250)
-    return () => { window.clearTimeout(timer); loadAbort.current?.abort() }
+    const onNewLead = () => { pagesRef.current = 1; void loadLeads(); void loadStats() }
+    window.addEventListener('lead:created', onNewLead)
+    return () => { window.clearTimeout(timer); window.removeEventListener('lead:created', onNewLead); loadAbort.current?.abort() }
   }, [searchTerm, statusFilter, range])
 
   useEffect(() => {

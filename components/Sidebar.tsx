@@ -75,6 +75,7 @@ export default function Sidebar() {
   const [popover, setPopover] = useState<Popover>(null)
   const [anchor, setAnchor] = useState<{ left: number; top?: number; bottom?: number }>({ left: 0 })
   const previousCounts = useRef<Record<string, number> | null>(null)
+  const pendingLeadAlerts = useRef(0)
   const { installed, installAvailable, promptInstall } = usePWA()
   const permissions = ['owner', 'admin'].includes(String(me.role || '').toLowerCase()) ? ['*'] : (me.permissions || [])
   const allowed = (permission?: string) => !permission || permissions.includes('*') || permissions.includes(permission)
@@ -95,7 +96,13 @@ export default function Sidebar() {
       const before = previousCounts.current
       // Something new arrived for this person since the last check: chime and say what it was (not on first load).
       const arrived = before ? NEW_ACTIVITY.filter(({ key }) => (next[key] || 0) > (before[key] || 0)) : []
-      if (arrived.length) {
+      const leadAlertCount = pendingLeadAlerts.current
+      pendingLeadAlerts.current = 0
+      if (leadAlertCount) {
+        playChime()
+        toast(`${leadAlertCount === 1 ? 'New lead received' : `${leadAlertCount} new leads received`}. Contact details are in Team channel.`, { icon: '📞' })
+      }
+      if (arrived.length && !leadAlertCount) {
         playChime()
         arrived.forEach(({ message }) => toast(message, { icon: '🔔' }))
         console.info('[inbox] new activity', arrived.map(({ key }) => key))
@@ -111,13 +118,16 @@ export default function Sidebar() {
       window.clearTimeout(refreshTimer)
       refreshTimer = window.setTimeout(load, 250)
     }
+    const onLeadCreated = () => { pendingLeadAlerts.current += 1 }
     window.addEventListener('inbox:changed', load)  // fired by the inbox page after assign / post / read
     window.addEventListener('inbox:counts-changed', refresh)
+    window.addEventListener('lead:created', onLeadCreated)
     return () => {
       window.clearInterval(timer)
       window.clearTimeout(refreshTimer)
       window.removeEventListener('inbox:changed', load)
       window.removeEventListener('inbox:counts-changed', refresh)
+      window.removeEventListener('lead:created', onLeadCreated)
     }
   }, [me.permissions])  // eslint-disable-line react-hooks/exhaustive-deps
 

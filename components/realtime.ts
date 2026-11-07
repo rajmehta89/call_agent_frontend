@@ -34,6 +34,12 @@ function dispatch(data: string) {
     window.dispatchEvent(new CustomEvent('inbox:refresh', { detail: event }))
     return
   }
+  if (event.kind === 'lead') {
+    window.dispatchEvent(new CustomEvent('lead:created', { detail: event }))
+    window.dispatchEvent(new Event('inbox:changed'))  // the system post also increments the unread Team channel count
+    window.dispatchEvent(new CustomEvent('inbox:refresh', { detail: event }))  // refresh an already-open channel
+    return
+  }
 
   // Assignment, status, close, message, SMS and reconnect events can affect badges or unread counts.
   // Keep the conversation view current too. Thread/call traffic is intentionally excluded above.
