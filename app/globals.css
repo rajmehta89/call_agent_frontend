@@ -414,6 +414,12 @@ main .text-\[9px\], main .text-\[10px\], main .text-\[10\.5px\] { font-size:11px
 .app-notifications-empty svg { width:1.4rem; height:1.4rem; margin-bottom:.15rem; color:var(--rd-primary); }
 .app-notifications-empty b { color:var(--rd-ink); font-size:.82rem; }
 .app-notifications-empty small { max-width:28ch; color:var(--rd-muted); font-size:.72rem; line-height:1.5; }
+.app-live-toast { display:flex; box-sizing:border-box; width:min(360px,calc(100vw - 24px)); align-items:flex-start; gap:.7rem; padding:.85rem; border:1px solid var(--rd-border-strong); border-radius:14px; background:#fff; box-shadow:var(--rd-shadow-lg); }
+.app-live-toast-icon { display:grid; flex:0 0 36px; place-items:center; width:36px; height:36px; border-radius:11px; color:#fff; background:var(--rd-gradient); }
+.app-live-toast-icon svg { width:1.05rem; height:1.05rem; }
+.app-live-toast-copy { display:block; min-width:0; flex:1; padding-top:.05rem; }
+.app-live-toast-copy strong { display:block; overflow:hidden; color:var(--rd-ink); font-size:.8rem; font-weight:800; text-overflow:ellipsis; white-space:nowrap; }
+.app-live-toast-copy small { display:block; margin-top:.2rem; color:var(--rd-muted); font-size:.71rem; line-height:1.45; }
 @media (max-width:640px) { .app-notifications { position:fixed; top:62px; left:12px; right:12px; width:auto; max-width:none; max-height:calc(100dvh - 74px); } .app-notifications-list { max-height:none; } }
 
 /* ===== Done-checklist pass (2026-10-27) =====

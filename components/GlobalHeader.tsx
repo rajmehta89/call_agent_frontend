@@ -3,6 +3,7 @@
 import { AtSign, AudioLines, Bell, BellRing, CheckCheck, ChevronRight, ClipboardCheck, Hash, UserRound, Volume2, VolumeX } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
+import toast from 'react-hot-toast'
 import { api, roleLabel } from './PlatformUI'
 import { isSoundMuted, playChime, setSoundMuted } from './notifySound'
 import { pageInfo } from './omni-data'
@@ -38,6 +39,32 @@ function since(value?: string) {
   return minutes < 1 ? 'Just now' : minutes < 60 ? `${minutes}m ago` : minutes < 1440 ? `${Math.round(minutes / 60)}h ago` : `${Math.round(minutes / 1440)}d ago`
 }
 
+function showNewLeadToast(notification: Notification) {
+  const Icon = notificationIcon(notification)
+  toast.custom(() => <div className="app-live-toast" role="status">
+    <span className="app-live-toast-icon"><Icon aria-hidden /></span>
+    <span className="app-live-toast-copy">
+      <strong>{notification.title || 'New lead received'}</strong>
+      <small>{notification.message || 'A new lead is ready for follow-up.'}</small>
+    </span>
+  </div>, { id: `new-lead-${notification._id}`, duration: 8000 })
+}
+
+function wasLeadToastShown(notificationId: string) {
+  try { return window.sessionStorage.getItem(`relaydesk_lead_toast_${notificationId}`) === '1' } catch { return false }
+}
+
+function rememberLeadToast(notificationId: string) {
+  try { window.sessionStorage.setItem(`relaydesk_lead_toast_${notificationId}`, '1') } catch { /* storage may be disabled */ }
+}
+
+function isRecentLead(notification: Notification) {
+  if (!notification.created_at) return false
+  const value = notification.created_at.endsWith('Z') || notification.created_at.includes('+') ? notification.created_at : `${notification.created_at}Z`
+  const age = Date.now() - new Date(value).getTime()
+  return Number.isFinite(age) && age >= -60000 && age <= 10 * 60 * 1000
+}
+
 export default function GlobalHeader({ user }: { user?: User }) {
   const pathname = usePathname()
   const router = useRouter()
@@ -48,13 +75,45 @@ export default function GlobalHeader({ user }: { user?: User }) {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [showNotifications, setShowNotifications] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
+  const seenNotificationIds = useRef<Set<string> | null>(null)
 
   useEffect(() => {
-    const load = () => api<any>('/api/platform/notifications?unread_only=true').then((result) => setNotifications(result.data || [])).catch(() => {})
+    let active = true
+    let loading = false
+    let announceAfterLoad = false
+    const load = (announce = false) => {
+      if (loading) { announceAfterLoad = announceAfterLoad || announce; return }
+      loading = true
+      api<any>('/api/platform/notifications?unread_only=true').then((result) => {
+        if (!active) return
+        const incoming: Notification[] = result.data || []
+        const seen = seenNotificationIds.current
+        if (!seen) {
+          seenNotificationIds.current = new Set(incoming.map((item) => item._id))
+          const recentLeads = incoming.filter((item) => item.type === 'new_lead' && isRecentLead(item) && !wasLeadToastShown(item._id)).slice(0, 3)
+          if (recentLeads.length) {
+            playChime()
+            recentLeads.forEach((item) => { showNewLeadToast(item); rememberLeadToast(item._id) })
+          }
+        } else {
+          const newLeads = incoming.filter((item) => item.type === 'new_lead' && !seen.has(item._id) && !wasLeadToastShown(item._id))
+          incoming.forEach((item) => seen.add(item._id))
+          if (announce && newLeads.length) {
+            playChime()
+            newLeads.forEach((item) => { showNewLeadToast(item); rememberLeadToast(item._id) })
+          }
+        }
+        setNotifications(incoming)
+      }).catch(() => {}).finally(() => {
+        loading = false
+        if (active && announceAfterLoad) { announceAfterLoad = false; load(true) }
+      })
+    }
+    const onInboxChanged = () => load(true)
     load()
-    const timer = window.setInterval(load, 15000)
-    window.addEventListener('inbox:changed', load)  // reading a conversation or the team channel clears its notifications
-    return () => { window.clearInterval(timer); window.removeEventListener('inbox:changed', load) }
+    const timer = window.setInterval(() => load(true), 15000)
+    window.addEventListener('inbox:changed', onInboxChanged)  // also refreshes when a live lead event arrives
+    return () => { active = false; window.clearInterval(timer); window.removeEventListener('inbox:changed', onInboxChanged) }
   }, [])
 
   // Close the notifications panel on outside click, Escape, or navigation.

@@ -79,6 +79,8 @@ export default function Sidebar() {
   const { installed, installAvailable, promptInstall } = usePWA()
   const permissions = ['owner', 'admin'].includes(String(me.role || '').toLowerCase()) ? ['*'] : (me.permissions || [])
   const allowed = (permission?: string) => !permission || permissions.includes('*') || permissions.includes(permission)
+  const canHandleInbox = permissions.includes('*') || permissions.includes('handle_conversations')
+  const canManageLeads = permissions.includes('*') || permissions.includes('manage_assigned_leads')
 
   useEffect(() => {
     const resize = () => { const desktop = window.innerWidth >= 1024; setIsDesktop(desktop); setIsOpen(desktop) }
@@ -88,23 +90,20 @@ export default function Sidebar() {
   useEffect(() => { api<any>('/api/auth/me').then((result) => setMe(result.data || {})).catch(() => {}) }, [])
   useEffect(() => { setPopover(null) }, [pathname])
   useEffect(() => {
-    if (!permissions.includes('*') && !permissions.includes('handle_conversations')) return
+    if (!canHandleInbox && !canManageLeads) return
     unlockSoundOnFirstInteraction()
-    startRealtime()  // live updates: counts reload the moment something changes (inbox:changed)
+    startRealtime()  // Lead access alone is enough for lead alerts; inbox counts still require inbox access.
+    if (!canHandleInbox) return
     const load = () => api<any>('/api/inbox/counts').then((result) => {
       const next: Record<string, number> = result.data || {}
       const before = previousCounts.current
-      // Something new arrived for this person since the last check: chime and say what it was (not on first load).
-      const arrived = before ? NEW_ACTIVITY.filter(({ key }) => (next[key] || 0) > (before[key] || 0)) : []
       const leadAlertCount = pendingLeadAlerts.current
       pendingLeadAlerts.current = 0
-      if (leadAlertCount) {
+      // GlobalHeader owns the lead toast; hide its matching Team-channel count toast.
+      const arrived = before ? NEW_ACTIVITY.filter(({ key }) => (next[key] || 0) > (before[key] || 0) && !(leadAlertCount && key === 'channel')) : []
+      if (arrived.length) {
         playChime()
-        toast(`${leadAlertCount === 1 ? 'New lead received' : `${leadAlertCount} new leads received`}. Contact details are in Team channel.`, { icon: '📞' })
-      }
-      if (arrived.length && !leadAlertCount) {
-        playChime()
-        arrived.forEach(({ message }) => toast(message, { icon: '🔔' }))
+        arrived.forEach(({ message }) => toast(message))
         console.info('[inbox] new activity', arrived.map(({ key }) => key))
       }
       previousCounts.current = next
@@ -121,15 +120,15 @@ export default function Sidebar() {
     const onLeadCreated = () => { pendingLeadAlerts.current += 1 }
     window.addEventListener('inbox:changed', load)  // fired by the inbox page after assign / post / read
     window.addEventListener('inbox:counts-changed', refresh)
-    window.addEventListener('lead:created', onLeadCreated)
+    if (canManageLeads) window.addEventListener('lead:created', onLeadCreated)
     return () => {
       window.clearInterval(timer)
       window.clearTimeout(refreshTimer)
       window.removeEventListener('inbox:changed', load)
       window.removeEventListener('inbox:counts-changed', refresh)
-      window.removeEventListener('lead:created', onLeadCreated)
+      if (canManageLeads) window.removeEventListener('lead:created', onLeadCreated)
     }
-  }, [me.permissions])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [canHandleInbox, canManageLeads])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Owners and admins hand out conversations; they never receive one (matches inbox_api._can_assign).
   const isAssigner = permissions.includes('*') || permissions.includes('assign_conversations')
